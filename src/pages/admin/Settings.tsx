@@ -84,22 +84,31 @@ export default function Settings() {
 
         try {
             setLoadingQuote(true);
-            const { data: { user } } = await supabase.auth.getUser();
+            const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+            if (userError || !user) {
+                toast({ variant: "destructive", title: "Session Expired", description: "Please log in again." });
+                // navigate('/login'); // Optional: redirect if you have navigate hook
+                return;
+            }
 
             const { error } = await supabase
                 .from('daily_quotes')
                 .insert([{
                     text: quote,
                     priority: 2, // Admin priority
-                    source: 'admin',
-                    created_by: user?.id
+                    source: 'admin'
                 }]);
 
             if (error) throw error;
             toast({ title: "Quote Saved", description: "Your quote is now live for today." });
         } catch (error: any) {
-            console.error(error);
-            toast({ variant: "destructive", title: "Error", description: error.message });
+            console.error("Quote save error:", error);
+            if (error.message?.includes("users")) {
+                toast({ variant: "destructive", title: "Permission Error", description: "Database policy prevents verification. Contact developer." });
+            } else {
+                toast({ variant: "destructive", title: "Error", description: error.message });
+            }
         } finally {
             setLoadingQuote(false);
         }

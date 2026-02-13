@@ -35,6 +35,9 @@ import {
   Users,
   Check,
   Key,
+  Eye,
+  Edit,
+  Save,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -72,6 +75,11 @@ export default function UserManagement() {
   const [students, setStudents] = useState<any[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
   const [creationSuccess, setCreationSuccess] = useState<{ email: string, password: string } | null>(null);
+
+  // View/Edit User State
+  const [viewUserModalOpen, setViewUserModalOpen] = useState(false);
+  const [viewingUser, setViewingUser] = useState<any>(null);
+  const [isEditing, setIsEditing] = useState(false);
 
   const [newUser, setNewUser] = useState<NewUserData>(initialNewUserState);
 
@@ -271,6 +279,53 @@ export default function UserManagement() {
     setResetPasswordModalOpen(true);
   };
 
+  const handleViewUser = (user: any) => {
+    setViewingUser(user);
+    setIsEditing(false);
+    setViewUserModalOpen(true);
+  };
+
+  const handleSaveUser = async () => {
+    if (!viewingUser) return;
+
+    try {
+      // Filter out fields that shouldn't be updated or don't exist in DB schema directly if they are computed
+      // The viewingUser object has 'name', 'enrolledCourses', etc which are computed.
+      // We only want to update actual DB columns.
+      const updates: any = {
+        full_name: viewingUser.full_name,
+        status: viewingUser.status,
+        mobile_number: viewingUser.mobile_number,
+        address: viewingUser.address,
+      };
+
+      if (viewingUser.role === 'teacher') {
+        updates.department = viewingUser.department;
+      }
+      if (viewingUser.role === 'student') {
+        updates.aadhar_number = viewingUser.aadhar_number;
+      }
+
+      const { error } = await supabase
+        .from('users')
+        .update(updates)
+        .eq('id', viewingUser.id);
+
+      if (error) throw error;
+
+      toast({ title: "User Updated", description: "User details saved successfully." });
+      setIsEditing(false);
+      setRefreshTrigger(prev => prev + 1);
+
+      // Update local state immediately to reflect changes in UI without wait
+      setViewingUser(prev => ({ ...prev, ...updates }));
+
+    } catch (error: any) {
+      console.error(error);
+      toast({ variant: "destructive", title: "Error", description: "Failed to update user." });
+    }
+  };
+
   const studentColumns = [
     {
       key: "name",
@@ -318,6 +373,9 @@ export default function UserManagement() {
               <Check className="h-4 w-4" />
             </Button>
           )}
+          <Button variant="ghost" size="icon" onClick={() => handleViewUser(row)} title="View Details">
+            <Eye className="h-4 w-4" />
+          </Button>
           <Button variant="ghost" size="icon" onClick={() => openResetModal(row)} title="Reset Password">
             <Key className="h-4 w-4" />
           </Button>
@@ -370,6 +428,9 @@ export default function UserManagement() {
               <Check className="h-4 w-4" />
             </Button>
           )}
+          <Button variant="ghost" size="icon" onClick={() => handleViewUser(row)} title="View Details">
+            <Eye className="h-4 w-4" />
+          </Button>
           <Button variant="ghost" size="icon" onClick={() => openResetModal(row)} title="Reset Password">
             <Key className="h-4 w-4" />
           </Button>
@@ -645,6 +706,159 @@ export default function UserManagement() {
             />
           </TabsContent>
         </Tabs>
+        {/* User Details Dialog */}
+        <Dialog open={viewUserModalOpen} onOpenChange={setViewUserModalOpen}>
+          <DialogContent className="sm:max-w-xl">
+            <DialogHeader>
+              <DialogTitle>User Details</DialogTitle>
+              <DialogDescription>View and manage user information</DialogDescription>
+            </DialogHeader>
+            {viewingUser && (
+              <div className="space-y-6 py-4">
+                <div className="flex items-center gap-4">
+                  <Avatar className="h-16 w-16">
+                    <AvatarFallback className="text-xl bg-primary/10 text-primary">
+                      {viewingUser.full_name?.[0] || "?"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="space-y-1">
+                    {isEditing ? (
+                      <Input
+                        value={viewingUser.full_name}
+                        onChange={(e) => setViewingUser({ ...viewingUser, full_name: e.target.value })}
+                        className="font-bold text-lg h-9"
+                      />
+                    ) : (
+                      <h3 className="text-xl font-bold">{viewingUser.full_name}</h3>
+                    )}
+                    <p className="text-sm text-muted-foreground">{viewingUser.email}</p>
+                    <Badge variant={viewingUser.role === 'teacher' ? 'accent' : 'default'} className="mt-1">
+                      {viewingUser.role}
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Status</Label>
+                      {isEditing ? (
+                        <Select
+                          value={viewingUser.status || "pending"}
+                          onValueChange={(val) => setViewingUser({ ...viewingUser, status: val })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="active">Active</SelectItem>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="inactive">Inactive</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <div className="p-2 border rounded-md text-sm">{viewingUser.status || "Pending"}</div>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Joined Date</Label>
+                      <div className="p-2 border rounded-md text-sm bg-muted/50">
+                        {new Date(viewingUser.created_at).toLocaleDateString()}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Contact Info (Assuming columns exist or using metadata placeholder) */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Mobile Number</Label>
+                      {isEditing ? (
+                        <Input
+                          value={viewingUser.mobile_number || ""}
+                          onChange={(e) => setViewingUser({ ...viewingUser, mobile_number: e.target.value })}
+                          placeholder="Not set"
+                        />
+                      ) : (
+                        <div className="p-2 border rounded-md text-sm">{viewingUser.mobile_number || "Not set"}</div>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Address</Label>
+                      {isEditing ? (
+                        <Input
+                          value={viewingUser.address || ""}
+                          onChange={(e) => setViewingUser({ ...viewingUser, address: e.target.value })}
+                          placeholder="Not set"
+                        />
+                      ) : (
+                        <div className="p-2 border rounded-md text-sm">{viewingUser.address || "Not set"}</div>
+                      )}
+                    </div>
+                  </div>
+
+                  {viewingUser.role === 'teacher' && (
+                    <div className="space-y-2">
+                      <Label>Department</Label>
+                      {isEditing ? (
+                        <Select
+                          value={viewingUser.department || ""}
+                          onValueChange={(val) => setViewingUser({ ...viewingUser, department: val })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select Department" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Computer Science">Computer Science</SelectItem>
+                            <SelectItem value="Design">Design</SelectItem>
+                            <SelectItem value="Business">Business</SelectItem>
+                            <SelectItem value="Marketing">Marketing</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <div className="p-2 border rounded-md text-sm">{viewingUser.department || "N/A"}</div>
+                      )}
+                    </div>
+                  )}
+
+                  {viewingUser.role === 'student' && (
+                    <div className="space-y-2">
+                      <Label>Aadhar Number</Label>
+                      {isEditing ? (
+                        <Input
+                          value={viewingUser.aadhar_number || ""}
+                          onChange={(e) => setViewingUser({ ...viewingUser, aadhar_number: e.target.value })}
+                          placeholder="Not set"
+                        />
+                      ) : (
+                        <div className="p-2 border rounded-md text-sm">{viewingUser.aadhar_number || "Not set"}</div>
+                      )}
+                    </div>
+                  )}
+
+                </div>
+              </div>
+            )}
+            <DialogFooter className="gap-2 sm:justify-between">
+              {isEditing ? (
+                <>
+                  <Button variant="ghost" onClick={() => setIsEditing(false)}>Cancel Edit</Button>
+                  <Button onClick={handleSaveUser} className="gap-2"><Save className="h-4 w-4" /> Save Changes</Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="destructive" size="sm" onClick={() => handleDeleteUser(viewingUser.id)} className="gap-2">
+                    Delete User
+                  </Button>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => setViewUserModalOpen(false)}>Close</Button>
+                    <Button onClick={() => setIsEditing(true)} className="gap-2"><Edit className="h-4 w-4" /> Edit Details</Button>
+                  </div>
+                </>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
       </div>
     </AdminLayout>
   );

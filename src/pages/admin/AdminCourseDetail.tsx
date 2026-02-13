@@ -32,6 +32,7 @@ export default function AdminCourseDetail() {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState("curriculum");
     const [sections, setSections] = useState<any[]>([]);
+    const [enrollments, setEnrollments] = useState<any[]>([]);
 
     useEffect(() => {
         if (id) fetchCourseData();
@@ -54,6 +55,19 @@ export default function AdminCourseDetail() {
         }
 
         setCourse(courseData);
+
+        // Fetch enrollments with student details
+        const { data: enrollmentData } = await supabase
+            .from('enrollments')
+            .select(`
+                *,
+                student:users!student_id(full_name, email, avatar_url)
+            `)
+            .eq('course_id', id);
+
+        if (enrollmentData) {
+            setEnrollments(enrollmentData);
+        }
 
         // Fetch sections and content
         const { data: sectionData, error: sectionError } = await supabase
@@ -189,7 +203,39 @@ export default function AdminCourseDetail() {
                 </TabsContent>
 
                 <TabsContent value="students">
-                    <div className="p-8 text-center text-muted-foreground">Student enrollment list will appear here.</div>
+                    <div className="space-y-4">
+                        {enrollments.length > 0 ? (
+                            enrollments.map((enrollment: any) => (
+                                <div key={enrollment.id} className="flex items-center justify-between p-4 border rounded-lg bg-card">
+                                    <div className="flex items-center gap-4">
+                                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                                            {enrollment.student?.avatar_url ? (
+                                                <img src={enrollment.student.avatar_url} alt={enrollment.student.full_name} className="h-full w-full object-cover" />
+                                            ) : (
+                                                <span className="font-bold text-primary">{enrollment.student?.full_name?.[0] || "?"}</span>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <p className="font-medium">{enrollment.student?.full_name || "Unknown Student"}</p>
+                                            <p className="text-sm text-muted-foreground">{enrollment.student?.email}</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <Badge variant={enrollment.completed ? "success" : "secondary"}>
+                                            {enrollment.completed ? "Completed" : "In Progress"}
+                                        </Badge>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            Enrolled: {new Date(enrollment.enrolled_at).toLocaleDateString()}
+                                        </p>
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
+                                No students enrolled yet.
+                            </div>
+                        )}
+                    </div>
                 </TabsContent>
             </Tabs>
         </AdminLayout>
