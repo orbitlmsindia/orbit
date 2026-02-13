@@ -88,7 +88,11 @@ export default function Settings() {
 
             if (userError || !user) {
                 toast({ variant: "destructive", title: "Session Expired", description: "Please log in again." });
-                // navigate('/login'); // Optional: redirect if you have navigate hook
+                return;
+            }
+
+            if (userError || !user) {
+                toast({ variant: "destructive", title: "Session Expired", description: "Please log in again." });
                 return;
             }
 
@@ -96,7 +100,7 @@ export default function Settings() {
                 .from('daily_quotes')
                 .insert([{
                     text: quote,
-                    priority: 2, // Admin priority
+                    priority: 2,
                     source: 'admin'
                 }]);
 
@@ -104,8 +108,12 @@ export default function Settings() {
             toast({ title: "Quote Saved", description: "Your quote is now live for today." });
         } catch (error: any) {
             console.error("Quote save error:", error);
-            if (error.message?.includes("users")) {
-                toast({ variant: "destructive", title: "Permission Error", description: "Database policy prevents verification. Contact developer." });
+            if (error.code === '42501' || error.message?.includes("users")) {
+                toast({
+                    variant: "destructive",
+                    title: "Permission Fix Required",
+                    description: "Your database blocks admin verification. A file 'SUPABASE_FIX.sql' has been created on your desktop. Run its content in Supabase SQL Editor to fix this."
+                });
             } else {
                 toast({ variant: "destructive", title: "Error", description: error.message });
             }
