@@ -40,7 +40,8 @@ import {
   BookOpen,
   LayoutGrid,
   List,
-  RefreshCw
+  RefreshCw,
+  Users
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
@@ -199,6 +200,12 @@ export default function CourseManagement() {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
+            <DropdownMenuItem className="gap-2" asChild>
+              <Link to={`/admin/courses/${row.id}/edit?tab=students`}>
+                <Users className="h-4 w-4" /> View Enrolled Students
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem className="gap-2 text-destructive" onClick={() => handleDeleteCourse(row.id)}>
               <Trash2 className="h-4 w-4" /> Delete
             </DropdownMenuItem>
@@ -322,46 +329,54 @@ export default function CourseManagement() {
             {courses.map((course) => (
               <Card key={course.id} className="group hover:shadow-lg transition-all duration-200">
                 <CardContent className="p-0">
-                  <div className="relative h-36 bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-                    <BookOpen className="h-12 w-12 text-primary/50" />
-                    <div className="absolute top-3 right-3 flex items-center gap-2">
-                      <Badge variant={course.status === "published" ? "default" : "secondary"}>
-                        {course.status}
-                      </Badge>
-                    </div>
-                  </div>
-
-                  <div className="p-4 space-y-3">
-                    <div>
-                      <h3 className="font-semibold group-hover:text-primary transition-colors line-clamp-1">
-                        {course.title}
-                      </h3>
-                      <p className="text-sm text-muted-foreground">{course.description || "No description"}</p>
+                  <Link to={`/admin/courses/${course.id}/edit`} className="block">
+                    <div className="relative h-36 bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                      <BookOpen className="h-12 w-12 text-primary/50" />
+                      <div className="absolute top-3 right-3 flex items-center gap-2">
+                        <Badge variant={course.status === "published" ? "default" : "secondary"}>
+                          {course.status}
+                        </Badge>
+                      </div>
                     </div>
 
-                    <div className="text-xs text-muted-foreground">
-                      Instructor: <span className="text-foreground">{course.instructor}</span>
-                    </div>
+                    <div className="p-4 space-y-3">
+                      <div>
+                        <h3 className="font-semibold group-hover:text-primary transition-colors line-clamp-1">
+                          {course.title}
+                        </h3>
+                        <p className="text-sm text-muted-foreground">{course.description || "No description"}</p>
+                      </div>
 
-                    <div className="flex items-center justify-between pt-2 border-t border-border">
-                      <Link to={`/admin/courses/${course.id}/edit`}>
-                        <Button variant="outline" size="sm" className="gap-2">
-                          <Pencil className="h-4 w-4" /> Edit Content
+                      <div className="text-xs text-muted-foreground pb-2">
+                        Instructor: <span className="text-foreground">{course.instructor}</span>
+                      </div>
+                    </div>
+                  </Link>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-border">
+                    <Link to={`/admin/courses/${course.id}/edit`}>
+                      <Button variant="outline" size="sm" className="gap-2">
+                        <Pencil className="h-4 w-4" /> Edit Content
+                      </Button>
+                    </Link>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreHorizontal className="h-4 w-4" />
                         </Button>
-                      </Link>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem className="gap-2 text-destructive" onClick={() => handleDeleteCourse(course.id)}>
-                            <Trash2 className="h-4 w-4" /> Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem className="gap-2" asChild>
+                          <Link to={`/admin/courses/${course.id}/edit?tab=students`}>
+                            <Users className="h-4 w-4" /> View Enrolled Students
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem className="gap-2 text-destructive" onClick={() => handleDeleteCourse(course.id)}>
+                          <Trash2 className="h-4 w-4" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </CardContent>
               </Card>
@@ -380,6 +395,6 @@ export default function CourseManagement() {
           />
         )}
       </div>
-    </AdminLayout>
+    </AdminLayout >
   );
 }

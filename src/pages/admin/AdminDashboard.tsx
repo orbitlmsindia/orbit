@@ -13,6 +13,9 @@ import {
   Calendar,
   ChevronRight,
   RefreshCw,
+  CheckCircle,
+  XCircle,
+  SearchCode
 } from "lucide-react";
 import {
   BarChart,
@@ -46,6 +49,7 @@ export default function AdminDashboard() {
   const [enrollmentTrend, setEnrollmentTrend] = useState<any[]>([]);
   const [topCourses, setTopCourses] = useState<any[]>([]);
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
+  const [pendingEnrollments, setPendingEnrollments] = useState<any[]>([]);
 
   const fetchDashboardData = async () => {
     setLoading(true);
@@ -191,6 +195,15 @@ export default function AdminDashboard() {
         })));
       }
 
+      // 6. Pending Enrollments
+      const { data: pending } = await supabase
+        .from("enrollments")
+        .select("id, transaction_id, enrolled_at, users(full_name, email), courses(title)")
+        .eq("status", "pending")
+        .order("enrolled_at", { ascending: false });
+
+      setPendingEnrollments(pending || []);
+
     } catch (error) {
       console.error("Dashboard fetch error:", error);
       toast({ variant: "destructive", title: "Failed to load dashboard data" });
@@ -202,6 +215,36 @@ export default function AdminDashboard() {
   useEffect(() => {
     fetchDashboardData();
   }, []);
+
+  const handleApproveEnrollment = async (enrollmentId: string, userEmail: string) => {
+    try {
+      const { error } = await supabase
+        .from("enrollments")
+        .update({ status: 'approved' })
+        .eq("id", enrollmentId);
+      if (error) throw error;
+
+      toast({ title: "Enrollment Approved", description: `Confirmation email sent to ${userEmail}. Course access granted.` });
+      fetchDashboardData();
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error", description: e.message });
+    }
+  };
+
+  const handleRejectEnrollment = async (enrollmentId: string) => {
+    try {
+      const { error } = await supabase
+        .from("enrollments")
+        .delete()
+        .eq("id", enrollmentId);
+      if (error) throw error;
+
+      toast({ title: "Enrollment Rejected & Removed." });
+      fetchDashboardData();
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error", description: e.message });
+    }
+  };
 
   return (
     <AdminLayout>
@@ -368,6 +411,51 @@ export default function AdminDashboard() {
                 </LineChart>
               </ResponsiveContainer>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Pending Verifications */}
+        <Card className="border-yellow-500/30 shadow-lg">
+          <CardHeader className="bg-yellow-500/5 pb-4">
+            <CardTitle className="text-lg font-display flex items-center justify-between text-yellow-600 dark:text-yellow-500">
+              <span className="flex items-center gap-2">
+                <SearchCode className="h-5 w-5" />
+                Pending Payment Verifications ({pendingEnrollments.length})
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4">
+            {pendingEnrollments.length > 0 ? (
+              <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
+                {pendingEnrollments.map((enr, i) => (
+                  <div key={enr.id} className="flex flex-col md:flex-row md:items-center justify-between p-4 border rounded-lg bg-card gap-4">
+                    <div>
+                      <h4 className="font-semibold text-sm">{enr.users?.full_name} <span className="text-muted-foreground font-normal">({enr.users?.email})</span></h4>
+                      <p className="text-sm text-foreground my-1">
+                        Course: <span className="font-medium">{enr.courses?.title}</span>
+                      </p>
+                      <Badge variant="outline" className="mt-1 font-mono bg-muted">
+                        Tx ID: {enr.transaction_id || "N/A"}
+                      </Badge>
+                      <p className="text-xs text-muted-foreground mt-2">Submitted on {new Date(enr.enrolled_at).toLocaleString()}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" className="text-red-500 hover:text-red-600 hover:bg-red-500/10 border-red-200" onClick={() => handleRejectEnrollment(enr.id)}>
+                        <XCircle className="h-4 w-4 mr-1" /> Reject
+                      </Button>
+                      <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => handleApproveEnrollment(enr.id, enr.users?.email)}>
+                        <CheckCircle className="h-4 w-4 mr-1" /> Approve Payment
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground bg-muted/20 border-2 border-dashed rounded-lg">
+                <SearchCode className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>No pending payment verifications at the moment.</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 

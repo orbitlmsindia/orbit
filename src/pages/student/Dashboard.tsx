@@ -32,6 +32,7 @@ export default function StudentDashboard() {
                 .from('enrollments')
                 .select(`
                     id,
+                    status,
                     progress:completed,
                     course:courses (
                         id,
@@ -80,7 +81,7 @@ export default function StudentDashboard() {
                         .select('id')
                         .eq('assignment_id', deadline.id)
                         .eq('student_id', user.id)
-                        .single();
+                        .maybeSingle();
 
                     if (!submission) {
                         filteredDeadlines.push(deadline);
@@ -101,7 +102,7 @@ export default function StudentDashboard() {
                 .order('priority', { ascending: false })
                 .order('created_at', { ascending: false })
                 .limit(1)
-                .single();
+                .maybeSingle();
 
             if (quoteData) setDailyQuote(quoteData.text);
 
@@ -111,6 +112,7 @@ export default function StudentDashboard() {
                 title: e.course.title,
                 instructor: e.course.teacher?.full_name || "Unknown",
                 progress: e.progress ? 100 : 0, // Simplified progress for now
+                status: e.status || 'approved',
                 image: "https://images.unsplash.com/photo-1593720213428-28a5b9e94613?auto=format&fit=crop&q=80&w=500" // Placeholder
             })) || [];
 
@@ -170,9 +172,18 @@ export default function StudentDashboard() {
                             </div>
                             <div className="grid gap-4">
                                 {courses.length > 0 ? (
-                                    courses.map((course) => (
-                                        <Link key={course.id} to={`/student/courses/${course.id}/learn`}>
-                                            <div className="group flex flex-col sm:flex-row gap-4 p-4 rounded-xl border bg-card hover:bg-accent/5 transition-all hover:border-primary/50 cursor-pointer">
+                                    courses.map((course) => {
+                                        const isPending = course.status === 'pending';
+
+                                        const CardContent = (
+                                            <div className="group flex flex-col sm:flex-row gap-4 p-4 rounded-xl border bg-card hover:bg-accent/5 transition-all hover:border-primary/50 cursor-pointer relative overflow-hidden">
+                                                {isPending && (
+                                                    <div className="absolute inset-0 bg-background/50 z-10 flex items-center justify-center backdrop-blur-[1px]">
+                                                        <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20 font-semibold px-3 py-1 mt-6">
+                                                            Pending Verification
+                                                        </Badge>
+                                                    </div>
+                                                )}
                                                 <div className="h-32 sm:h-24 sm:w-36 rounded-lg overflow-hidden shrink-0">
                                                     {/* Using a static placeholder image for now as DB doesn't have image URL yet */}
                                                     <div className="w-full h-full bg-primary/10 flex items-center justify-center text-primary">
@@ -186,14 +197,26 @@ export default function StudentDashboard() {
                                                     </div>
                                                     <div className="space-y-2 mt-3 sm:mt-0">
                                                         <div className="flex justify-between text-xs">
-                                                            <span className="text-muted-foreground font-medium">{course.progress}% Completed</span>
+                                                            <span className="text-muted-foreground font-medium">
+                                                                {isPending ? "Waiting for admin approval..." : `${course.progress}% Completed`}
+                                                            </span>
                                                         </div>
-                                                        <Progress value={course.progress} className="h-2" />
+                                                        <Progress value={isPending ? 0 : course.progress} className="h-2" />
                                                     </div>
                                                 </div>
                                             </div>
-                                        </Link>
-                                    ))
+                                        );
+
+                                        if (isPending) {
+                                            return <div key={course.id}>{CardContent}</div>;
+                                        }
+
+                                        return (
+                                            <Link key={course.id} to={`/student/courses/${course.id}/learn`}>
+                                                {CardContent}
+                                            </Link>
+                                        );
+                                    })
                                 ) : (
                                     <div className="text-center py-12 border rounded-xl bg-muted/10">
                                         <p className="text-muted-foreground mb-4">You haven't enrolled in any courses yet.</p>

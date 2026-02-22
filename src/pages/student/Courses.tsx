@@ -7,6 +7,7 @@ import { Search, Users, BookOpen, Loader2, PlayCircle } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export default function StudentCourses() {
     const { toast } = useToast();
@@ -14,7 +15,12 @@ export default function StudentCourses() {
     const [loading, setLoading] = useState(true);
     const [courses, setCourses] = useState<any[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
-    const [enrolledCourseIds, setEnrolledCourseIds] = useState<string[]>([]);
+    const [enrolledCourseStatus, setEnrolledCourseStatus] = useState<Record<string, string>>({});
+
+    // Enrollment Dialog State
+    const [enrollmentDialog, setEnrollmentDialog] = useState<{ isOpen: boolean; courseId: string | null; courseName: string | null }>({ isOpen: false, courseId: null, courseName: null });
+    const [transactionId, setTransactionId] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         fetchCourses();
@@ -42,13 +48,18 @@ export default function StudentCourses() {
             if (coursesError) throw coursesError;
 
             // Fetch user's enrollments to know which ones they already have
-            const { data: myEnrollments } = await supabase
+            const { data: myEnrollments, error: enrollError } = await supabase
                 .from('enrollments')
-                .select('course_id')
+                .select('course_id, status')
                 .eq('student_id', user.id);
 
-            const enrolledIds = myEnrollments?.map((e: any) => e.course_id) || [];
-            setEnrolledCourseIds(enrolledIds);
+            if (enrollError) console.error("Error fetching enrollments:", enrollError);
+
+            const statusMap: Record<string, string> = {};
+            myEnrollments?.forEach((e: any) => {
+                statusMap[e.course_id] = e.status || 'approved'; // Fallback for old ones
+            });
+            setEnrolledCourseStatus(statusMap);
 
             // Transform data
             const formatted = coursesData.map((c: any) => ({
@@ -68,26 +79,57 @@ export default function StudentCourses() {
         }
     };
 
-    const handleEnroll = async (courseId: string) => {
+    const handleEnrollClick = (course: any) => {
+        setEnrollmentDialog({ isOpen: true, courseId: course.id, courseName: course.title });
+        setTransactionId("");
+    };
+
+    const handleConfirmEnrollment = async () => {
+        if (!transactionId.trim()) {
+            toast({ variant: "destructive", title: "Error", description: "Please enter your transaction ID." });
+            return;
+        }
+
         try {
+            setIsSubmitting(true);
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
+
+            // Check for existing enrollment first to prevent 409 Conflict console errors
+            const { data: existingEnrollment } = await supabase
+                .from('enrollments')
+                .select('id, status')
+                .eq('student_id', user.id)
+                .eq('course_id', enrollmentDialog.courseId)
+                .maybeSingle();
+
+            if (existingEnrollment) {
+                toast({ title: "Already Enrolled", description: "You already have a requested or active enrollment for this course." });
+                setEnrolledCourseStatus(prev => ({ ...prev, [enrollmentDialog.courseId as string]: existingEnrollment.status || 'pending' }));
+                setEnrollmentDialog({ isOpen: false, courseId: null, courseName: null });
+                return;
+            }
 
             const { error } = await supabase
                 .from('enrollments')
                 .insert([{
                     student_id: user.id,
-                    course_id: courseId
+                    course_id: enrollmentDialog.courseId,
+                    transaction_id: transactionId,
+                    status: 'pending'
                 }]);
 
             if (error) throw error;
 
-            toast({ title: "Enrolled Successfully!", description: "You can now start learning." });
-            setEnrolledCourseIds([...enrolledCourseIds, courseId]);
-            navigate(`/student/courses/${courseId}/learn`);
+            toast({ title: "Enrollment Submitted!", description: "Your enrollment is pending admin verification." });
+            setEnrolledCourseStatus(prev => ({ ...prev, [enrollmentDialog.courseId as string]: 'pending' }));
+            setEnrollmentDialog({ isOpen: false, courseId: null, courseName: null });
 
         } catch (error: any) {
-            toast({ variant: "destructive", title: "Enrollment Failed", description: error.message });
+            // Fallback error handling
+            toast({ variant: "destructive", title: "Enrollment Failed", description: error.message || "An error occurred during enrollment." });
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -129,7 +171,10 @@ export default function StudentCourses() {
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 animate-fade-in delay-100">
                 {filteredCourses.length > 0 ? (
                     filteredCourses.map((course) => {
-                        const isEnrolled = enrolledCourseIds.includes(course.id);
+                        const enrollmentStatus = enrolledCourseStatus[course.id];
+                        const isApproved = enrollmentStatus === 'approved';
+                        const isPending = enrollmentStatus === 'pending';
+
                         return (
                             <div key={course.id} className="group bg-card rounded-xl border border-border shadow-sm overflow-hidden hover:shadow-md transition-all duration-300 flex flex-col h-full">
                                 <div className="relative h-48 bg-muted overflow-hidden shrink-0">
@@ -144,9 +189,14 @@ export default function StudentCourses() {
                                             (e.target as HTMLImageElement).style.opacity = '0';
                                         }}
                                     />
-                                    {isEnrolled && (
+                                    {isApproved && (
                                         <div className="absolute top-3 right-3">
                                             <Badge variant="success">Enrolled</Badge>
+                                        </div>
+                                    )}
+                                    {isPending && (
+                                        <div className="absolute top-3 right-3">
+                                            <Badge variant="default" className="bg-yellow-500 hover:bg-yellow-600">Pending Verification</Badge>
                                         </div>
                                     )}
                                 </div>
@@ -169,14 +219,18 @@ export default function StudentCourses() {
                                         </div>
                                     </div>
 
-                                    {isEnrolled ? (
+                                    {isApproved ? (
                                         <Link to={`/student/courses/${course.id}/learn`} className="w-full">
                                             <Button className="w-full gap-2" variant="secondary">
                                                 <PlayCircle className="h-4 w-4" /> Continue Learning
                                             </Button>
                                         </Link>
+                                    ) : isPending ? (
+                                        <Button className="w-full gap-2" variant="outline" disabled>
+                                            Pending Verification
+                                        </Button>
                                     ) : (
-                                        <Button className="w-full gap-2" onClick={() => handleEnroll(course.id)}>
+                                        <Button className="w-full gap-2" onClick={() => handleEnrollClick(course)}>
                                             Enroll Now
                                         </Button>
                                     )}
@@ -190,6 +244,47 @@ export default function StudentCourses() {
                     </div>
                 )}
             </div>
+
+            <Dialog open={enrollmentDialog.isOpen} onOpenChange={(open) => setEnrollmentDialog(prev => ({ ...prev, isOpen: open }))}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Enroll in {enrollmentDialog.courseName}</DialogTitle>
+                        <DialogDescription>
+                            Please scan the QR code to pay the course fee. Then, submit the transaction ID below to verify your enrollment.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="flex flex-col items-center gap-4 py-4">
+                        <div className="w-48 h-48 border rounded-lg bg-muted flex flex-col items-center justify-center p-4">
+                            {/* Placeholder for actual QR code */}
+                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=example_payment_link" alt="Payment QR Code" className="w-full h-full opacity-80" />
+                        </div>
+                        <p className="text-sm font-medium text-muted-foreground">Scan to Pay via UPI / QR</p>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label htmlFor="transactionId" className="text-sm font-medium">
+                            Transaction / Reference ID
+                        </label>
+                        <Input
+                            id="transactionId"
+                            placeholder="e.g. UPI123456789"
+                            value={transactionId}
+                            onChange={(e) => setTransactionId(e.target.value)}
+                        />
+                    </div>
+
+                    <DialogFooter className="mt-4">
+                        <Button variant="outline" onClick={() => setEnrollmentDialog({ isOpen: false, courseId: null, courseName: null })} disabled={isSubmitting}>
+                            Cancel
+                        </Button>
+                        <Button onClick={handleConfirmEnrollment} disabled={isSubmitting || !transactionId.trim()}>
+                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Submit for Verification
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </StudentLayout>
     );
 }

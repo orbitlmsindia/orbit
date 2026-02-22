@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useSearchParams } from "react-router-dom";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,15 +22,17 @@ import {
     Trash2,
     UploadCloud,
     ChevronLeft,
-    Loader2
+    Loader2,
+    CheckCircle
 } from "lucide-react";
 
 export default function AdminCourseDetail() {
     const { id } = useParams();
+    const [searchParams] = useSearchParams();
     const { toast } = useToast();
     const [course, setCourse] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState("curriculum");
+    const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "curriculum");
     const [sections, setSections] = useState<any[]>([]);
     const [enrollments, setEnrollments] = useState<any[]>([]);
 
@@ -101,6 +103,22 @@ export default function AdminCourseDetail() {
         } else {
             toast({ title: "Section added" });
             fetchCourseData();
+        }
+    };
+
+    const handleApproveEnrollment = async (enrollmentId: string) => {
+        try {
+            const { error } = await supabase
+                .from('enrollments')
+                .update({ status: 'approved' })
+                .eq('id', enrollmentId);
+
+            if (error) throw error;
+
+            toast({ title: "Enrollment Approved", description: "The student now has access to the course." });
+            fetchCourseData(); // Refresh list
+        } catch (error: any) {
+            toast({ variant: "destructive", title: "Error", description: error.message || "Failed to approve enrollment." });
         }
     };
 
@@ -220,13 +238,24 @@ export default function AdminCourseDetail() {
                                             <p className="text-sm text-muted-foreground">{enrollment.student?.email}</p>
                                         </div>
                                     </div>
-                                    <div className="text-right">
-                                        <Badge variant={enrollment.completed ? "success" : "secondary"}>
-                                            {enrollment.completed ? "Completed" : "In Progress"}
-                                        </Badge>
-                                        <p className="text-xs text-muted-foreground mt-1">
-                                            Enrolled: {new Date(enrollment.enrolled_at).toLocaleDateString()}
-                                        </p>
+                                    <div className="text-right flex items-center justify-end gap-3">
+                                        {enrollment.status === 'pending' ? (
+                                            <>
+                                                <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-600 hover:bg-yellow-500/20">Pending</Badge>
+                                                <Button size="sm" onClick={() => handleApproveEnrollment(enrollment.id)} className="gap-2">
+                                                    <CheckCircle className="h-4 w-4" /> Approve
+                                                </Button>
+                                            </>
+                                        ) : (
+                                            <Badge variant={enrollment.completed ? "success" : "default"} className="bg-green-500/10 text-green-600 hover:bg-green-500/20">
+                                                {enrollment.completed ? "Completed" : "Active"}
+                                            </Badge>
+                                        )}
+                                        <div className="flex flex-col ml-2">
+                                            <p className="text-xs text-muted-foreground mt-1 text-right">
+                                                Requested: {new Date(enrollment.enrolled_at).toLocaleDateString()}
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
                             ))
