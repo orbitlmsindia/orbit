@@ -40,6 +40,7 @@ import StudentGrades from "./pages/student/Grades";
 import StudentCalendar from "./pages/student/StudentCalendar";
 import StudentSettings from "./pages/student/Settings";
 import StudentHelpCenter from "./pages/student/HelpCenter";
+import StudentNotifications from "./pages/student/Notifications";
 import NotFound from "./pages/NotFound";
 import Profile from "./pages/Profile";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -105,6 +106,7 @@ const App = () => (
             <Route path="/student/calendar" element={<ProtectedRoute><StudentCalendar /></ProtectedRoute>} />
             <Route path="/student/settings" element={<ProtectedRoute><StudentSettings /></ProtectedRoute>} />
             <Route path="/student/help-center" element={<ProtectedRoute><StudentHelpCenter /></ProtectedRoute>} />
+            <Route path="/student/notifications" element={<ProtectedRoute><StudentNotifications /></ProtectedRoute>} />
 
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

@@ -23,7 +23,8 @@ import {
     UploadCloud,
     ChevronLeft,
     Loader2,
-    CheckCircle
+    CheckCircle,
+    XCircle
 } from "lucide-react";
 
 export default function AdminCourseDetail() {
@@ -119,6 +120,40 @@ export default function AdminCourseDetail() {
             fetchCourseData(); // Refresh list
         } catch (error: any) {
             toast({ variant: "destructive", title: "Error", description: error.message || "Failed to approve enrollment." });
+        }
+    };
+
+    const handleDeclineEnrollment = async (enrollmentId: string) => {
+        try {
+            const { error } = await supabase
+                .from('enrollments')
+                .update({ status: 'rejected' })
+                .eq('id', enrollmentId);
+
+            if (error) throw error;
+
+            toast({ title: "Enrollment Declined", description: "The student's enrollment request has been declined." });
+            fetchCourseData(); // Refresh list
+        } catch (error: any) {
+            toast({ variant: "destructive", title: "Error", description: error.message || "Failed to decline enrollment." });
+        }
+    };
+
+    const handleDeleteEnrollment = async (enrollmentId: string) => {
+        if (!confirm("Are you sure you want to remove this student from the course?")) return;
+
+        try {
+            const { error } = await supabase
+                .from('enrollments')
+                .delete()
+                .eq('id', enrollmentId);
+
+            if (error) throw error;
+
+            toast({ title: "Student Removed", description: "The student has been removed from this course." });
+            fetchCourseData(); // Refresh list
+        } catch (error: any) {
+            toast({ variant: "destructive", title: "Error", description: error.message || "Failed to remove student." });
         }
     };
 
@@ -245,11 +280,19 @@ export default function AdminCourseDetail() {
                                                 <Button size="sm" onClick={() => handleApproveEnrollment(enrollment.id)} className="gap-2">
                                                     <CheckCircle className="h-4 w-4" /> Approve
                                                 </Button>
+                                                <Button size="sm" variant="destructive" onClick={() => handleDeclineEnrollment(enrollment.id)} className="gap-2">
+                                                    <XCircle className="h-4 w-4" /> Decline
+                                                </Button>
                                             </>
                                         ) : (
-                                            <Badge variant={enrollment.completed ? "success" : "default"} className="bg-green-500/10 text-green-600 hover:bg-green-500/20">
-                                                {enrollment.completed ? "Completed" : "Active"}
-                                            </Badge>
+                                            <>
+                                                <Badge variant={enrollment.status === 'rejected' ? "destructive" : (enrollment.completed ? "success" : "default")} className={enrollment.status === 'rejected' ? "bg-red-500/10 text-red-600 hover:bg-red-500/20" : "bg-green-500/10 text-green-600 hover:bg-green-500/20"}>
+                                                    {enrollment.status === 'rejected' ? "Declined" : (enrollment.completed ? "Completed" : "Active")}
+                                                </Badge>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive ml-2" onClick={() => handleDeleteEnrollment(enrollment.id)} title="Remove Student">
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </>
                                         )}
                                         <div className="flex flex-col ml-2">
                                             <p className="text-xs text-muted-foreground mt-1 text-right">

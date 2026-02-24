@@ -65,19 +65,33 @@ export default function CoursePlayer() {
 
         // 2. Prevent common keyboard shortcuts for screenshots and saving
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'PrintScreen') {
+            if (e.key === 'PrintScreen' || e.code === 'PrintScreen') {
                 e.preventDefault();
                 navigator.clipboard.writeText(""); // Clear clipboard to prevent taking actual screenshots usually
                 setIsBlackedOut(true);
+                toast({ variant: "destructive", title: "Action Not Allowed", description: "Taking screenshots is strictly prohibited." });
                 setTimeout(() => setIsBlackedOut(false), 3000); // Blackout for 3s to deter
             }
-            if (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4' || e.key === '5')) {
+            if (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4' || e.key === '5' || e.key.toLowerCase() === 's')) {
                 e.preventDefault();
+                navigator.clipboard.writeText("");
                 setIsBlackedOut(true);
+                toast({ variant: "destructive", title: "Action Not Allowed", description: "Taking screenshots is strictly prohibited." });
                 setTimeout(() => setIsBlackedOut(false), 3000);
             }
-            if (e.ctrlKey && (e.key === 'p' || e.key === 's' || e.key === 'c' || e.key === 'PrintScreen')) {
+            if (e.ctrlKey && (e.key === 'p' || e.key === 's' || e.key === 'c' || e.key === 'PrintScreen' || e.code === 'PrintScreen')) {
                 e.preventDefault();
+                toast({ variant: "destructive", title: "Action Not Allowed", description: "Print, Save, and Copy actions are disabled." });
+            }
+        };
+
+        const handleKeyUp = (e: KeyboardEvent) => {
+            if (e.key === 'PrintScreen' || e.code === 'PrintScreen') {
+                e.preventDefault();
+                navigator.clipboard.writeText("");
+                setIsBlackedOut(true);
+                toast({ variant: "destructive", title: "Action Not Allowed", description: "Taking screenshots is strictly prohibited." });
+                setTimeout(() => setIsBlackedOut(false), 3000);
             }
         };
 
@@ -100,6 +114,7 @@ export default function CoursePlayer() {
 
         document.addEventListener("contextmenu", handleContextMenu);
         document.addEventListener("keydown", handleKeyDown);
+        document.addEventListener("keyup", handleKeyUp);
         document.addEventListener("visibilitychange", handleVisibilityChange);
         window.addEventListener("blur", handleWindowBlur);
         window.addEventListener("focus", handleWindowFocus);
@@ -107,6 +122,7 @@ export default function CoursePlayer() {
         return () => {
             document.removeEventListener("contextmenu", handleContextMenu);
             document.removeEventListener("keydown", handleKeyDown);
+            document.removeEventListener("keyup", handleKeyUp);
             document.removeEventListener("visibilitychange", handleVisibilityChange);
             window.removeEventListener("blur", handleWindowBlur);
             window.removeEventListener("focus", handleWindowFocus);

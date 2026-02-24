@@ -21,6 +21,7 @@ export default function Attendance() {
     const { toast } = useToast();
     const [date, setDate] = useState<Date | undefined>(new Date());
     const [students, setStudents] = useState<any[]>([]);
+    const [baseStudents, setBaseStudents] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [courseId, setCourseId] = useState<string>("");
     const [uploadedCourses, setUploadedCourses] = useState<any[]>([]);
@@ -31,6 +32,46 @@ export default function Attendance() {
     useEffect(() => {
         fetchInitialData();
     }, []);
+
+    useEffect(() => {
+        const fetchAttendance = async () => {
+            if (!date || !courseId || baseStudents.length === 0) {
+                if (baseStudents.length > 0) {
+                    setStudents(baseStudents.map(s => ({ ...s, status: 'present' })));
+                }
+                return;
+            }
+
+            try {
+                setLoading(true);
+                const { data, error } = await supabase
+                    .from('attendance')
+                    .select('student_id, status')
+                    .eq('course_id', courseId)
+                    .eq('date', format(date, 'yyyy-MM-dd'));
+
+                if (error) throw error;
+
+                if (data && data.length > 0) {
+                    const statusMap = new Map();
+                    data.forEach((p: any) => statusMap.set(p.student_id, p.status));
+
+                    setStudents(baseStudents.map(s => ({
+                        ...s,
+                        status: statusMap.get(s.id) || 'present'
+                    })));
+                } else {
+                    setStudents(baseStudents.map(s => ({ ...s, status: 'present' })));
+                }
+            } catch (error: any) {
+                console.error("Error fetching attendance:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchAttendance();
+    }, [date, courseId, baseStudents]);
 
     const fetchInitialData = async () => {
         try {
@@ -62,6 +103,7 @@ export default function Attendance() {
                 status: 'present' // Default
             }));
 
+            setBaseStudents(formattedStudents);
             setStudents(formattedStudents);
 
         } catch (error: any) {

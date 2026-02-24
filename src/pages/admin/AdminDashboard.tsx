@@ -235,11 +235,11 @@ export default function AdminDashboard() {
     try {
       const { error } = await supabase
         .from("enrollments")
-        .delete()
+        .update({ status: 'rejected' })
         .eq("id", enrollmentId);
       if (error) throw error;
 
-      toast({ title: "Enrollment Rejected & Removed." });
+      toast({ title: "Enrollment Declined." });
       fetchDashboardData();
     } catch (e: any) {
       toast({ variant: "destructive", title: "Error", description: e.message });

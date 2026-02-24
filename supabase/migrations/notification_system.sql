@@ -63,7 +63,8 @@ BEGIN
             priority,
             sender_role,
             visibility,
-            created_at
+            created_at,
+            sender_id
         ) VALUES (
             v_student.student_id,
             p_title,
@@ -74,7 +75,8 @@ BEGIN
             p_priority,
             p_sender_role,
             'specific_course',
-            NOW()
+            NOW(),
+            p_sender_id
         );
         v_count := v_count + 1;
     END LOOP;
