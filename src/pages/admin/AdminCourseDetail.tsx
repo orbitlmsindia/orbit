@@ -24,7 +24,8 @@ import {
     ChevronLeft,
     Loader2,
     CheckCircle,
-    XCircle
+    XCircle,
+    Download
 } from "lucide-react";
 
 export default function AdminCourseDetail() {
@@ -157,6 +158,40 @@ export default function AdminCourseDetail() {
         }
     };
 
+    const exportToCSV = () => {
+        if (!enrollments.length) {
+            toast({ description: "No students to export." });
+            return;
+        }
+
+        const csvRows = [];
+        const headers = ["Student Name", "Email", "Course Enrolled", "Date of Request", "UPI / Transaction ID", "Status"];
+        csvRows.push(headers.join(','));
+
+        enrollments.forEach(enrollment => {
+            const row = [
+                `"${(enrollment.student?.full_name || 'Unknown Student').replace(/"/g, '""')}"`,
+                `"${(enrollment.student?.email || 'N/A').replace(/"/g, '""')}"`,
+                `"${(course?.title || 'Unknown Course').replace(/"/g, '""')}"`,
+                `"${new Date(enrollment.enrolled_at).toLocaleDateString()}"`,
+                `"${(enrollment.transaction_id || 'N/A').replace(/"/g, '""')}"`,
+                `"${enrollment.status}"`
+            ];
+            csvRows.push(row.join(','));
+        });
+
+        const csvData = csvRows.join('\n');
+        const blob = new Blob([csvData], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.setAttribute('hidden', '');
+        a.setAttribute('href', url);
+        a.setAttribute('download', `${(course?.title || 'course').replace(/\s+/g, '_')}_enrollments.csv`);
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    };
+
     if (loading) return <AdminLayout><div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div></AdminLayout>;
 
     return (
@@ -256,6 +291,13 @@ export default function AdminCourseDetail() {
                 </TabsContent>
 
                 <TabsContent value="students">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-xl font-bold">Student Enrollments</h2>
+                        <Button variant="outline" onClick={exportToCSV} className="gap-2">
+                            <Download className="h-4 w-4" />
+                            Export CSV
+                        </Button>
+                    </div>
                     <div className="space-y-4">
                         {enrollments.length > 0 ? (
                             enrollments.map((enrollment: any) => (
@@ -271,6 +313,11 @@ export default function AdminCourseDetail() {
                                         <div>
                                             <p className="font-medium">{enrollment.student?.full_name || "Unknown Student"}</p>
                                             <p className="text-sm text-muted-foreground">{enrollment.student?.email}</p>
+                                            {enrollment.transaction_id && (
+                                                <p className="text-xs font-mono bg-muted px-2 py-0.5 rounded inline-block mt-1">
+                                                    UPI/Txn: <span className="font-bold text-foreground">{enrollment.transaction_id}</span>
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="text-right flex items-center justify-end gap-3">

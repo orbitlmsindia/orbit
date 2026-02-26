@@ -76,7 +76,7 @@ export default function Register() {
                         full_name: fullName,
                         role: role,
                         department: formData.department,
-                        status: "pending", // Metadata for admin to see
+                        status: role === "student" ? "active" : "pending", // Auto approve student
                         aadhar_number: formData.aadhar,
                         mobile_number: formData.mobile,
                         address: formData.address
@@ -95,7 +95,7 @@ export default function Register() {
                     email: formData.email,
                     full_name: fullName,
                     role: role,
-                    status: 'pending',
+                    status: role === 'student' ? 'active' : 'pending',
                     department: formData.department || null,
                     // Assuming these columns might not exist yet in public table, but we try sending them if they do
                     // or rely on metadata. But usually public 'users' table is for display.
@@ -107,7 +107,11 @@ export default function Register() {
                     console.warn("Manual user insert warning (might be handled by trigger):", insertError);
                 }
 
-                setStep("success");
+                if (role === "student") {
+                    navigate("/student"); // Automatically login and redirect student
+                } else {
+                    setStep("success");
+                }
             }
         } catch (err: any) {
             console.error("Registration error:", err);

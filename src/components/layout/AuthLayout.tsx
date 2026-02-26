@@ -52,11 +52,15 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
       </div>
 
       {/* Right side - Form */}
-      <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-8 bg-background">
-        <div className="w-full max-w-md animate-fade-in">
+      <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-4 sm:p-8 bg-background relative overflow-hidden">
+        {/* Added background graphics to right side to make the transparency noticeable */}
+        <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-primary/10 blur-[80px] pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 rounded-full bg-indigo-500/10 blur-[80px] pointer-events-none" />
+
+        <div className="w-full max-w-md animate-fade-in bg-card/60 backdrop-blur-xl border border-white/10 dark:border-white/5 rounded-[2.5rem] p-8 sm:p-10 shadow-2xl relative z-10">
           {/* Mobile logo */}
-          <div className="flex lg:hidden items-center gap-2 justify-center mb-8">
-            <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center overflow-hidden">
+          <div className="flex lg:hidden items-center gap-3 justify-center mb-8">
+            <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center shadow-md overflow-hidden">
               <img src="/logo.jpeg" alt="Logo" className="w-full h-full object-contain" />
             </div>
             <span className="text-2xl font-display font-bold text-foreground">
@@ -65,18 +69,20 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
           </div>
 
           {title && (
-            <div className="text-center mb-8">
-              <h2 className="text-2xl font-display font-bold text-foreground mb-2">
+            <div className="text-center mb-10">
+              <h2 className="text-3xl font-display font-bold text-foreground mb-3">
                 {title}
               </h2>
               {subtitle && (
-                <p className="text-muted-foreground">{subtitle}</p>
+                <p className="text-muted-foreground text-sm">{subtitle}</p>
               )}
             </div>
           )}
 
           {children}
         </div>
+        {/* Subtle background glow for the curved form */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg h-full max-h-[600px] bg-primary/5 blur-[100px] rounded-full pointer-events-none" />
       </div>
     </div>
   );

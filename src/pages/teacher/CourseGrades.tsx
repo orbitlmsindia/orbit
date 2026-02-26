@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Download, Upload, FileUp, Save } from "lucide-react";
+import { Loader2, Download, Upload, FileUp, Save, ChevronLeft } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 
@@ -228,9 +228,16 @@ export default function CourseGrades() {
     return (
         <TeacherLayout>
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6 animate-fade-in">
-                <div>
-                    <h1 className="text-3xl font-display font-bold">Course Grading</h1>
-                    <p className="text-muted-foreground">Manage marks: 40% Quiz + 60% Manual.</p>
+                <div className="flex items-center gap-4">
+                    <Link to={`/teacher/courses/${id}`}>
+                        <Button variant="ghost" size="icon">
+                            <ChevronLeft className="h-5 w-5" />
+                        </Button>
+                    </Link>
+                    <div>
+                        <h1 className="text-3xl font-display font-bold">Course Grading</h1>
+                        <p className="text-muted-foreground">Manage marks: 40% Quiz + 60% Manual.</p>
+                    </div>
                 </div>
                 <div className="flex gap-2">
                     <div className="relative">

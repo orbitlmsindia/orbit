@@ -98,13 +98,23 @@ export default function StudentDashboard() {
             const { data: quoteData } = await supabase
                 .from('daily_quotes')
                 .select('text')
-                .eq('date', today)
-                .order('priority', { ascending: false })
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .maybeSingle();
+                .eq('date', today);
 
-            if (quoteData) setDailyQuote(quoteData.text);
+            if (quoteData && quoteData.length > 0) {
+                // Select a random quote from today's saved quotes
+                const randomQuote = quoteData[Math.floor(Math.random() * quoteData.length)];
+                setDailyQuote(randomQuote.text);
+            } else {
+                // Fallback: choose a random quote from the entire collection
+                const { data: allQuotesData } = await supabase
+                    .from('daily_quotes')
+                    .select('text');
+
+                if (allQuotesData && allQuotesData.length > 0) {
+                    const randomQuote = allQuotesData[Math.floor(Math.random() * allQuotesData.length)];
+                    setDailyQuote(randomQuote.text);
+                }
+            }
 
             // Transform data
             const formattedCourses = enrollments?.map((e: any) => ({

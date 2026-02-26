@@ -20,7 +20,10 @@ import {
     UploadCloud,
     ChevronLeft,
     Loader2,
-    BrainCircuit
+    BrainCircuit,
+    CheckCircle,
+    XCircle,
+    Download
 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
@@ -32,6 +35,7 @@ export default function CourseDetail() {
     const [loading, setLoading] = useState(true);
     const [course, setCourse] = useState<any>(null);
     const [sections, setSections] = useState<any[]>([]);
+    const [enrollments, setEnrollments] = useState<any[]>([]);
     const [activeTab, setActiveTab] = useState("curriculum");
 
     // Add Section State
@@ -55,6 +59,19 @@ export default function CourseDetail() {
             setCourse(courseData);
 
             await fetchSections();
+
+            // Fetch enrollments with student details
+            const { data: enrollmentData } = await supabase
+                .from('enrollments')
+                .select(`
+                    *,
+                    student:users!student_id(full_name, email, avatar_url)
+                `)
+                .eq('course_id', id);
+
+            if (enrollmentData) {
+                setEnrollments(enrollmentData);
+            }
         } catch (error) {
             console.error(error);
             toast({ variant: "destructive", title: "Error", description: "Failed to load course details." });
@@ -160,6 +177,90 @@ export default function CourseDetail() {
             toast({ variant: "destructive", title: "Error", description: error.message });
         }
     }
+
+    const handleApproveEnrollment = async (enrollmentId: string) => {
+        try {
+            const { error } = await supabase
+                .from('enrollments')
+                .update({ status: 'approved' })
+                .eq('id', enrollmentId);
+
+            if (error) throw error;
+
+            toast({ title: "Enrollment Approved", description: "The student now has access to the course." });
+            fetchCourseDetails(); // Refresh list
+        } catch (error: any) {
+            toast({ variant: "destructive", title: "Error", description: error.message || "Failed to approve enrollment." });
+        }
+    };
+
+    const handleDeclineEnrollment = async (enrollmentId: string) => {
+        try {
+            const { error } = await supabase
+                .from('enrollments')
+                .update({ status: 'rejected' })
+                .eq('id', enrollmentId);
+
+            if (error) throw error;
+
+            toast({ title: "Enrollment Declined", description: "The student's enrollment request has been declined." });
+            fetchCourseDetails(); // Refresh list
+        } catch (error: any) {
+            toast({ variant: "destructive", title: "Error", description: error.message || "Failed to decline enrollment." });
+        }
+    };
+
+    const handleDeleteEnrollment = async (enrollmentId: string) => {
+        if (!confirm("Are you sure you want to remove this student from the course?")) return;
+
+        try {
+            const { error } = await supabase
+                .from('enrollments')
+                .delete()
+                .eq('id', enrollmentId);
+
+            if (error) throw error;
+
+            toast({ title: "Student Removed", description: "The student has been removed from this course." });
+            fetchCourseDetails(); // Refresh list
+        } catch (error: any) {
+            toast({ variant: "destructive", title: "Error", description: error.message || "Failed to remove student." });
+        }
+    };
+
+    const exportToCSV = () => {
+        if (!enrollments.length) {
+            toast({ description: "No students to export." });
+            return;
+        }
+
+        const csvRows = [];
+        const headers = ["Student Name", "Email", "Course Enrolled", "Date of Request", "UPI / Transaction ID", "Status"];
+        csvRows.push(headers.join(','));
+
+        enrollments.forEach(enrollment => {
+            const row = [
+                `"${(enrollment.student?.full_name || 'Unknown Student').replace(/"/g, '""')}"`,
+                `"${(enrollment.student?.email || 'N/A').replace(/"/g, '""')}"`,
+                `"${(course?.title || 'Unknown Course').replace(/"/g, '""')}"`,
+                `"${new Date(enrollment.enrolled_at).toLocaleDateString()}"`,
+                `"${(enrollment.transaction_id || 'N/A').replace(/"/g, '""')}"`,
+                `"${enrollment.status}"`
+            ];
+            csvRows.push(row.join(','));
+        });
+
+        const csvData = csvRows.join('\n');
+        const blob = new Blob([csvData], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.setAttribute('hidden', '');
+        a.setAttribute('href', url);
+        a.setAttribute('download', `${(course?.title || 'course').replace(/\s+/g, '_')}_enrollments.csv`);
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    };
 
     if (loading) {
         return (
@@ -333,7 +434,70 @@ export default function CourseDetail() {
                 </TabsContent>
 
                 <TabsContent value="students">
-                    <div className="p-8 text-center text-muted-foreground">Student Management coming soon.</div>
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-xl font-bold">Student Enrollments</h2>
+                        <Button variant="outline" onClick={exportToCSV} className="gap-2">
+                            <Download className="h-4 w-4" />
+                            Export CSV
+                        </Button>
+                    </div>
+                    <div className="space-y-4">
+                        {enrollments.length > 0 ? (
+                            enrollments.map((enrollment: any) => (
+                                <div key={enrollment.id} className="flex items-center justify-between p-4 border rounded-lg bg-card">
+                                    <div className="flex items-center gap-4">
+                                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                                            {enrollment.student?.avatar_url ? (
+                                                <img src={enrollment.student.avatar_url} alt={enrollment.student.full_name} className="h-full w-full object-cover" />
+                                            ) : (
+                                                <span className="font-bold text-primary">{enrollment.student?.full_name?.[0] || "?"}</span>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <p className="font-medium">{enrollment.student?.full_name || "Unknown Student"}</p>
+                                            <p className="text-sm text-muted-foreground">{enrollment.student?.email}</p>
+                                            {enrollment.transaction_id && (
+                                                <p className="text-xs font-mono bg-muted px-2 py-0.5 rounded inline-block mt-1">
+                                                    UPI/Txn: <span className="font-bold text-foreground">{enrollment.transaction_id}</span>
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="text-right flex items-center justify-end gap-3">
+                                        {enrollment.status === 'pending' ? (
+                                            <>
+                                                <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-600 hover:bg-yellow-500/20">Pending</Badge>
+                                                <Button size="sm" onClick={() => handleApproveEnrollment(enrollment.id)} className="gap-2">
+                                                    <CheckCircle className="h-4 w-4" /> Approve
+                                                </Button>
+                                                <Button size="sm" variant="destructive" onClick={() => handleDeclineEnrollment(enrollment.id)} className="gap-2">
+                                                    <XCircle className="h-4 w-4" /> Decline
+                                                </Button>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Badge variant={enrollment.status === 'rejected' ? "destructive" : (enrollment.completed ? "success" : "default")} className={enrollment.status === 'rejected' ? "bg-red-500/10 text-red-600 hover:bg-red-500/20" : "bg-green-500/10 text-green-600 hover:bg-green-500/20"}>
+                                                    {enrollment.status === 'rejected' ? "Declined" : (enrollment.completed ? "Completed" : "Active")}
+                                                </Badge>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive ml-2" onClick={() => handleDeleteEnrollment(enrollment.id)} title="Remove Student">
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </>
+                                        )}
+                                        <div className="flex flex-col ml-2">
+                                            <p className="text-xs text-muted-foreground mt-1 text-right">
+                                                Requested: {new Date(enrollment.enrolled_at).toLocaleDateString()}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
+                                No students enrolled yet.
+                            </div>
+                        )}
+                    </div>
                 </TabsContent>
             </Tabs>
         </TeacherLayout>
