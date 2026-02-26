@@ -29,6 +29,7 @@ import {
     SidebarFooter,
     useSidebar,
 } from "@/components/ui/sidebar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 
 const studentNavItems = [
@@ -59,7 +60,7 @@ export function StudentSidebar() {
     const [user, setUser] = useState({
         name: "Student",
         email: "",
-        avatar: "https://github.com/shadcn.png"
+        avatar: ""
     });
 
     useEffect(() => {
@@ -76,7 +77,7 @@ export function StudentSidebar() {
             setUser({
                 name: profile?.full_name || user.user_metadata?.full_name || "Student",
                 email: user.email || "",
-                avatar: profile?.avatar_url || "https://github.com/shadcn.png"
+                avatar: profile?.avatar_url || ""
             });
         };
         fetchUser();
@@ -173,9 +174,12 @@ export function StudentSidebar() {
 
             <SidebarFooter className="p-4 border-t border-sidebar-border">
                 <div className="flex items-center gap-3 mb-4 px-2">
-                    <div className="h-8 w-8 rounded-full bg-sidebar-accent flex items-center justify-center overflow-hidden">
-                        <img src={user.avatar} alt="User" className="h-full w-full object-cover" />
-                    </div>
+                    <Avatar className="h-8 w-8">
+                        <AvatarImage src={user.avatar} alt={user.name} />
+                        <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                            {user.name ? user.name.split(" ").map(n => n[0]).join("") : "S"}
+                        </AvatarFallback>
+                    </Avatar>
                     {!collapsed && (
                         <div className="text-sm">
                             <p className="font-medium truncate max-w-[150px] text-sidebar-foreground">{user.name}</p>
