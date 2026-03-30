@@ -47,6 +47,15 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import LandingPage from "./pages/LandingPage";
 import Register from "./pages/Register";
 
+// Master Admin Imports
+import MasterLogin from "./pages/master/MasterLogin";
+import MasterDashboard from "./pages/master/MasterDashboard";
+import MasterColleges from "./pages/master/MasterColleges";
+import MasterCollegeDetail from "./pages/master/MasterCollegeDetail";
+import MasterBilling from "./pages/master/MasterBilling";
+import MasterAnalytics from "./pages/master/MasterAnalytics";
+import MasterMonitoring from "./pages/master/MasterMonitoring";
+
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 
@@ -107,6 +116,15 @@ const App = () => (
             <Route path="/student/settings" element={<ProtectedRoute><StudentSettings /></ProtectedRoute>} />
             <Route path="/student/help-center" element={<ProtectedRoute><StudentHelpCenter /></ProtectedRoute>} />
             <Route path="/student/notifications" element={<ProtectedRoute><StudentNotifications /></ProtectedRoute>} />
+
+            {/* Master Admin Routes */}
+            <Route path="/master/login" element={<MasterLogin />} />
+            <Route path="/master" element={<ProtectedRoute><MasterDashboard /></ProtectedRoute>} />
+            <Route path="/master/colleges" element={<ProtectedRoute><MasterColleges /></ProtectedRoute>} />
+            <Route path="/master/colleges/:id" element={<ProtectedRoute><MasterCollegeDetail /></ProtectedRoute>} />
+            <Route path="/master/billing" element={<ProtectedRoute><MasterBilling /></ProtectedRoute>} />
+            <Route path="/master/analytics" element={<ProtectedRoute><MasterAnalytics /></ProtectedRoute>} />
+            <Route path="/master/monitoring" element={<ProtectedRoute><MasterMonitoring /></ProtectedRoute>} />
 
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
