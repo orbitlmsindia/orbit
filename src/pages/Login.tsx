@@ -34,10 +34,10 @@ export default function Login() {
       }
 
       if (data.session) {
-        // Fetch user role
+        // Fetch user role and college_id
         const { data: userData, error: userError } = await supabase
           .from("users")
-          .select("role, status")
+          .select("role, status, college_id")
           .eq("id", data.session.user.id)
           .single();
 
@@ -55,7 +55,14 @@ export default function Login() {
           return;
         }
 
-        const role = userData.role;
+        const { role, college_id } = userData;
+
+        // Store Role and CollegeID in session storage
+        sessionStorage.setItem('userRole', role);
+        if (college_id) {
+          sessionStorage.setItem('collegeId', college_id);
+        }
+
         if (role === "admin" || role === "super_admin") {
           navigate("/admin");
         } else if (role === "teacher") {
