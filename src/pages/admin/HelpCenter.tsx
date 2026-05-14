@@ -26,6 +26,7 @@ export default function HelpCenter() {
     const { toast } = useToast();
     const [tickets, setTickets] = useState<TicketType[]>([]);
     const [loading, setLoading] = useState(true);
+    const [searchQuery, setSearchQuery] = useState("");
 
     useEffect(() => {
         fetchTickets();
@@ -104,6 +105,23 @@ export default function HelpCenter() {
                     <p className="text-muted-foreground max-w-lg mx-auto">
                         Manage student tickets and find answers to common questions.
                     </p>
+                    <div className="flex flex-col sm:flex-row gap-4 justify-center items-center max-w-lg mx-auto">
+                        <div className="relative w-full">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input 
+                                className="pl-10" 
+                                placeholder="Search for help..." 
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </div>
+                        <Button asChild className="shrink-0 gap-2">
+                            <a href="mailto:orbitlmsindia@gmail.com">
+                                <Mail className="h-4 w-4" />
+                                Contact Support
+                            </a>
+                        </Button>
+                    </div>
                 </div>
 
                 {/* Tickets Section */}
@@ -200,7 +218,10 @@ export default function HelpCenter() {
                     </CardHeader>
                     <CardContent>
                         <Accordion type="single" collapsible className="w-full">
-                            {faqs.map((faq, index) => (
+                            {faqs.filter(faq => 
+                                faq.question.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
+                            ).map((faq, index) => (
                                 <AccordionItem value={`item-${index}`} key={index}>
                                     <AccordionTrigger>{faq.question}</AccordionTrigger>
                                     <AccordionContent className="text-muted-foreground">
@@ -208,6 +229,14 @@ export default function HelpCenter() {
                                     </AccordionContent>
                                 </AccordionItem>
                             ))}
+                            {faqs.filter(faq => 
+                                faq.question.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
+                            ).length === 0 && (
+                                <div className="text-center py-8 text-muted-foreground">
+                                    No results found for "{searchQuery}"
+                                </div>
+                            )}
                         </Accordion>
                     </CardContent>
                 </Card>

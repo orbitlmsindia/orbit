@@ -27,6 +27,8 @@ export default function Attendance() {
     const [uploadedCourses, setUploadedCourses] = useState<any[]>([]);
     const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [calendarOpen, setCalendarOpen] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -79,11 +81,18 @@ export default function Attendance() {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
+            const { data: profile } = await supabase
+                .from('users')
+                .select('role')
+                .eq('id', user.id)
+                .single();
+
             // 1. Fetch Teacher's Courses (for the dropdown)
-            const { data: myCourses } = await supabase
-                .from('courses')
-                .select('id, title')
-                .eq('teacher_id', user.id);
+            let query = supabase.from('courses').select('id, title');
+            if (profile?.role !== 'admin') {
+                query = query.eq('teacher_id', user.id);
+            }
+            const { data: myCourses } = await query;
             setUploadedCourses(myCourses || []);
 
             // 2. Fetch All Students (Single Institute)
@@ -290,6 +299,11 @@ export default function Attendance() {
     const absentCount = students.length - presentCount;
     const presentPercentage = students.length > 0 ? Math.round((presentCount / students.length) * 100) : 0;
 
+    const filteredStudents = students.filter(student => 
+        student.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        student.email.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
     return (
         <TeacherLayout>
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between animate-fade-in">
@@ -372,7 +386,7 @@ export default function Attendance() {
                             </Select>
                         </div>
 
-                        <Popover>
+                        <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
                             <PopoverTrigger asChild>
                                 <Button variant="outline" className={cn("w-full md:w-[240px] justify-start text-left font-normal", !date && "text-muted-foreground")}>
                                     <CalendarIcon className="mr-2 h-4 w-4" />
@@ -383,7 +397,10 @@ export default function Attendance() {
                                 <Calendar
                                     mode="single"
                                     selected={date}
-                                    onSelect={setDate}
+                                    onSelect={(newDate) => {
+                                        setDate(newDate);
+                                        setCalendarOpen(false);
+                                    }}
                                     initialFocus
                                 />
                             </PopoverContent>
@@ -392,7 +409,12 @@ export default function Attendance() {
                         <div className="flex-1 w-full flex justify-end">
                             <div className="relative w-full md:w-[250px]">
                                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                                <Input placeholder="Search student..." className="pl-9" />
+                                <Input 
+                                    placeholder="Search student..." 
+                                    className="pl-9" 
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                />
                             </div>
                         </div>
                     </div>
@@ -416,14 +438,14 @@ export default function Attendance() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {students.length === 0 && (
+                                    {filteredStudents.length === 0 && (
                                         <TableRow>
                                             <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                                                No students found in your institute.
+                                                {searchQuery ? `No students found matching "${searchQuery}"` : "No students found in your institute."}
                                             </TableCell>
                                         </TableRow>
                                     )}
-                                    {students.map((student) => (
+                                    {filteredStudents.map((student) => (
                                         <TableRow key={student.id} className="hover:bg-muted/50 cursor-pointer" onClick={() => toggleStatus(student.id)}>
                                             <TableCell onClick={(e) => e.stopPropagation()}>
                                                 <Checkbox
@@ -459,6 +481,16 @@ export default function Attendance() {
                                 </TableBody>
                             </Table>
                         )}
+                    </div>
+                    
+                    <div className="mt-6 flex justify-end items-center gap-4">
+                        <p className="text-sm text-muted-foreground">
+                            {date ? `Attendance for ${format(date, 'MMM d, yyyy')}` : "Select a date"}
+                        </p>
+                        <Button className="gap-2" onClick={handleSaveAttendance} disabled={loading || !courseId || filteredStudents.length === 0}>
+                            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                            Save Attendance
+                        </Button>
                     </div>
                 </CardContent>
             </Card>

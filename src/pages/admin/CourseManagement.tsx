@@ -148,12 +148,32 @@ export default function CourseManagement() {
   };
 
   const handleDeleteCourse = async (id: string) => {
-    if (!confirm("Are you sure?")) return;
+    if (!confirm("Are you sure you want to permanently delete this draft course?")) return;
     const { error } = await supabase.from('courses').delete().eq('id', id);
     if (error) {
       toast({ variant: "destructive", title: "Error", description: error.message });
     } else {
-      toast({ title: "Deleted" });
+      toast({ title: "Deleted Permanently" });
+      fetchData();
+    }
+  };
+
+  const handleUnpublishCourse = async (id: string) => {
+    const { error } = await supabase.from('courses').update({ is_published: false }).eq('id', id);
+    if (error) {
+      toast({ variant: "destructive", title: "Error", description: error.message });
+    } else {
+      toast({ title: "Course saved as Draft" });
+      fetchData();
+    }
+  };
+
+  const handlePublishCourse = async (id: string) => {
+    const { error } = await supabase.from('courses').update({ is_published: true }).eq('id', id);
+    if (error) {
+      toast({ variant: "destructive", title: "Error", description: error.message });
+    } else {
+      toast({ title: "Course Published" });
       fetchData();
     }
   };
@@ -206,9 +226,21 @@ export default function CourseManagement() {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="gap-2 text-destructive" onClick={() => handleDeleteCourse(row.id)}>
-              <Trash2 className="h-4 w-4" /> Delete
-            </DropdownMenuItem>
+            {row.status === 'published' ? (
+              <DropdownMenuItem className="gap-2" onClick={() => handleUnpublishCourse(row.id)}>
+                <BookOpen className="h-4 w-4" /> Unpublish
+              </DropdownMenuItem>
+            ) : (
+              <>
+                <DropdownMenuItem className="gap-2 text-primary" onClick={() => handlePublishCourse(row.id)}>
+                  <BookOpen className="h-4 w-4" /> Publish Course
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="gap-2 text-destructive" onClick={() => handleDeleteCourse(row.id)}>
+                  <Trash2 className="h-4 w-4" /> Delete Permanently
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -372,9 +404,21 @@ export default function CourseManagement() {
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="gap-2 text-destructive" onClick={() => handleDeleteCourse(course.id)}>
-                          <Trash2 className="h-4 w-4" /> Delete
-                        </DropdownMenuItem>
+                        {course.status === 'published' ? (
+                          <DropdownMenuItem className="gap-2" onClick={() => handleUnpublishCourse(course.id)}>
+                            <BookOpen className="h-4 w-4" /> Unpublish
+                          </DropdownMenuItem>
+                        ) : (
+                          <>
+                            <DropdownMenuItem className="gap-2 text-primary" onClick={() => handlePublishCourse(course.id)}>
+                              <BookOpen className="h-4 w-4" /> Publish Course
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="gap-2 text-destructive" onClick={() => handleDeleteCourse(course.id)}>
+                              <Trash2 className="h-4 w-4" /> Delete Permanently
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>

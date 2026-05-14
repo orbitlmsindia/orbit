@@ -374,8 +374,11 @@ function ReviewSheet({ submission, onSave }: { submission: any, onSave: (id: str
     const [open, setOpen] = useState(false);
 
     const handleSubmit = () => {
-        const numGrade = parseFloat(grade);
+        let numGrade = parseFloat(grade);
         if (!isNaN(numGrade)) {
+            const maxPoints = submission.assignment?.points || 100;
+            if (numGrade > maxPoints) numGrade = maxPoints;
+            if (numGrade < 0) numGrade = 0;
             onSave(submission.id, numGrade, feedback);
             setOpen(false);
         }
@@ -441,9 +444,26 @@ function ReviewSheet({ submission, onSave }: { submission: any, onSave: (id: str
                                     <Input
                                         type="number"
                                         placeholder="0"
+                                        min={0}
+                                        max={submission.assignment?.points || 100}
                                         className="text-lg font-mono"
                                         value={grade}
-                                        onChange={(e) => setGrade(e.target.value)}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val === "") {
+                                                setGrade("");
+                                                return;
+                                            }
+                                            const num = parseFloat(val);
+                                            const maxPoints = submission.assignment?.points || 100;
+                                            if (num > maxPoints) {
+                                                setGrade(maxPoints.toString());
+                                            } else if (num < 0) {
+                                                setGrade("0");
+                                            } else {
+                                                setGrade(val);
+                                            }
+                                        }}
                                     />
                                     <span className="text-muted-foreground font-mono">/ {submission.assignment?.points}</span>
                                 </div>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { TeacherLayout } from "@/components/layout/TeacherLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,12 +7,100 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, Save, Eye, FileText, CheckCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Plus, Trash2, Save, Eye, Loader2, UploadCloud } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { useToast } from "@/hooks/use-toast";
 
 export default function AssignmentCreate() {
+    const { toast } = useToast();
     const [assignmentType, setAssignmentType] = useState("manual");
+    const [publishing, setPublishing] = useState(false);
+    const [previewOpen, setPreviewOpen] = useState(false);
+
+    // Form State
+    const [courses, setCourses] = useState<any[]>([]);
+    const [courseId, setCourseId] = useState("");
+    const [dueDate, setDueDate] = useState("");
+    const [points, setPoints] = useState("100");
+    const [title, setTitle] = useState("");
+    const [instructions, setInstructions] = useState("");
+    const [fileSize, setFileSize] = useState("10");
+
+    useEffect(() => {
+        const fetchCourses = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { data: profile } = await supabase.from('users').select('role').eq('id', user.id).single();
+            
+            let query = supabase.from('courses').select('id, title');
+            if (profile?.role !== 'admin') {
+                query = query.eq('teacher_id', user.id);
+            }
+            const { data } = await query;
+            if (data) setCourses(data);
+        };
+        fetchCourses();
+    }, []);
+
+    const handleNumberInput = (setter: (val: string) => void, max?: number) => (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value;
+        if (val === "") {
+            setter("");
+            return;
+        }
+        const num = parseFloat(val);
+        if (num < 0) {
+            setter("0");
+        } else if (max !== undefined && num > max) {
+            setter(max.toString());
+        } else {
+            setter(val);
+        }
+    };
+
+    const handlePublish = async () => {
+        if (!courseId) return toast({ variant: "destructive", title: "Error", description: "Please select a course." });
+        if (!title) return toast({ variant: "destructive", title: "Error", description: "Please enter a title." });
+        if (!dueDate) return toast({ variant: "destructive", title: "Error", description: "Please select a due date." });
+        if (!points || parseFloat(points) <= 0) return toast({ variant: "destructive", title: "Error", description: "Please enter valid marks." });
+
+        try {
+            setPublishing(true);
+            const { error } = await supabase.from('assignments').insert([{
+                course_id: courseId,
+                title,
+                description: instructions,
+                type: assignmentType,
+                points: parseFloat(points),
+                due_date: dueDate,
+                settings: { max_file_size: parseFloat(fileSize) }
+            }]);
+
+            if (error) throw error;
+            toast({ title: "Success", description: "Assignment published successfully!" });
+            
+            // Reset form
+            setTitle("");
+            setInstructions("");
+            setDueDate("");
+            setCourseId("");
+        } catch (error: any) {
+            toast({ variant: "destructive", title: "Error", description: error.message });
+        } finally {
+            setPublishing(false);
+        }
+    };
+
+    const handlePreview = () => {
+        if (!title || !instructions) {
+            return toast({ variant: "destructive", title: "Missing details", description: "Please enter a title and instructions to preview." });
+        }
+        setPreviewOpen(true);
+    };
 
     return (
         <TeacherLayout>
@@ -22,8 +110,13 @@ export default function AssignmentCreate() {
                     <p className="text-muted-foreground">Set up a new assignment or quiz for your students.</p>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline" className="gap-2"><Eye className="h-4 w-4" /> Preview</Button>
-                    <Button className="gap-2"><Save className="h-4 w-4" /> Publish</Button>
+                    <Button variant="outline" className="gap-2" onClick={handlePreview} disabled={publishing}>
+                        <Eye className="h-4 w-4" /> Preview
+                    </Button>
+                    <Button className="gap-2" onClick={handlePublish} disabled={publishing}>
+                        {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} 
+                        Publish
+                    </Button>
                 </div>
             </div>
 
@@ -36,18 +129,20 @@ export default function AssignmentCreate() {
                         <CardContent className="space-y-4">
                             <div className="space-y-2">
                                 <Label>Course</Label>
-                                <Select>
+                                <Select value={courseId} onValueChange={setCourseId}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select Course" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="web-101">Web Development 101</SelectItem>
-                                        <SelectItem value="react-adv">Advanced React</SelectItem>
+                                        {courses.map(c => (
+                                            <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
+                                        ))}
+                                        {courses.length === 0 && <SelectItem value="none" disabled>No courses available</SelectItem>}
                                     </SelectContent>
                                 </Select>
                             </div>
                             <div className="space-y-2">
-                                <Label>Section / Module</Label>
+                                <Label>Section / Module (Optional)</Label>
                                 <Select>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select Module" />
@@ -60,11 +155,22 @@ export default function AssignmentCreate() {
                             </div>
                             <div className="space-y-2">
                                 <Label>Due Date</Label>
-                                <Input type="datetime-local" />
+                                <Input 
+                                    type="datetime-local" 
+                                    value={dueDate}
+                                    onChange={(e) => setDueDate(e.target.value)}
+                                />
                             </div>
                             <div className="space-y-2">
                                 <Label>Total Marks</Label>
-                                <Input type="number" placeholder="100" />
+                                <Input 
+                                    type="number" 
+                                    placeholder="100" 
+                                    min="0"
+                                    max="1000"
+                                    value={points}
+                                    onChange={handleNumberInput(setPoints, 1000)}
+                                />
                             </div>
                         </CardContent>
                     </Card>
@@ -86,11 +192,20 @@ export default function AssignmentCreate() {
                                 <CardContent className="space-y-6">
                                     <div className="space-y-2">
                                         <Label>Assignment Title</Label>
-                                        <Input placeholder="e.g., Build a Portfolio Website" />
+                                        <Input 
+                                            placeholder="e.g., Build a Portfolio Website" 
+                                            value={title}
+                                            onChange={(e) => setTitle(e.target.value)}
+                                        />
                                     </div>
                                     <div className="space-y-2">
                                         <Label>Instructions</Label>
-                                        <Textarea className="min-h-[200px]" placeholder="Detailed instructions for the students..." />
+                                        <Textarea 
+                                            className="min-h-[200px]" 
+                                            placeholder="Detailed instructions for the students..." 
+                                            value={instructions}
+                                            onChange={(e) => setInstructions(e.target.value)}
+                                        />
                                     </div>
                                     <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/20">
                                         <div className="space-y-0.5">
@@ -107,9 +222,10 @@ export default function AssignmentCreate() {
                                             <Input
                                                 type="number"
                                                 placeholder="10"
-                                                defaultValue="10"
                                                 min="1"
                                                 max="100"
+                                                value={fileSize}
+                                                onChange={handleNumberInput(setFileSize, 100)}
                                             />
                                             <p className="text-xs text-muted-foreground">
                                                 Limit the maximum file size students can upload (1-100 MB)
@@ -159,19 +275,104 @@ export default function AssignmentCreate() {
                     </Tabs>
                 </div>
             </div>
+
+            {/* Preview Modal */}
+            <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+                <DialogContent className="sm:max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Student Preview</DialogTitle>
+                        <DialogDescription>This is how the assignment will appear to your students.</DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="space-y-6 mt-4">
+                        <div className="space-y-2 border-b pb-4">
+                            <h2 className="text-2xl font-bold">{title || "Untitled Assignment"}</h2>
+                            <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                                <div><span className="font-medium text-foreground">Due Date:</span> {dueDate ? new Date(dueDate).toLocaleString() : "No due date"}</div>
+                                <div><span className="font-medium text-foreground">Points:</span> {points}</div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <h3 className="font-semibold">Instructions</h3>
+                            <div className="p-4 bg-muted/20 rounded-lg min-h-[100px] whitespace-pre-wrap text-sm">
+                                {instructions || "No instructions provided."}
+                            </div>
+                        </div>
+
+                        {assignmentType === 'manual' && (
+                            <div className="space-y-4 pt-4 border-t">
+                                <h3 className="font-semibold">Your Submission</h3>
+                                <div className="border-2 border-dashed border-muted-foreground/25 rounded-xl p-8 flex flex-col items-center justify-center text-center hover:bg-muted/50 transition-colors">
+                                    <UploadCloud className="h-10 w-10 text-muted-foreground mb-4" />
+                                    <h3 className="font-semibold mb-1">Click to upload or drag and drop</h3>
+                                    <p className="text-sm text-muted-foreground mb-4">Max file size: {fileSize}MB</p>
+                                    <Button disabled>Select File</Button>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {assignmentType === 'quiz' && (
+                            <div className="space-y-4 pt-4 border-t">
+                                <div className="p-4 bg-primary/10 text-primary rounded-lg text-sm font-medium">
+                                    Quiz interface preview will be available in future updates. 
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    
+                    <DialogFooter className="mt-6">
+                        <Button variant="outline" onClick={() => setPreviewOpen(false)}>Close Preview</Button>
+                        <Button onClick={() => { setPreviewOpen(false); handlePublish(); }}>Publish Now</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
         </TeacherLayout>
     );
 }
 
 function QuizBuilder() {
-    const [questions, setQuestions] = useState([{ id: 1, type: "mcq" }]);
+    const [questions, setQuestions] = useState([{ 
+        id: 1, 
+        type: "mcq",
+        options: [{ id: 1, text: "" }, { id: 2, text: "" }]
+    }]);
 
     const addQuestion = () => {
-        setQuestions([...questions, { id: Date.now(), type: "mcq" }]);
+        setQuestions([...questions, { 
+            id: Date.now(), 
+            type: "mcq",
+            options: [{ id: Date.now(), text: "" }, { id: Date.now() + 1, text: "" }]
+        }]);
     };
 
     const removeQuestion = (id: number) => {
         setQuestions(questions.filter(q => q.id !== id));
+    };
+
+    const addOption = (questionId: number) => {
+        setQuestions(questions.map(q => {
+            if (q.id === questionId) {
+                return {
+                    ...q,
+                    options: [...(q.options || []), { id: Date.now(), text: "" }]
+                };
+            }
+            return q;
+        }));
+    };
+
+    const removeOption = (questionId: number, optionId: number) => {
+        setQuestions(questions.map(q => {
+            if (q.id === questionId) {
+                return {
+                    ...q,
+                    options: (q.options || []).filter(o => o.id !== optionId)
+                };
+            }
+            return q;
+        }));
     };
 
     return (
@@ -183,11 +384,31 @@ function QuizBuilder() {
                 <CardContent className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                         <Label>Time Limit (minutes)</Label>
-                        <Input type="number" placeholder="60" />
+                        <Input 
+                            type="number" 
+                            placeholder="45" 
+                            min="0"
+                            max="59"
+                            onChange={(e) => {
+                                const val = parseFloat(e.target.value);
+                                if (val < 0) e.target.value = "0";
+                                if (val > 59) e.target.value = "59";
+                            }}
+                        />
                     </div>
                     <div className="space-y-2">
                         <Label>Passing Score (%)</Label>
-                        <Input type="number" placeholder="50" />
+                        <Input 
+                            type="number" 
+                            placeholder="50" 
+                            min="1"
+                            max="100"
+                            onChange={(e) => {
+                                const val = parseFloat(e.target.value);
+                                if (val < 1) e.target.value = "1";
+                                if (val > 100) e.target.value = "100";
+                            }}
+                        />
                     </div>
                 </CardContent>
             </Card>
@@ -220,29 +441,51 @@ function QuizBuilder() {
                                         </div>
                                         <div className="w-[100px]">
                                             <Label>Marks</Label>
-                                            <Input type="number" className="mt-1" placeholder="10" />
+                                            <Input 
+                                                type="number" 
+                                                className="mt-1" 
+                                                placeholder="10" 
+                                                min="0"
+                                                max="100"
+                                                onChange={(e) => {
+                                                    const val = parseFloat(e.target.value);
+                                                    if (val < 0) e.target.value = "0";
+                                                    if (val > 100) e.target.value = "100";
+                                                }}
+                                            />
                                         </div>
                                     </div>
 
-                                    {/* Conditional Options Render based on type (Mocked for MCQ) */}
-                                    <div className="pl-4 border-l-2 border-muted space-y-2">
-                                        <Label className="text-xs text-muted-foreground uppercase tracking-wider">Options</Label>
-                                        <RadioGroup defaultValue="opt1">
-                                            <div className="flex items-center gap-2">
-                                                <RadioGroupItem value="opt1" id={`q${q.id}-opt1`} />
-                                                <Input placeholder="Option 1" className="h-9" />
-                                                <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground"><Trash2 className="h-3 w-3" /></Button>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <RadioGroupItem value="opt2" id={`q${q.id}-opt2`} />
-                                                <Input placeholder="Option 2" className="h-9" />
-                                                <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground"><Trash2 className="h-3 w-3" /></Button>
-                                            </div>
-                                            <Button variant="ghost" size="sm" className="h-8 text-xs gap-1 text-primary">
-                                                <Plus className="h-3 w-3" /> Add Option
-                                            </Button>
-                                        </RadioGroup>
-                                    </div>
+                                    {/* Conditional Options Render based on type */}
+                                    {(q.type === "mcq" || q.type === "boolean") && (
+                                        <div className="pl-4 border-l-2 border-muted space-y-2">
+                                            <Label className="text-xs text-muted-foreground uppercase tracking-wider">Options</Label>
+                                            <RadioGroup defaultValue={q.options?.[0]?.id?.toString() || "opt1"}>
+                                                {q.options?.map((opt, oIdx) => (
+                                                    <div key={opt.id} className="flex items-center gap-2">
+                                                        <RadioGroupItem value={opt.id.toString()} id={`q${q.id}-opt${opt.id}`} />
+                                                        <Input placeholder={`Option ${oIdx + 1}`} className="h-9" defaultValue={opt.text} />
+                                                        <Button 
+                                                            size="icon" 
+                                                            variant="ghost" 
+                                                            className="h-8 w-8 text-muted-foreground"
+                                                            onClick={() => removeOption(q.id, opt.id)}
+                                                        >
+                                                            <Trash2 className="h-3 w-3" />
+                                                        </Button>
+                                                    </div>
+                                                ))}
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="sm" 
+                                                    className="h-8 text-xs gap-1 text-primary"
+                                                    onClick={() => addOption(q.id)}
+                                                >
+                                                    <Plus className="h-3 w-3" /> Add Option
+                                                </Button>
+                                            </RadioGroup>
+                                        </div>
+                                    )}
                                 </div>
                                 <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => removeQuestion(q.id)}>
                                     <Trash2 className="h-4 w-4" />
