@@ -55,6 +55,12 @@ export default function Register() {
             return;
         }
 
+        const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+        if (!passwordRegex.test(formData.password)) {
+            setError("Password must be at least 8 characters long, and include an uppercase letter, a number, and a special character.");
+            return;
+        }
+
         if (role === "teacher" && !formData.department) {
             setError("Please select a department.");
             return;

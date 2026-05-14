@@ -19,6 +19,13 @@ export default function Setup() {
 
     const handleCreateAdmin = async () => {
         if (!email || !password || !fullName) return;
+
+        const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+        if (!passwordRegex.test(password)) {
+            toast({ variant: "destructive", title: "Weak Password", description: "Password must be at least 8 characters long, and include an uppercase letter, a number, and a special character." });
+            return;
+        }
+
         setLoading(true);
         try {
             const { data, error } = await supabase.auth.signUp({
