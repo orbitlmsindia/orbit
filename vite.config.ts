@@ -18,4 +18,13 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  // Finding 8 Fix: Explicitly replace NODE_ENV so bundlers/tree-shakers
+  // can dead-code-eliminate all dev-only branches in production builds.
+  define: {
+    "process.env.NODE_ENV": JSON.stringify(mode === "production" ? "production" : "development"),
+  },
+  build: {
+    // Ensures esbuild drops all dead code (e.g. if(__DEV__){...} blocks)
+    minify: "esbuild",
+  },
 }));

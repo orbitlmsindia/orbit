@@ -41,7 +41,7 @@ export default function AssignmentSubmit() {
             const { data: assign, error: assignError } = await supabase
                 .from('assignments')
                 .select(`
-                    *,
+                    id, title, points, due_date, description,
                     course:courses(title)
                 `)
                 .eq('id', id)
@@ -53,7 +53,7 @@ export default function AssignmentSubmit() {
             // 2. Check for existing submission
             const { data: sub, error: subError } = await supabase
                 .from('submissions')
-                .select('*')
+                .select('id, submitted_at, status, grade, feedback')
                 .eq('assignment_id', id)
                 .eq('student_id', user.id)
                 .maybeSingle();

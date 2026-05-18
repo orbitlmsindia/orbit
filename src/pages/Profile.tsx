@@ -41,7 +41,7 @@ export default function Profile() {
 
             const { data, error } = await supabase
                 .from('users')
-                .select('*')
+                .select('id, role, full_name, avatar_url, email')
                 .eq('id', user.id)
                 .single();
 

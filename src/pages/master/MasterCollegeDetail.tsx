@@ -21,12 +21,12 @@ export default function MasterCollegeDetail() {
     useEffect(() => {
         const fetchDetails = async () => {
             // Load College Meta
-            const { data: colData } = await supabase.from('colleges').select('*').eq('id', id).single();
+            const { data: colData } = await supabase.from('colleges').select('id, name').eq('id', id).single();
             setCollege(colData);
 
             // Log Audit Event for "VIEW" securely via backend
             if (colData) {
-                await supabase.rpc('log_audit_action', { 
+                await supabase.rpc('x_a_log', { 
                     p_action: 'VIEW_DETAILS', 
                     p_entity_type: 'colleges', 
                     p_entity_id: id 
@@ -34,7 +34,7 @@ export default function MasterCollegeDetail() {
             }
 
             // Load Users (Master Admins bypass RLS implicitly so we just filter by ID manually)
-            const { data: usersData } = await supabase.from('users').select('*').eq('college_id', id);
+            const { data: usersData } = await supabase.from('users').select('id, role, full_name, email, status').eq('college_id', id);
             if (usersData) {
                 setStudents(usersData.filter(u => u.role === 'student'));
                 setTeachers(usersData.filter(u => u.role === 'teacher' || u.role === 'admin'));
@@ -47,11 +47,19 @@ export default function MasterCollegeDetail() {
         if (id) fetchDetails();
     }, [id]);
 
-    const handleImpersonate = () => {
-        sessionStorage.setItem('impersonator', 'true');
-        sessionStorage.setItem('collegeId', id as string);
-        toast({ title: "Impersonation Link Active", description: "You are now injecting College " + college?.name });
-        window.open('/admin', '_blank'); // Open their instance in new tab seamlessly
+    const handleImpersonate = async () => {
+        try {
+            const { data: token, error } = await supabase.rpc('grant_impersonation', { p_college_id: id });
+            if (error) throw error;
+            
+            sessionStorage.setItem('impersonator', 'true');
+            sessionStorage.setItem('impersonationToken', token);
+            sessionStorage.setItem('collegeId', id as string);
+            toast({ title: "Impersonation Link Active", description: "You are now securely injecting College " + college?.name });
+            window.open('/admin', '_blank'); // Open their instance in new tab seamlessly
+        } catch (err: any) {
+            toast({ title: 'Impersonation Failed', description: err.message, variant: 'destructive' });
+        }
     };
 
     if (!college) return <MasterLayout headerTitle="Loading Domain..." headerDescription="Please wait"></MasterLayout>;

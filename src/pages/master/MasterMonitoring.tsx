@@ -14,18 +14,18 @@ export default function MasterMonitoring() {
     useEffect(() => {
         const fetchMonitoringData = async () => {
             // 1. Fetch Global System Summaries (Counts)
-            const { data: sumData } = await supabase.from('system_summary_view').select('*').single();
+            const { data: sumData } = await supabase.from('system_summary_view').select('total_colleges, total_students, total_teachers, total_courses').single();
             if (sumData) setSummary(sumData);
 
             // 2. Fetch System Health Simulator Metrics
-            const { data: healthData } = await supabase.from('system_health_metrics').select('*');
+            const { data: healthData } = await supabase.from('system_health_metrics').select('metric_name, metric_value');
             if (healthData) setHealth(healthData);
 
             // 3. Fetch Suspicious / Failed Event Logs from Audit
             // Using logic to simulate looking back at real-time failed attempts
             const { data: secLogs } = await supabase
                 .from('audit_logs')
-                .select('*')
+                .select('id, created_at, action, entity_type, actor_id')
                 .or('action.eq.FAILED_LOGIN,action.eq.SUSPICIOUS_ACTIVITY,action.eq.DELETE_COLLEGE')
                 .order('created_at', { ascending: false })
                 .limit(10);

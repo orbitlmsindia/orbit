@@ -51,7 +51,7 @@ export default function CourseDetail() {
             setLoading(true);
             const { data: courseData, error: courseError } = await supabase
                 .from('courses')
-                .select('*')
+                .select('id, title, description, is_published')
                 .eq('id', id)
                 .single();
 
@@ -64,7 +64,7 @@ export default function CourseDetail() {
             const { data: enrollmentData } = await supabase
                 .from('enrollments')
                 .select(`
-                    *,
+                    id, transaction_id, status, completed, enrolled_at,
                     student:users!student_id(full_name, email, avatar_url)
                 `)
                 .eq('course_id', id);
@@ -84,9 +84,9 @@ export default function CourseDetail() {
         const { data: sectionsData, error: sectionsError } = await supabase
             .from('course_sections')
             .select(`
-                *,
-                items:section_contents(*),
-                assignments(*)
+                id, title,
+                items:section_contents(id, title, type, content_url, content_text, order_index, created_at),
+                assignments(id, title, type, points, description, order_index, created_at)
             `)
             .eq('course_id', id)
             .order('order_index', { ascending: true });

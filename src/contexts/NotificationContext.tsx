@@ -41,7 +41,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
             const { data: notifs, error } = await supabase
                 .from('notifications')
-                .select('*')
+                .select('id, title, message, is_read, created_at, user_id')
                 .eq('user_id', user.id)
                 .order('created_at', { ascending: false })
                 .limit(20); // Limit to recent 20 for UI

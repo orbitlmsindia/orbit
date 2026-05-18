@@ -89,7 +89,7 @@ export default function UserManagement() {
       setLoading(true);
       const { data, error } = await supabase
         .from('users')
-        .select('*, courses(count), enrollments(count)');
+        .select('id, role, full_name, email, status, created_at, department, mobile_number, address, aadhar_number, courses(count), enrollments(count)');
 
       if (error) {
         console.error('Error fetching users:', error);

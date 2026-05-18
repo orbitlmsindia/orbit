@@ -74,7 +74,7 @@ export default function CourseGrades() {
                 studentAttempts.forEach(att => {
                     const assign = assignments?.find(a => a.id === att.assignment_id);
                     // att.score is raw score. assign.points is max score.
-                    // IMPORTANT: grade_quiz_attempt returns PERCENTAGE if max > 0.
+                    // IMPORTANT: x_q_grd returns PERCENTAGE if max > 0.
                     // Let's assume att.score is percentage (0-100).
                     // So we average the percentages.
                     totalUserScore += (att.score || 0);

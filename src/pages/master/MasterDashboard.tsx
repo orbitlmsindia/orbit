@@ -15,8 +15,8 @@ export default function MasterDashboard() {
     useEffect(() => {
         // Demo data for now, would fetch from Supabase
         const fetchStats = async () => {
-            const { count: collCount } = await supabase.from('colleges').select('*', { count: 'exact', head: true });
-            const { count: usersCount } = await supabase.from('users').select('*', { count: 'exact', head: true });
+            const { count: collCount } = await supabase.from('colleges').select('id', { count: 'exact', head: true });
+            const { count: usersCount } = await supabase.from('users').select('id', { count: 'exact', head: true });
 
             setStats({
                 colleges: collCount || 0,

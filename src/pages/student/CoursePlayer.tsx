@@ -159,7 +159,7 @@ export default function CoursePlayer() {
             // 1. Fetch Course Info
             const { data: courseData, error: courseError } = await supabase
                 .from('courses')
-                .select('*')
+                .select('id, title')
                 .eq('id', id)
                 .single();
 
@@ -171,9 +171,9 @@ export default function CoursePlayer() {
             const { data: sectionsData, error: sectionsError } = await supabase
                 .from('course_sections')
                 .select(`
-                    *,
-                    items:section_contents(*),
-                    assignments(*)
+                    id, title, order_index,
+                    items:section_contents(id, title, video_url, pdf_url, content_text, order_index, created_at),
+                    assignments(id, title, type, order_index, created_at)
                 `)
                 .eq('course_id', id)
                 .order('order_index', { ascending: true });

@@ -72,7 +72,7 @@ export default function Notifications() {
     // Fetch Notifications
     const { data: notifs, error } = await supabase
       .from('notifications')
-      .select('*')
+      .select('id, title, message, visibility, notification_type, created_at')
       .order('created_at', { ascending: false });
 
     if (notifs) {
@@ -125,7 +125,7 @@ export default function Notifications() {
         // Send to specific courses using RPC function
         let totalSent = 0;
         for (const courseId of selectedCourses) {
-          const { data: count, error } = await supabase.rpc('notify_course_students', {
+          const { data: count, error } = await supabase.rpc('x_n_c_s', {
             p_course_id: courseId,
             p_title: title,
             p_message: message,

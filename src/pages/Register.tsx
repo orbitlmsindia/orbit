@@ -106,7 +106,7 @@ export default function Register() {
                     // Assuming these columns might not exist yet in public table, but we try sending them if they do
                     // or rely on metadata. But usually public 'users' table is for display.
                     // Storing sensitive info like Aadhar in public table requires Row Level Security (RLS) to be very strict.
-                }, { onConflict: 'id' }).select();
+                }, { onConflict: 'id' });
 
                 if (insertError) {
                     // Try to log it, but don't block success if the trigger actually worked and this failed due to redundancy

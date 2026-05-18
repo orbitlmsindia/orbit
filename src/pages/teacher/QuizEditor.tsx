@@ -31,7 +31,7 @@ export default function QuizEditor() {
             // Fetch Quiz Assignment Details
             const { data: quizData, error: quizError } = await supabase
                 .from('assignments')
-                .select('*')
+                .select('id, title')
                 .eq('id', quizId)
                 .single();
 
@@ -41,7 +41,7 @@ export default function QuizEditor() {
             // Fetch Questions
             const { data: questionsData, error: questionsError } = await supabase
                 .from('assignment_questions')
-                .select('*')
+                .select('id, type, question_text, points, options, correct_answer')
                 .eq('assignment_id', quizId)
                 .order('order_index', { ascending: true });
 

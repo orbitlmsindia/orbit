@@ -29,7 +29,7 @@ export default function MasterBilling() {
         if (cols) setColleges(cols);
 
         // Load Invoices
-        const { data: invs } = await supabase.from('invoices').select('*, colleges(name), courses(title)').order('created_at', { ascending: false });
+        const { data: invs } = await supabase.from('invoices').select('id, invoice_number, student_count, total_amount, status, pdf_url, created_at, colleges(name), courses(title)').order('created_at', { ascending: false });
         if (invs) {
             setInvoices(invs);
             let rev = 0; let pend = 0;

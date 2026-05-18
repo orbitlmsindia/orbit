@@ -98,7 +98,7 @@ export default function Attendance() {
             // 2. Fetch All Students (Single Institute)
             const { data: allStudents, error } = await supabase
                 .from('users')
-                .select('*')
+                .select('id, full_name, email, avatar_url')
                 .eq('role', 'student');
 
             if (error) throw error;

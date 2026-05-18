@@ -95,7 +95,7 @@ export default function TeacherCourses() {
             const { data, error } = await supabase
                 .from('courses')
                 .insert([payload])
-                .select()
+                .select('id')
                 .single();
 
             if (error) throw error;

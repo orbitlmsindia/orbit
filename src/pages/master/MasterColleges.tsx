@@ -23,7 +23,7 @@ export default function MasterColleges() {
 
     const fetchColleges = async () => {
         // We use the Postgres View we created for optimized aggregated counts
-        const { data, error } = await supabase.from('college_stats_view').select('*').order('created_at', { ascending: false });
+        const { data, error } = await supabase.from('college_stats_view').select('id, name, student_count, teacher_count, course_count, subscription_status, activation_status, created_at').order('created_at', { ascending: false });
         if (data) setColleges(data);
     };
 
@@ -60,7 +60,7 @@ export default function MasterColleges() {
             toast({ title: "Status Updated", description: "College access has been " + (!currentStatus ? "Activated" : "Suspended") });
             
             // Audit Logging
-            await supabase.rpc('log_audit_action', { p_action: !currentStatus ? 'ACTIVATE' : 'SUSPEND', p_entity_type: 'colleges', p_entity_id: id });
+            await supabase.rpc('x_a_log', { p_action: !currentStatus ? 'ACTIVATE' : 'SUSPEND', p_entity_type: 'colleges', p_entity_id: id });
             
             fetchColleges();
         } catch(err:any) {
@@ -74,7 +74,7 @@ export default function MasterColleges() {
             // Implementation of Soft Delete (assumes a deleted_at or similar column, or for now we just suspend permanently)
             const { error } = await supabase.from('colleges').update({ activation_status: false, subscription_status: 'deleted' }).eq('id', id);
             if (error) throw error;
-            await supabase.rpc('log_audit_action', { p_action: 'SOFT_DELETE', p_entity_type: 'colleges', p_entity_id: id });
+            await supabase.rpc('x_a_log', { p_action: 'SOFT_DELETE', p_entity_type: 'colleges', p_entity_id: id });
             fetchColleges();
         } catch(err:any) {
             toast({ title: "Delete Failed", description: err.message, variant: "destructive" });
@@ -168,10 +168,18 @@ export default function MasterColleges() {
                                                 {college.activation_status ? <Pause className="mr-2 h-4 w-4 text-orange-500" /> : <Play className="mr-2 h-4 w-4 text-emerald-500" />}
                                                 {college.activation_status ? "Suspend Operations" : "Activate Instance"}
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => {
-                                                sessionStorage.setItem('impersonator', 'true');
-                                                sessionStorage.setItem('collegeId', college.id);
-                                                window.open('/admin', '_blank');
+                                            <DropdownMenuItem onClick={async () => {
+                                                try {
+                                                    const { data: token, error } = await supabase.rpc('grant_impersonation', { p_college_id: college.id });
+                                                    if (error) throw error;
+                                                    
+                                                    sessionStorage.setItem('impersonator', 'true'); // For UI state
+                                                    sessionStorage.setItem('impersonationToken', token);
+                                                    sessionStorage.setItem('collegeId', college.id);
+                                                    window.open('/admin', '_blank');
+                                                } catch (err: any) {
+                                                    toast({ title: 'Impersonation Failed', description: err.message, variant: 'destructive' });
+                                                }
                                             }}>
                                                 <Key className="mr-2 h-4 w-4" /> Impersonate (Read-Only)
                                             </DropdownMenuItem>

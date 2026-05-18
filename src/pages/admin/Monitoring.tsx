@@ -71,7 +71,7 @@ export default function Monitoring() {
       // Ideally fetch enrollments and join users and courses
       const { data: enrollments, error: enrError } = await supabase
         .from('enrollments')
-        .select('*, users(full_name, email), courses(title)');
+        .select('user_id, student_id, completed, enrolled_at, users(full_name, email), courses(title)');
 
       if (enrollments) {
         const studentsMap: any[] = enrollments.map((e: any) => ({
@@ -96,7 +96,7 @@ export default function Monitoring() {
       // 3. Fetch Attendance
       const { data: att } = await supabase
         .from('attendance')
-        .select('*, users(full_name), courses(title)')
+        .select('id, date, status, users(full_name), courses(title)')
         .order('date', { ascending: false })
         .limit(100);
 
@@ -138,7 +138,7 @@ export default function Monitoring() {
       // 4. Assignments
       const { data: assigns } = await supabase
         .from('assignments')
-        .select('*, courses(title)');
+        .select('id, title, due_date, courses(title)');
 
       if (assigns) {
         // We need submission counts too, but for overview we might mock or fetch 

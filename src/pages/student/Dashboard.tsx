@@ -46,7 +46,7 @@ export default function StudentDashboard() {
             // 2. Fetch Notifications
             const { data: notifs } = await supabase
                 .from('notifications')
-                .select('*')
+                .select('id, title, message, created_at, is_read')
                 .eq('user_id', user.id)
                 .eq('is_read', false)
                 .order('created_at', { ascending: false })

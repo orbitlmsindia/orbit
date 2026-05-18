@@ -48,7 +48,7 @@ export default function StudentCalendar() {
                 // 2. Fetch Calendar Events (General + Course specific)
                 const { data: calEvents } = await supabase
                     .from('calendar_events')
-                    .select('*')
+                    .select('id, title, event_date, course_id')
                     .or(`visibility.eq.all,visibility.eq.students`) // Simple check, RLS handles complex logic
                 // If RLS is set correctly, simply select * works based on user context?
                 // Yes, but let's be explicit if needed. Or trust RLS.

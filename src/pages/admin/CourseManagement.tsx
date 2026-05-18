@@ -84,7 +84,7 @@ export default function CourseManagement() {
     const { data: coursesData, error: coursesError } = await supabase
       .from('courses')
       .select(`
-        *,
+        id, title, description, is_published, created_at,
         teacher:users!teacher_id(full_name)
       `)
       .order('created_at', { ascending: false });
@@ -94,7 +94,7 @@ export default function CourseManagement() {
       toast({ variant: "destructive", title: "Failed to load courses" });
     } else {
       // Transform data for UI
-      const formatted = coursesData.map(c => ({
+      const formatted = (coursesData as any[] || []).map((c: any) => ({
         id: c.id,
         title: c.title,
         description: c.description,
@@ -130,7 +130,7 @@ export default function CourseManagement() {
       const { data, error } = await supabase
         .from('courses')
         .insert([payload])
-        .select()
+        .select('id')
         .single();
 
       if (error) throw error;
@@ -148,6 +148,16 @@ export default function CourseManagement() {
   };
 
   const handleDeleteCourse = async (id: string) => {
+    const course = courses.find(c => c.id === id);
+    if (course && course.status === "published") {
+      toast({ 
+        variant: "destructive", 
+        title: "Action Blocked", 
+        description: "You can only delete draft courses. Please unpublish the course first." 
+      });
+      return;
+    }
+
     if (!confirm("Are you sure you want to permanently delete this draft course?")) return;
     const { error } = await supabase.from('courses').delete().eq('id', id);
     if (error) {

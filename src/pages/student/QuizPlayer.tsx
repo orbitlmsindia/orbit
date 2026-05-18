@@ -61,7 +61,7 @@ export default function QuizPlayer() {
             setLoading(true);
             const { data: quizData, error: quizError } = await supabase
                 .from('assignments')
-                .select('*')
+                .select('id, title, time_limit_minutes, due_date')
                 .eq('id', id)
                 .single();
 
@@ -88,7 +88,7 @@ export default function QuizPlayer() {
             if (user) {
                 const { data: existingAttempt } = await supabase
                     .from('quiz_attempts')
-                    .select('*')
+                    .select('id, score')
                     .eq('assignment_id', id)
                     .eq('student_id', user.id)
                     .maybeSingle();
@@ -102,7 +102,7 @@ export default function QuizPlayer() {
                     // And maybe fetch answers if we want to show reviews? No, just score for now.
 
                     // Re-calculate percentage if needed?
-                    // The RPC `grade_quiz_attempt` calculates percentage if max > 0.
+                    // The RPC `x_q_grd` calculates percentage if max > 0.
                     // So `existingAttempt.score` should be percentage.
                     setScore(existingAttempt.score);
                 }
@@ -185,7 +185,7 @@ export default function QuizPlayer() {
                     end_time: new Date(),
                     score: 0 // Placeholder
                 }])
-                .select()
+                .select('id')
                 .single();
 
             if (attemptError) throw attemptError;
@@ -202,8 +202,9 @@ export default function QuizPlayer() {
                 if (ansError) throw ansError;
             }
 
-            // Call Grading RPC (which I will create next)
-            const { data: scoreData, error: gradeError } = await supabase.rpc('grade_quiz_attempt', { attempt_uuid: attempt.id });
+            // IMPORTANT: x_q_grd returns PERCENTAGE if max > 0.
+            // If it returns null, we fallback to score / total_points
+            const { data: scoreData, error: gradeError } = await supabase.rpc('x_q_grd', { attempt_uuid: attempt.id });
 
             if (gradeError) {
                 // Fallback if RPC fails or not exists (during dev)

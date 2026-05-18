@@ -43,7 +43,7 @@ export default function TeacherNotifications() {
             // Fetch sent notifications (optional - for history)
             const { data: notifs } = await supabase
                 .from('notifications')
-                .select('*')
+                .select('id, title, message, created_at')
                 .eq('sender_role', 'teacher')
                 .order('created_at', { ascending: false })
                 .limit(50);
@@ -72,7 +72,7 @@ export default function TeacherNotifications() {
             if (!user) throw new Error("Not authenticated");
 
             // Use RPC function to notify all students in the course
-            const { data: count, error } = await supabase.rpc('notify_course_students', {
+            const { data: count, error } = await supabase.rpc('x_n_c_s', {
                 p_course_id: selectedCourse,
                 p_title: title,
                 p_message: message,

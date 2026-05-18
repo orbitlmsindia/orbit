@@ -34,25 +34,35 @@ export default function HelpCenter() {
 
     const fetchTickets = async () => {
         try {
-            const { data, error } = await supabase
+            const { data: ticketsData, error: ticketsError } = await supabase
                 .from('tickets')
-                .select(`
-                    *,
-                    users:user_id (email)
-                `)
+                .select('id, status, created_at, subject, category, description, user_id')
                 .order('created_at', { ascending: false });
 
-            if (error) throw error;
-            setTickets(data || []);
+            if (ticketsError) throw ticketsError;
+
+            if (ticketsData && ticketsData.length > 0) {
+                const userIds = Array.from(new Set(ticketsData.map(t => t.user_id).filter(Boolean)));
+                const { data: usersData, error: usersError } = await supabase
+                    .from('users')
+                    .select('id, email')
+                    .in('id', userIds);
+
+                if (!usersError && usersData) {
+                    const userMap = new Map(usersData.map(u => [u.id, u.email]));
+                    const enrichedTickets = ticketsData.map(t => ({
+                        ...t,
+                        users: userMap.has(t.user_id) ? { email: userMap.get(t.user_id)! } : undefined
+                    }));
+                    setTickets(enrichedTickets);
+                } else {
+                    setTickets(ticketsData);
+                }
+            } else {
+                setTickets([]);
+            }
         } catch (error) {
             console.error("Error fetching tickets:", error);
-            // Fallback if join fails or table issue
-            const { data: simpleData, error: simpleError } = await supabase
-                .from('tickets')
-                .select('*')
-                .order('created_at', { ascending: false });
-
-            if (simpleData) setTickets(simpleData);
         } finally {
             setLoading(false);
         }

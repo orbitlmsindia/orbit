@@ -47,7 +47,7 @@ export default function AdminCourseDetail() {
         // Fetch course details
         const { data: courseData, error: courseError } = await supabase
             .from('courses')
-            .select('*')
+            .select('id, title, description')
             .eq('id', id)
             .single();
 
@@ -77,8 +77,8 @@ export default function AdminCourseDetail() {
         const { data: sectionData, error: sectionError } = await supabase
             .from('course_sections')
             .select(`
-                *,
-                section_contents (*)
+                id, title, order_index,
+                section_contents (id, title, video_url, pdf_url, content_text, order_index)
             `)
             .eq('course_id', id)
             .order('order_index', { ascending: true });

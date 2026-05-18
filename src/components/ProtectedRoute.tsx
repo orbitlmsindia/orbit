@@ -6,25 +6,75 @@ import { Loader2 } from "lucide-react";
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     const [session, setSession] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [isAuthorized, setIsAuthorized] = useState(false);
     const location = useLocation();
 
     useEffect(() => {
-        // Get initial session
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setSession(session);
-            setLoading(false);
+        let isMounted = true;
+
+        const verifyAccess = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                if (isMounted) {
+                    setSession(null);
+                    setLoading(false);
+                }
+                return;
+            }
+
+            if (isMounted) setSession(session);
+            
+            // Server-side authorization check for Admin panel
+            if (location.pathname.startsWith('/admin')) {
+                const { data: user } = await supabase.from('users').select('role').eq('id', session.user.id).single();
+                
+                if (user?.role === 'admin') {
+                    if (isMounted) setIsAuthorized(true);
+                } else {
+                    // Check for secure impersonation token from server
+                    const token = sessionStorage.getItem('impersonationToken');
+                    const collegeId = sessionStorage.getItem('collegeId');
+                    
+                    if (token && collegeId) {
+                        const { data: isValid, error } = await supabase.rpc('verify_impersonation', { 
+                            p_token: token, 
+                            p_college_id: collegeId 
+                        });
+                        
+                        if (isValid && !error) {
+                            if (isMounted) setIsAuthorized(true);
+                        } else {
+                            if (isMounted) setIsAuthorized(false);
+                            // Clear invalid spoofed tokens
+                            sessionStorage.removeItem('impersonator');
+                            sessionStorage.removeItem('impersonationToken');
+                            sessionStorage.removeItem('collegeId');
+                        }
+                    } else {
+                        if (isMounted) setIsAuthorized(false);
+                    }
+                }
+            } else {
+                if (isMounted) setIsAuthorized(true);
+            }
+            
+            if (isMounted) setLoading(false);
+        };
+        
+        verifyAccess();
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            if (isMounted) {
+                setSession(session);
+                // Simple re-render trigger, full verify happens on load/navigation
+            }
         });
 
-        // Listen for changes
-        const {
-            data: { subscription },
-        } = supabase.auth.onAuthStateChange((_event, session) => {
-            setSession(session);
-            setLoading(false);
-        });
-
-        return () => subscription.unsubscribe();
-    }, []);
+        return () => {
+            isMounted = false;
+            subscription.unsubscribe();
+        };
+    }, [location.pathname]);
 
     if (loading) {
         return (
@@ -36,6 +86,10 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
     if (!session) {
         return <Navigate to="/login" state={{ from: location }} replace />;
+    }
+
+    if (location.pathname.startsWith('/admin') && !isAuthorized) {
+        return <Navigate to="/student" replace />; // Unauthorized users are redirected
     }
 
     return <>{children}</>;

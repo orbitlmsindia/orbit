@@ -23,7 +23,7 @@ export default function StudentNotifications() {
 
             const { data: notifs, error } = await supabase
                 .from('notifications')
-                .select('*')
+                .select('id, is_read, title, message, created_at')
                 .eq('user_id', user.id)
                 .order('created_at', { ascending: false });
 

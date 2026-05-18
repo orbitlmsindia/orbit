@@ -49,7 +49,7 @@ export default function TeacherCalendar() {
                 // 2. Fetch General Calendar Events
                 const { data: calEvents } = await supabase
                     .from('calendar_events')
-                    .select('*')
+                    .select('id, title, event_date')
                     .or(`visibility.eq.all,visibility.eq.teachers`);
 
                 const generalEvents = (calEvents || []).map(e => ({
