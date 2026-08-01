@@ -18,6 +18,8 @@ interface NotificationContextType {
     unreadCount: number;
     markAsRead: (id: number | string) => Promise<void>;
     markAllAsRead: () => Promise<void>;
+    deleteNotification: (id: number | string) => Promise<void>;
+    clearAllNotifications: () => Promise<void>;
     refetchInfo: () => void;
 }
 
@@ -58,7 +60,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 setNotifications(notifs);
                 const currentUnread = notifs.filter((n: Notification) => !n.is_read).length;
                 
-                // If new unread notification arrived, trigger toast alert!
                 if (currentUnread > prevUnreadCountRef.current && prevUnreadCountRef.current > 0) {
                     const newest = notifs[0];
                     if (newest && !newest.is_read) {
@@ -122,7 +123,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             }
         });
 
-        // Fast 5-second polling fallback for guaranteed instant notification updates
         const interval = setInterval(fetchNotifications, 5000);
 
         return () => {
@@ -132,7 +132,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         };
     }, []);
 
-    const markAsRead = async (id: number) => {
+    const markAsRead = async (id: number | string) => {
         try {
             const { error } = await supabase
                 .from('notifications')
@@ -141,7 +141,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
             if (error) throw error;
 
-            // Optimistic update
             setNotifications(prev =>
                 prev.map(n => n.id === id ? { ...n, is_read: true } : n)
             );
@@ -171,8 +170,56 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         }
     };
 
+    const deleteNotification = async (id: number | string) => {
+        try {
+            const { error } = await supabase
+                .from('notifications')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw error;
+
+            setNotifications(prev => {
+                const target = prev.find(n => n.id === id);
+                if (target && !target.is_read) {
+                    setUnreadCount(u => Math.max(0, u - 1));
+                }
+                return prev.filter(n => n.id !== id);
+            });
+        } catch (err) {
+            console.error('Error deleting notification:', err);
+        }
+    };
+
+    const clearAllNotifications = async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { error } = await supabase
+                .from('notifications')
+                .delete()
+                .eq('user_id', user.id);
+
+            if (error) throw error;
+
+            setNotifications([]);
+            setUnreadCount(0);
+        } catch (err) {
+            console.error('Error clearing notifications:', err);
+        }
+    };
+
     return (
-        <NotificationContext.Provider value={{ notifications, unreadCount, markAsRead, markAllAsRead, refetchInfo: fetchNotifications }}>
+        <NotificationContext.Provider value={{
+            notifications,
+            unreadCount,
+            markAsRead,
+            markAllAsRead,
+            deleteNotification,
+            clearAllNotifications,
+            refetchInfo: fetchNotifications
+        }}>
             {children}
         </NotificationContext.Provider>
     );
