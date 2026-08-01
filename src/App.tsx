@@ -49,6 +49,7 @@ import NotFound from "./pages/NotFound";
 import Profile from "./pages/Profile";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import LandingPage from "./pages/LandingPage";
+import ExperienceOrbit from "./pages/ExperienceOrbit";
 import Register from "./pages/Register";
 
 // Master Admin Imports
@@ -74,6 +75,8 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<LandingPage />} />
+            <Route path="/experience" element={<ExperienceOrbit />} />
+            <Route path="/explore" element={<ExperienceOrbit />} />
             <Route path="/register" element={<Register />} />
             <Route path="/login" element={<Login />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />

@@ -205,8 +205,11 @@ export default function LandingPage() {
           </div>
 
           {/* Desktop Nav Items */}
-          <div className="hidden md:flex items-center gap-8">
+          <div className="hidden md:flex items-center gap-6">
             <button onClick={() => scrollToSection("home")} className="text-xs font-semibold hover:text-primary transition-colors">Home</button>
+            <button onClick={() => navigate("/experience")} className="text-xs font-bold text-primary flex items-center gap-1 bg-primary/10 px-3 py-1.5 rounded-full border border-primary/30 hover:bg-primary/20 transition-all shadow-sm">
+              <Sparkles className="h-3.5 w-3.5 text-amber-500 fill-amber-500/20" /> Experience Orbit
+            </button>
             <button onClick={() => scrollToSection("about")} className="text-xs font-semibold hover:text-primary transition-colors">About Us</button>
             <button onClick={() => scrollToSection("features")} className="text-xs font-semibold hover:text-primary transition-colors">Features</button>
             <button onClick={() => scrollToSection("courses")} className="text-xs font-semibold hover:text-primary transition-colors">Courses</button>
@@ -265,6 +268,9 @@ export default function LandingPage() {
         {mobileMenuOpen && (
           <div className="md:hidden border-b bg-background px-4 pt-3 pb-5 space-y-3 animate-in slide-in-from-top-2">
             <button onClick={() => scrollToSection("home")} className="block w-full text-left py-2 text-sm font-semibold">Home</button>
+            <button onClick={() => { setMobileMenuOpen(false); navigate("/experience"); }} className="block w-full text-left py-2 text-sm font-bold text-primary flex items-center gap-1.5">
+              <Sparkles className="h-4 w-4 text-amber-500 fill-amber-500/20" /> Experience Orbit
+            </button>
             <button onClick={() => scrollToSection("about")} className="block w-full text-left py-2 text-sm font-semibold">About Us</button>
             <button onClick={() => scrollToSection("features")} className="block w-full text-left py-2 text-sm font-semibold">Features</button>
             <button onClick={() => scrollToSection("courses")} className="block w-full text-left py-2 text-sm font-semibold">Courses</button>
@@ -306,8 +312,8 @@ export default function LandingPage() {
               <Button size="lg" className="w-full sm:w-auto h-12 px-8 text-base font-bold gap-2 shadow-lg bg-primary text-primary-foreground" onClick={() => navigate("/register")}>
                 Start Learning Free <ArrowRight className="h-4 w-4" />
               </Button>
-              <Button size="lg" variant="outline" className="w-full sm:w-auto h-12 px-8 text-base font-semibold" onClick={() => scrollToSection("features")}>
-                Explore Features
+              <Button size="lg" variant="outline" className="w-full sm:w-auto h-12 px-8 text-base font-bold gap-2 border-primary/40 text-primary hover:bg-primary/10 shadow-sm" onClick={() => navigate("/experience")}>
+                <Sparkles className="h-4 w-4 text-amber-500 fill-amber-500/20" /> Experience Orbit Presentation
               </Button>
             </div>
           </motion.div>
