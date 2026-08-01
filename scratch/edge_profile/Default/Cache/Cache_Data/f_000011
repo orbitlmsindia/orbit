@@ -1,0 +1,1107 @@
+import { createHotContext as __vite__createHotContext } from "/@vite/client";import.meta.hot = __vite__createHotContext("/src/pages/admin/CourseManagement.tsx");import * as RefreshRuntime from "/@react-refresh";
+const inWebWorker = typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope;
+
+let prevRefreshReg;
+let prevRefreshSig;
+
+if (import.meta.hot && !inWebWorker) {
+  if (!window.$RefreshReg$) {
+    throw new Error(
+      "@vitejs/plugin-react-swc can't detect preamble. Something is wrong."
+    );
+  }
+
+  prevRefreshReg = window.$RefreshReg$;
+  prevRefreshSig = window.$RefreshSig$;
+  window.$RefreshReg$ = RefreshRuntime.getRefreshReg("D:/Orbitlms/src/pages/admin/CourseManagement.tsx");
+  window.$RefreshSig$ = RefreshRuntime.createSignatureFunctionForTransform;
+}
+
+import __vite__cjsImport2_react_jsxDevRuntime from "/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=88ed5bfa"; const _jsxDEV = __vite__cjsImport2_react_jsxDevRuntime["jsxDEV"]; const _Fragment = __vite__cjsImport2_react_jsxDevRuntime["Fragment"];
+var _s = $RefreshSig$();
+import __vite__cjsImport3_react from "/node_modules/.vite/deps/react.js?v=88ed5bfa"; const useState = __vite__cjsImport3_react["useState"]; const useEffect = __vite__cjsImport3_react["useEffect"];
+import { Link, useNavigate } from "/node_modules/.vite/deps/react-router-dom.js?v=88ed5bfa";
+import { AdminLayout } from "/src/components/layout/AdminLayout.tsx";
+import { DataTable } from "/src/components/ui/data-table.tsx";
+import { Button } from "/src/components/ui/button.tsx";
+import { Badge } from "/src/components/ui/badge.tsx";
+import { Input } from "/src/components/ui/input.tsx";
+import { Label } from "/src/components/ui/label.tsx";
+import { Switch } from "/src/components/ui/switch.tsx";
+import { Textarea } from "/src/components/ui/textarea.tsx";
+import { Card, CardContent } from "/src/components/ui/card.tsx";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "/src/components/ui/dialog.tsx";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "/src/components/ui/dropdown-menu.tsx";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "/src/components/ui/select.tsx";
+import { Plus, MoreHorizontal, Pencil, Trash2, BookOpen, LayoutGrid, List, RefreshCw, Users } from "/node_modules/.vite/deps/lucide-react.js?v=88ed5bfa";
+import { useToast } from "/src/hooks/use-toast.ts";
+import { supabase } from "/src/lib/supabase.ts";
+export default function CourseManagement() {
+    _s();
+    const { toast } = useToast();
+    const navigate = useNavigate();
+    const [viewMode, setViewMode] = useState("grid");
+    const [addCourseModalOpen, setAddCourseModalOpen] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [courses, setCourses] = useState([]);
+    const [teachers, setTeachers] = useState([]);
+    // Form State
+    const [newCourse, setNewCourse] = useState({
+        title: "",
+        description: "",
+        category: "Development",
+        teacherId: "unassigned",
+        visibility: true
+    });
+    useEffect(()=>{
+        fetchData();
+    }, []);
+    const fetchData = async ()=>{
+        setLoading(true);
+        // 1. Fetch ALL Teachers (Admin View)
+        const { data: teachersData } = await supabase.from('users').select('id, full_name').eq('role', 'teacher');
+        setTeachers(teachersData || []);
+        // 2. Fetch ALL Courses (Admin View)
+        const { data: coursesData, error: coursesError } = await supabase.from('courses').select(`
+        id, title, description, is_published, created_at,
+        teacher:users!teacher_id(full_name)
+      `).order('created_at', {
+            ascending: false
+        });
+        if (coursesError) {
+            console.error(coursesError);
+            toast({
+                variant: "destructive",
+                title: "Failed to load courses"
+            });
+        } else {
+            // Transform data for UI
+            const formatted = (coursesData || []).map((c)=>({
+                    id: c.id,
+                    title: c.title,
+                    description: c.description,
+                    instructor: c.teacher?.full_name || "Unassigned",
+                    category: "General",
+                    students: 0,
+                    lessons: 0,
+                    completion: 0,
+                    status: c.is_published ? "published" : "draft",
+                    visibility: c.is_published,
+                    created_at: c.created_at
+                }));
+            setCourses(formatted);
+        }
+        setLoading(false);
+    };
+    const handleCreateCourse = async ()=>{
+        if (!newCourse.title) return;
+        try {
+            const payload = {
+                title: newCourse.title,
+                description: newCourse.description,
+                is_published: newCourse.visibility
+            };
+            if (newCourse.teacherId && newCourse.teacherId !== "unassigned") {
+                payload.teacher_id = newCourse.teacherId;
+            }
+            const { data, error } = await supabase.from('courses').insert([
+                payload
+            ]).select('id').single();
+            if (error) throw error;
+            toast({
+                title: "Course created successfully"
+            });
+            setAddCourseModalOpen(false);
+            // Redirect to builder
+            navigate(`/admin/courses/${data.id}/edit`);
+        } catch (err) {
+            console.error(err);
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: err.message
+            });
+        }
+    };
+    const handleDeleteCourse = async (id)=>{
+        const course = courses.find((c)=>c.id === id);
+        if (course && course.status === "published") {
+            toast({
+                variant: "destructive",
+                title: "Action Blocked",
+                description: "You can only delete draft courses. Please unpublish the course first."
+            });
+            return;
+        }
+        if (!confirm("Are you sure you want to permanently delete this draft course?")) return;
+        const { error } = await supabase.from('courses').delete().eq('id', id);
+        if (error) {
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: error.message
+            });
+        } else {
+            toast({
+                title: "Deleted Permanently"
+            });
+            fetchData();
+        }
+    };
+    const handleUnpublishCourse = async (id)=>{
+        const { error } = await supabase.from('courses').update({
+            is_published: false
+        }).eq('id', id);
+        if (error) {
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: error.message
+            });
+        } else {
+            toast({
+                title: "Course saved as Draft"
+            });
+            fetchData();
+        }
+    };
+    const handlePublishCourse = async (id)=>{
+        const { error } = await supabase.from('courses').update({
+            is_published: true
+        }).eq('id', id);
+        if (error) {
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: error.message
+            });
+        } else {
+            toast({
+                title: "Course Published"
+            });
+            fetchData();
+        }
+    };
+    const tableColumns = [
+        {
+            key: "title",
+            header: "Course",
+            cell: (row)=>/*#__PURE__*/ _jsxDEV("div", {
+                    className: "flex items-center gap-3",
+                    children: [
+                        /*#__PURE__*/ _jsxDEV("div", {
+                            className: "w-12 h-12 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center shrink-0",
+                            children: /*#__PURE__*/ _jsxDEV(BookOpen, {
+                                className: "h-5 w-5 text-primary"
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                lineNumber: 198,
+                                columnNumber: 13
+                            }, this)
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                            lineNumber: 197,
+                            columnNumber: 11
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV("div", {
+                            children: [
+                                /*#__PURE__*/ _jsxDEV("p", {
+                                    className: "font-medium",
+                                    children: row.title
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                    lineNumber: 201,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV("p", {
+                                    className: "text-xs text-muted-foreground",
+                                    children: row.instructor
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                    lineNumber: 202,
+                                    columnNumber: 13
+                                }, this)
+                            ]
+                        }, void 0, true, {
+                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                            lineNumber: 200,
+                            columnNumber: 11
+                        }, this)
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                    lineNumber: 196,
+                    columnNumber: 9
+                }, this)
+        },
+        {
+            key: "status",
+            header: "Status",
+            cell: (row)=>/*#__PURE__*/ _jsxDEV(Badge, {
+                    variant: row.status === "published" ? "default" : "secondary",
+                    children: row.status
+                }, void 0, false, {
+                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                    lineNumber: 211,
+                    columnNumber: 9
+                }, this)
+        },
+        {
+            key: "actions",
+            header: "",
+            cell: (row)=>/*#__PURE__*/ _jsxDEV(DropdownMenu, {
+                    children: [
+                        /*#__PURE__*/ _jsxDEV(DropdownMenuTrigger, {
+                            asChild: true,
+                            children: /*#__PURE__*/ _jsxDEV(Button, {
+                                variant: "ghost",
+                                size: "icon",
+                                children: /*#__PURE__*/ _jsxDEV(MoreHorizontal, {
+                                    className: "h-4 w-4"
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                    lineNumber: 223,
+                                    columnNumber: 15
+                                }, this)
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                lineNumber: 222,
+                                columnNumber: 13
+                            }, this)
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                            lineNumber: 221,
+                            columnNumber: 11
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV(DropdownMenuContent, {
+                            align: "end",
+                            children: [
+                                /*#__PURE__*/ _jsxDEV(DropdownMenuItem, {
+                                    className: "gap-2",
+                                    asChild: true,
+                                    children: /*#__PURE__*/ _jsxDEV(Link, {
+                                        to: `/admin/courses/${row.id}/edit`,
+                                        children: [
+                                            /*#__PURE__*/ _jsxDEV(Pencil, {
+                                                className: "h-4 w-4"
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                lineNumber: 229,
+                                                columnNumber: 17
+                                            }, this),
+                                            " Edit Content"
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                        lineNumber: 228,
+                                        columnNumber: 15
+                                    }, this)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                    lineNumber: 227,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(DropdownMenuSeparator, {}, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                    lineNumber: 232,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(DropdownMenuItem, {
+                                    className: "gap-2",
+                                    asChild: true,
+                                    children: /*#__PURE__*/ _jsxDEV(Link, {
+                                        to: `/admin/courses/${row.id}/edit?tab=students`,
+                                        children: [
+                                            /*#__PURE__*/ _jsxDEV(Users, {
+                                                className: "h-4 w-4"
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                lineNumber: 235,
+                                                columnNumber: 17
+                                            }, this),
+                                            " View Enrolled Students"
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                        lineNumber: 234,
+                                        columnNumber: 15
+                                    }, this)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                    lineNumber: 233,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(DropdownMenuSeparator, {}, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                    lineNumber: 238,
+                                    columnNumber: 13
+                                }, this),
+                                row.status === 'published' ? /*#__PURE__*/ _jsxDEV(DropdownMenuItem, {
+                                    className: "gap-2",
+                                    onClick: ()=>handleUnpublishCourse(row.id),
+                                    children: [
+                                        /*#__PURE__*/ _jsxDEV(BookOpen, {
+                                            className: "h-4 w-4"
+                                        }, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                            lineNumber: 241,
+                                            columnNumber: 17
+                                        }, this),
+                                        " Unpublish"
+                                    ]
+                                }, void 0, true, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                    lineNumber: 240,
+                                    columnNumber: 15
+                                }, this) : /*#__PURE__*/ _jsxDEV(_Fragment, {
+                                    children: [
+                                        /*#__PURE__*/ _jsxDEV(DropdownMenuItem, {
+                                            className: "gap-2 text-primary",
+                                            onClick: ()=>handlePublishCourse(row.id),
+                                            children: [
+                                                /*#__PURE__*/ _jsxDEV(BookOpen, {
+                                                    className: "h-4 w-4"
+                                                }, void 0, false, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                    lineNumber: 246,
+                                                    columnNumber: 19
+                                                }, this),
+                                                " Publish Course"
+                                            ]
+                                        }, void 0, true, {
+                                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                            lineNumber: 245,
+                                            columnNumber: 17
+                                        }, this),
+                                        /*#__PURE__*/ _jsxDEV(DropdownMenuSeparator, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                            lineNumber: 248,
+                                            columnNumber: 17
+                                        }, this),
+                                        /*#__PURE__*/ _jsxDEV(DropdownMenuItem, {
+                                            className: "gap-2 text-destructive",
+                                            onClick: ()=>handleDeleteCourse(row.id),
+                                            children: [
+                                                /*#__PURE__*/ _jsxDEV(Trash2, {
+                                                    className: "h-4 w-4"
+                                                }, void 0, false, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                    lineNumber: 250,
+                                                    columnNumber: 19
+                                                }, this),
+                                                " Delete Permanently"
+                                            ]
+                                        }, void 0, true, {
+                                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                            lineNumber: 249,
+                                            columnNumber: 17
+                                        }, this)
+                                    ]
+                                }, void 0, true)
+                            ]
+                        }, void 0, true, {
+                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                            lineNumber: 226,
+                            columnNumber: 11
+                        }, this)
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                    lineNumber: 220,
+                    columnNumber: 9
+                }, this),
+            className: "w-12"
+        }
+    ];
+    return /*#__PURE__*/ _jsxDEV(AdminLayout, {
+        children: /*#__PURE__*/ _jsxDEV("div", {
+            className: "space-y-6 animate-fade-in",
+            children: [
+                /*#__PURE__*/ _jsxDEV("div", {
+                    className: "flex flex-col gap-4 md:flex-row md:items-center md:justify-between",
+                    children: [
+                        /*#__PURE__*/ _jsxDEV("div", {
+                            children: [
+                                /*#__PURE__*/ _jsxDEV("h1", {
+                                    className: "text-2xl lg:text-3xl font-display font-bold text-foreground",
+                                    children: "Course Management"
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                    lineNumber: 267,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV("p", {
+                                    className: "text-muted-foreground mt-1",
+                                    children: "Create and assign courses."
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                    lineNumber: 270,
+                                    columnNumber: 13
+                                }, this)
+                            ]
+                        }, void 0, true, {
+                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                            lineNumber: 266,
+                            columnNumber: 11
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV("div", {
+                            className: "flex bg-muted p-1 rounded-lg gap-2",
+                            children: [
+                                /*#__PURE__*/ _jsxDEV(Button, {
+                                    variant: "outline",
+                                    size: "sm",
+                                    onClick: fetchData,
+                                    className: "border-0 bg-transparent",
+                                    children: /*#__PURE__*/ _jsxDEV(RefreshCw, {
+                                        className: `h-4 w-4 ${loading ? 'animate-spin' : ''}`
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                        lineNumber: 276,
+                                        columnNumber: 15
+                                    }, this)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                    lineNumber: 275,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Dialog, {
+                                    open: addCourseModalOpen,
+                                    onOpenChange: setAddCourseModalOpen,
+                                    children: [
+                                        /*#__PURE__*/ _jsxDEV(DialogTrigger, {
+                                            asChild: true,
+                                            children: /*#__PURE__*/ _jsxDEV(Button, {
+                                                className: "gap-2",
+                                                children: [
+                                                    /*#__PURE__*/ _jsxDEV(Plus, {
+                                                        className: "h-4 w-4"
+                                                    }, void 0, false, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                        lineNumber: 281,
+                                                        columnNumber: 19
+                                                    }, this),
+                                                    "Add Course"
+                                                ]
+                                            }, void 0, true, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                lineNumber: 280,
+                                                columnNumber: 17
+                                            }, this)
+                                        }, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                            lineNumber: 279,
+                                            columnNumber: 15
+                                        }, this),
+                                        /*#__PURE__*/ _jsxDEV(DialogContent, {
+                                            className: "sm:max-w-lg",
+                                            children: [
+                                                /*#__PURE__*/ _jsxDEV(DialogHeader, {
+                                                    children: [
+                                                        /*#__PURE__*/ _jsxDEV(DialogTitle, {
+                                                            children: "Create New Course"
+                                                        }, void 0, false, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                            lineNumber: 287,
+                                                            columnNumber: 19
+                                                        }, this),
+                                                        /*#__PURE__*/ _jsxDEV(DialogDescription, {
+                                                            children: "Fill in the details. You can add modules and content in the next step."
+                                                        }, void 0, false, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                            lineNumber: 288,
+                                                            columnNumber: 19
+                                                        }, this)
+                                                    ]
+                                                }, void 0, true, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                    lineNumber: 286,
+                                                    columnNumber: 17
+                                                }, this),
+                                                /*#__PURE__*/ _jsxDEV("div", {
+                                                    className: "space-y-4 py-4",
+                                                    children: [
+                                                        /*#__PURE__*/ _jsxDEV("div", {
+                                                            className: "space-y-2",
+                                                            children: [
+                                                                /*#__PURE__*/ _jsxDEV(Label, {
+                                                                    children: "Course Title"
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                                    lineNumber: 295,
+                                                                    columnNumber: 21
+                                                                }, this),
+                                                                /*#__PURE__*/ _jsxDEV(Input, {
+                                                                    value: newCourse.title,
+                                                                    onChange: (e)=>setNewCourse({
+                                                                            ...newCourse,
+                                                                            title: e.target.value
+                                                                        }),
+                                                                    placeholder: "e.g. Advanced Mathematics"
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                                    lineNumber: 296,
+                                                                    columnNumber: 21
+                                                                }, this)
+                                                            ]
+                                                        }, void 0, true, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                            lineNumber: 294,
+                                                            columnNumber: 19
+                                                        }, this),
+                                                        /*#__PURE__*/ _jsxDEV("div", {
+                                                            className: "space-y-2",
+                                                            children: [
+                                                                /*#__PURE__*/ _jsxDEV(Label, {
+                                                                    children: "Description"
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                                    lineNumber: 303,
+                                                                    columnNumber: 21
+                                                                }, this),
+                                                                /*#__PURE__*/ _jsxDEV(Textarea, {
+                                                                    value: newCourse.description,
+                                                                    onChange: (e)=>setNewCourse({
+                                                                            ...newCourse,
+                                                                            description: e.target.value
+                                                                        }),
+                                                                    placeholder: "Short description..."
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                                    lineNumber: 304,
+                                                                    columnNumber: 21
+                                                                }, this)
+                                                            ]
+                                                        }, void 0, true, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                            lineNumber: 302,
+                                                            columnNumber: 19
+                                                        }, this),
+                                                        /*#__PURE__*/ _jsxDEV("div", {
+                                                            className: "space-y-2",
+                                                            children: [
+                                                                /*#__PURE__*/ _jsxDEV(Label, {
+                                                                    children: "Assign Teacher (Optional)"
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                                    lineNumber: 312,
+                                                                    columnNumber: 21
+                                                                }, this),
+                                                                /*#__PURE__*/ _jsxDEV(Select, {
+                                                                    value: newCourse.teacherId,
+                                                                    onValueChange: (val)=>setNewCourse({
+                                                                            ...newCourse,
+                                                                            teacherId: val
+                                                                        }),
+                                                                    children: [
+                                                                        /*#__PURE__*/ _jsxDEV(SelectTrigger, {
+                                                                            children: /*#__PURE__*/ _jsxDEV(SelectValue, {
+                                                                                placeholder: "Select teacher"
+                                                                            }, void 0, false, {
+                                                                                fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                                                lineNumber: 318,
+                                                                                columnNumber: 25
+                                                                            }, this)
+                                                                        }, void 0, false, {
+                                                                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                                            lineNumber: 317,
+                                                                            columnNumber: 23
+                                                                        }, this),
+                                                                        /*#__PURE__*/ _jsxDEV(SelectContent, {
+                                                                            children: [
+                                                                                /*#__PURE__*/ _jsxDEV(SelectItem, {
+                                                                                    value: "unassigned",
+                                                                                    children: "Unassigned"
+                                                                                }, void 0, false, {
+                                                                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                                                    lineNumber: 321,
+                                                                                    columnNumber: 25
+                                                                                }, this),
+                                                                                teachers.map((t)=>/*#__PURE__*/ _jsxDEV(SelectItem, {
+                                                                                        value: t.id,
+                                                                                        children: t.full_name
+                                                                                    }, t.id, false, {
+                                                                                        fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                                                        lineNumber: 323,
+                                                                                        columnNumber: 27
+                                                                                    }, this))
+                                                                            ]
+                                                                        }, void 0, true, {
+                                                                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                                            lineNumber: 320,
+                                                                            columnNumber: 23
+                                                                        }, this)
+                                                                    ]
+                                                                }, void 0, true, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                                    lineNumber: 313,
+                                                                    columnNumber: 21
+                                                                }, this)
+                                                            ]
+                                                        }, void 0, true, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                            lineNumber: 311,
+                                                            columnNumber: 19
+                                                        }, this),
+                                                        /*#__PURE__*/ _jsxDEV("div", {
+                                                            className: "flex items-center gap-2 pt-2",
+                                                            children: [
+                                                                /*#__PURE__*/ _jsxDEV(Switch, {
+                                                                    checked: newCourse.visibility,
+                                                                    onCheckedChange: (c)=>setNewCourse({
+                                                                            ...newCourse,
+                                                                            visibility: c
+                                                                        })
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                                    lineNumber: 331,
+                                                                    columnNumber: 21
+                                                                }, this),
+                                                                /*#__PURE__*/ _jsxDEV(Label, {
+                                                                    children: "Visible to students (Published)"
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                                    lineNumber: 335,
+                                                                    columnNumber: 21
+                                                                }, this)
+                                                            ]
+                                                        }, void 0, true, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                            lineNumber: 330,
+                                                            columnNumber: 19
+                                                        }, this)
+                                                    ]
+                                                }, void 0, true, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                    lineNumber: 293,
+                                                    columnNumber: 17
+                                                }, this),
+                                                /*#__PURE__*/ _jsxDEV(DialogFooter, {
+                                                    children: [
+                                                        /*#__PURE__*/ _jsxDEV(Button, {
+                                                            variant: "outline",
+                                                            onClick: ()=>setAddCourseModalOpen(false),
+                                                            children: "Cancel"
+                                                        }, void 0, false, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                            lineNumber: 340,
+                                                            columnNumber: 19
+                                                        }, this),
+                                                        /*#__PURE__*/ _jsxDEV(Button, {
+                                                            onClick: handleCreateCourse,
+                                                            children: "Create & Build"
+                                                        }, void 0, false, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                            lineNumber: 343,
+                                                            columnNumber: 19
+                                                        }, this)
+                                                    ]
+                                                }, void 0, true, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                    lineNumber: 339,
+                                                    columnNumber: 17
+                                                }, this)
+                                            ]
+                                        }, void 0, true, {
+                                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                            lineNumber: 285,
+                                            columnNumber: 15
+                                        }, this)
+                                    ]
+                                }, void 0, true, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                    lineNumber: 278,
+                                    columnNumber: 13
+                                }, this)
+                            ]
+                        }, void 0, true, {
+                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                            lineNumber: 274,
+                            columnNumber: 11
+                        }, this)
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                    lineNumber: 265,
+                    columnNumber: 9
+                }, this),
+                /*#__PURE__*/ _jsxDEV("div", {
+                    className: "flex justify-end gap-2",
+                    children: [
+                        /*#__PURE__*/ _jsxDEV(Button, {
+                            variant: viewMode === "grid" ? "secondary" : "ghost",
+                            size: "sm",
+                            onClick: ()=>setViewMode("grid"),
+                            children: /*#__PURE__*/ _jsxDEV(LayoutGrid, {
+                                className: "h-4 w-4"
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                lineNumber: 357,
+                                columnNumber: 13
+                            }, this)
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                            lineNumber: 352,
+                            columnNumber: 11
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV(Button, {
+                            variant: viewMode === "table" ? "secondary" : "ghost",
+                            size: "sm",
+                            onClick: ()=>setViewMode("table"),
+                            children: /*#__PURE__*/ _jsxDEV(List, {
+                                className: "h-4 w-4"
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                lineNumber: 364,
+                                columnNumber: 13
+                            }, this)
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                            lineNumber: 359,
+                            columnNumber: 11
+                        }, this)
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                    lineNumber: 351,
+                    columnNumber: 9
+                }, this),
+                viewMode === "grid" ? /*#__PURE__*/ _jsxDEV("div", {
+                    className: "grid gap-4 sm:grid-cols-2 lg:grid-cols-3",
+                    children: [
+                        courses.map((course)=>/*#__PURE__*/ _jsxDEV(Card, {
+                                className: "group hover:shadow-lg transition-all duration-200",
+                                children: /*#__PURE__*/ _jsxDEV(CardContent, {
+                                    className: "p-0",
+                                    children: [
+                                        /*#__PURE__*/ _jsxDEV(Link, {
+                                            to: `/admin/courses/${course.id}/edit`,
+                                            className: "block",
+                                            children: [
+                                                /*#__PURE__*/ _jsxDEV("div", {
+                                                    className: "relative h-36 bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center",
+                                                    children: [
+                                                        /*#__PURE__*/ _jsxDEV(BookOpen, {
+                                                            className: "h-12 w-12 text-primary/50"
+                                                        }, void 0, false, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                            lineNumber: 376,
+                                                            columnNumber: 23
+                                                        }, this),
+                                                        /*#__PURE__*/ _jsxDEV("div", {
+                                                            className: "absolute top-3 right-3 flex items-center gap-2",
+                                                            children: /*#__PURE__*/ _jsxDEV(Badge, {
+                                                                variant: course.status === "published" ? "default" : "secondary",
+                                                                children: course.status
+                                                            }, void 0, false, {
+                                                                fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                                lineNumber: 378,
+                                                                columnNumber: 25
+                                                            }, this)
+                                                        }, void 0, false, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                            lineNumber: 377,
+                                                            columnNumber: 23
+                                                        }, this)
+                                                    ]
+                                                }, void 0, true, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                    lineNumber: 375,
+                                                    columnNumber: 21
+                                                }, this),
+                                                /*#__PURE__*/ _jsxDEV("div", {
+                                                    className: "p-4 space-y-3",
+                                                    children: [
+                                                        /*#__PURE__*/ _jsxDEV("div", {
+                                                            children: [
+                                                                /*#__PURE__*/ _jsxDEV("h3", {
+                                                                    className: "font-semibold group-hover:text-primary transition-colors line-clamp-1",
+                                                                    children: course.title
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                                    lineNumber: 386,
+                                                                    columnNumber: 25
+                                                                }, this),
+                                                                /*#__PURE__*/ _jsxDEV("p", {
+                                                                    className: "text-sm text-muted-foreground",
+                                                                    children: course.description || "No description"
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                                    lineNumber: 389,
+                                                                    columnNumber: 25
+                                                                }, this)
+                                                            ]
+                                                        }, void 0, true, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                            lineNumber: 385,
+                                                            columnNumber: 23
+                                                        }, this),
+                                                        /*#__PURE__*/ _jsxDEV("div", {
+                                                            className: "text-xs text-muted-foreground pb-2",
+                                                            children: [
+                                                                "Instructor: ",
+                                                                /*#__PURE__*/ _jsxDEV("span", {
+                                                                    className: "text-foreground",
+                                                                    children: course.instructor
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                                    lineNumber: 393,
+                                                                    columnNumber: 37
+                                                                }, this)
+                                                            ]
+                                                        }, void 0, true, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                            lineNumber: 392,
+                                                            columnNumber: 23
+                                                        }, this)
+                                                    ]
+                                                }, void 0, true, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                    lineNumber: 384,
+                                                    columnNumber: 21
+                                                }, this)
+                                            ]
+                                        }, void 0, true, {
+                                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                            lineNumber: 374,
+                                            columnNumber: 19
+                                        }, this),
+                                        /*#__PURE__*/ _jsxDEV("div", {
+                                            className: "flex items-center justify-between pt-2 border-t border-border",
+                                            children: [
+                                                /*#__PURE__*/ _jsxDEV(Link, {
+                                                    to: `/admin/courses/${course.id}/edit`,
+                                                    children: /*#__PURE__*/ _jsxDEV(Button, {
+                                                        variant: "outline",
+                                                        size: "sm",
+                                                        className: "gap-2",
+                                                        children: [
+                                                            /*#__PURE__*/ _jsxDEV(Pencil, {
+                                                                className: "h-4 w-4"
+                                                            }, void 0, false, {
+                                                                fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                                lineNumber: 401,
+                                                                columnNumber: 25
+                                                            }, this),
+                                                            " Edit Content"
+                                                        ]
+                                                    }, void 0, true, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                        lineNumber: 400,
+                                                        columnNumber: 23
+                                                    }, this)
+                                                }, void 0, false, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                    lineNumber: 399,
+                                                    columnNumber: 21
+                                                }, this),
+                                                /*#__PURE__*/ _jsxDEV(DropdownMenu, {
+                                                    children: [
+                                                        /*#__PURE__*/ _jsxDEV(DropdownMenuTrigger, {
+                                                            asChild: true,
+                                                            children: /*#__PURE__*/ _jsxDEV(Button, {
+                                                                variant: "ghost",
+                                                                size: "icon",
+                                                                children: /*#__PURE__*/ _jsxDEV(MoreHorizontal, {
+                                                                    className: "h-4 w-4"
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                                    lineNumber: 407,
+                                                                    columnNumber: 27
+                                                                }, this)
+                                                            }, void 0, false, {
+                                                                fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                                lineNumber: 406,
+                                                                columnNumber: 25
+                                                            }, this)
+                                                        }, void 0, false, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                            lineNumber: 405,
+                                                            columnNumber: 23
+                                                        }, this),
+                                                        /*#__PURE__*/ _jsxDEV(DropdownMenuContent, {
+                                                            align: "end",
+                                                            children: [
+                                                                /*#__PURE__*/ _jsxDEV(DropdownMenuItem, {
+                                                                    className: "gap-2",
+                                                                    asChild: true,
+                                                                    children: /*#__PURE__*/ _jsxDEV(Link, {
+                                                                        to: `/admin/courses/${course.id}/edit?tab=students`,
+                                                                        children: [
+                                                                            /*#__PURE__*/ _jsxDEV(Users, {
+                                                                                className: "h-4 w-4"
+                                                                            }, void 0, false, {
+                                                                                fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                                                lineNumber: 413,
+                                                                                columnNumber: 29
+                                                                            }, this),
+                                                                            " View Enrolled Students"
+                                                                        ]
+                                                                    }, void 0, true, {
+                                                                        fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                                        lineNumber: 412,
+                                                                        columnNumber: 27
+                                                                    }, this)
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                                    lineNumber: 411,
+                                                                    columnNumber: 25
+                                                                }, this),
+                                                                /*#__PURE__*/ _jsxDEV(DropdownMenuSeparator, {}, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                                    lineNumber: 416,
+                                                                    columnNumber: 25
+                                                                }, this),
+                                                                course.status === 'published' ? /*#__PURE__*/ _jsxDEV(DropdownMenuItem, {
+                                                                    className: "gap-2",
+                                                                    onClick: ()=>handleUnpublishCourse(course.id),
+                                                                    children: [
+                                                                        /*#__PURE__*/ _jsxDEV(BookOpen, {
+                                                                            className: "h-4 w-4"
+                                                                        }, void 0, false, {
+                                                                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                                            lineNumber: 419,
+                                                                            columnNumber: 29
+                                                                        }, this),
+                                                                        " Unpublish"
+                                                                    ]
+                                                                }, void 0, true, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                                    lineNumber: 418,
+                                                                    columnNumber: 27
+                                                                }, this) : /*#__PURE__*/ _jsxDEV(_Fragment, {
+                                                                    children: [
+                                                                        /*#__PURE__*/ _jsxDEV(DropdownMenuItem, {
+                                                                            className: "gap-2 text-primary",
+                                                                            onClick: ()=>handlePublishCourse(course.id),
+                                                                            children: [
+                                                                                /*#__PURE__*/ _jsxDEV(BookOpen, {
+                                                                                    className: "h-4 w-4"
+                                                                                }, void 0, false, {
+                                                                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                                                    lineNumber: 424,
+                                                                                    columnNumber: 31
+                                                                                }, this),
+                                                                                " Publish Course"
+                                                                            ]
+                                                                        }, void 0, true, {
+                                                                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                                            lineNumber: 423,
+                                                                            columnNumber: 29
+                                                                        }, this),
+                                                                        /*#__PURE__*/ _jsxDEV(DropdownMenuSeparator, {}, void 0, false, {
+                                                                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                                            lineNumber: 426,
+                                                                            columnNumber: 29
+                                                                        }, this),
+                                                                        /*#__PURE__*/ _jsxDEV(DropdownMenuItem, {
+                                                                            className: "gap-2 text-destructive",
+                                                                            onClick: ()=>handleDeleteCourse(course.id),
+                                                                            children: [
+                                                                                /*#__PURE__*/ _jsxDEV(Trash2, {
+                                                                                    className: "h-4 w-4"
+                                                                                }, void 0, false, {
+                                                                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                                                    lineNumber: 428,
+                                                                                    columnNumber: 31
+                                                                                }, this),
+                                                                                " Delete Permanently"
+                                                                            ]
+                                                                        }, void 0, true, {
+                                                                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                                            lineNumber: 427,
+                                                                            columnNumber: 29
+                                                                        }, this)
+                                                                    ]
+                                                                }, void 0, true)
+                                                            ]
+                                                        }, void 0, true, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                            lineNumber: 410,
+                                                            columnNumber: 23
+                                                        }, this)
+                                                    ]
+                                                }, void 0, true, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                                    lineNumber: 404,
+                                                    columnNumber: 21
+                                                }, this)
+                                            ]
+                                        }, void 0, true, {
+                                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                            lineNumber: 398,
+                                            columnNumber: 19
+                                        }, this)
+                                    ]
+                                }, void 0, true, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                    lineNumber: 373,
+                                    columnNumber: 17
+                                }, this)
+                            }, course.id, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                                lineNumber: 372,
+                                columnNumber: 15
+                            }, this)),
+                        courses.length === 0 && !loading && /*#__PURE__*/ _jsxDEV("div", {
+                            className: "col-span-full text-center py-10 text-muted-foreground",
+                            children: 'No courses found. Click "Add Course" to create one.'
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                            lineNumber: 439,
+                            columnNumber: 15
+                        }, this)
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                    lineNumber: 370,
+                    columnNumber: 11
+                }, this) : /*#__PURE__*/ _jsxDEV(DataTable, {
+                    data: courses,
+                    columns: tableColumns,
+                    searchPlaceholder: "Search courses..."
+                }, void 0, false, {
+                    fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+                    lineNumber: 445,
+                    columnNumber: 11
+                }, this)
+            ]
+        }, void 0, true, {
+            fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+            lineNumber: 263,
+            columnNumber: 7
+        }, this)
+    }, void 0, false, {
+        fileName: "D:/Orbitlms/src/pages/admin/CourseManagement.tsx",
+        lineNumber: 262,
+        columnNumber: 5
+    }, this);
+}
+_s(CourseManagement, "1amyMh0odVFswhjs3SiugRlVOwk=", false, function() {
+    return [
+        useToast,
+        useNavigate
+    ];
+});
+_c = CourseManagement;
+var _c;
+$RefreshReg$(_c, "CourseManagement");
+
+
+if (import.meta.hot && !inWebWorker) {
+  window.$RefreshReg$ = prevRefreshReg;
+  window.$RefreshSig$ = prevRefreshSig;
+}
+
+
+if (import.meta.hot && !inWebWorker) {
+  RefreshRuntime.__hmr_import(import.meta.url).then((currentExports) => {
+    RefreshRuntime.registerExportsForReactRefresh("D:/Orbitlms/src/pages/admin/CourseManagement.tsx", currentExports);
+    import.meta.hot.accept((nextExports) => {
+      if (!nextExports) return;
+      const invalidateMessage = RefreshRuntime.validateRefreshBoundaryAndEnqueueUpdate("D:/Orbitlms/src/pages/admin/CourseManagement.tsx", currentExports, nextExports);
+      if (invalidateMessage) import.meta.hot.invalidate(invalidateMessage);
+    });
+  });
+}
+
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbIkNvdXJzZU1hbmFnZW1lbnQudHN4Il0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7IHVzZVN0YXRlLCB1c2VFZmZlY3QgfSBmcm9tIFwicmVhY3RcIjtcclxuaW1wb3J0IHsgTGluaywgdXNlTmF2aWdhdGUgfSBmcm9tIFwicmVhY3Qtcm91dGVyLWRvbVwiO1xyXG5pbXBvcnQgeyBBZG1pbkxheW91dCB9IGZyb20gXCJAL2NvbXBvbmVudHMvbGF5b3V0L0FkbWluTGF5b3V0XCI7XHJcbmltcG9ydCB7IERhdGFUYWJsZSB9IGZyb20gXCJAL2NvbXBvbmVudHMvdWkvZGF0YS10YWJsZVwiO1xyXG5pbXBvcnQgeyBCdXR0b24gfSBmcm9tIFwiQC9jb21wb25lbnRzL3VpL2J1dHRvblwiO1xyXG5pbXBvcnQgeyBCYWRnZSB9IGZyb20gXCJAL2NvbXBvbmVudHMvdWkvYmFkZ2VcIjtcclxuaW1wb3J0IHsgSW5wdXQgfSBmcm9tIFwiQC9jb21wb25lbnRzL3VpL2lucHV0XCI7XHJcbmltcG9ydCB7IExhYmVsIH0gZnJvbSBcIkAvY29tcG9uZW50cy91aS9sYWJlbFwiO1xyXG5pbXBvcnQgeyBTd2l0Y2ggfSBmcm9tIFwiQC9jb21wb25lbnRzL3VpL3N3aXRjaFwiO1xyXG5pbXBvcnQgeyBUZXh0YXJlYSB9IGZyb20gXCJAL2NvbXBvbmVudHMvdWkvdGV4dGFyZWFcIjtcclxuaW1wb3J0IHsgQ2FyZCwgQ2FyZENvbnRlbnQgfSBmcm9tIFwiQC9jb21wb25lbnRzL3VpL2NhcmRcIjtcclxuaW1wb3J0IHtcclxuICBEaWFsb2csXHJcbiAgRGlhbG9nQ29udGVudCxcclxuICBEaWFsb2dEZXNjcmlwdGlvbixcclxuICBEaWFsb2dGb290ZXIsXHJcbiAgRGlhbG9nSGVhZGVyLFxyXG4gIERpYWxvZ1RpdGxlLFxyXG4gIERpYWxvZ1RyaWdnZXIsXHJcbn0gZnJvbSBcIkAvY29tcG9uZW50cy91aS9kaWFsb2dcIjtcclxuaW1wb3J0IHtcclxuICBEcm9wZG93bk1lbnUsXHJcbiAgRHJvcGRvd25NZW51Q29udGVudCxcclxuICBEcm9wZG93bk1lbnVJdGVtLFxyXG4gIERyb3Bkb3duTWVudVNlcGFyYXRvcixcclxuICBEcm9wZG93bk1lbnVUcmlnZ2VyLFxyXG59IGZyb20gXCJAL2NvbXBvbmVudHMvdWkvZHJvcGRvd24tbWVudVwiO1xyXG5pbXBvcnQge1xyXG4gIFNlbGVjdCxcclxuICBTZWxlY3RDb250ZW50LFxyXG4gIFNlbGVjdEl0ZW0sXHJcbiAgU2VsZWN0VHJpZ2dlcixcclxuICBTZWxlY3RWYWx1ZSxcclxufSBmcm9tIFwiQC9jb21wb25lbnRzL3VpL3NlbGVjdFwiO1xyXG5pbXBvcnQge1xyXG4gIFBsdXMsXHJcbiAgTW9yZUhvcml6b250YWwsXHJcbiAgUGVuY2lsLFxyXG4gIFRyYXNoMixcclxuICBCb29rT3BlbixcclxuICBMYXlvdXRHcmlkLFxyXG4gIExpc3QsXHJcbiAgUmVmcmVzaEN3LFxyXG4gIFVzZXJzXHJcbn0gZnJvbSBcImx1Y2lkZS1yZWFjdFwiO1xyXG5pbXBvcnQgeyB1c2VUb2FzdCB9IGZyb20gXCJAL2hvb2tzL3VzZS10b2FzdFwiO1xyXG5pbXBvcnQgeyBzdXBhYmFzZSB9IGZyb20gXCJAL2xpYi9zdXBhYmFzZVwiO1xyXG5cclxuZXhwb3J0IGRlZmF1bHQgZnVuY3Rpb24gQ291cnNlTWFuYWdlbWVudCgpIHtcclxuICBjb25zdCB7IHRvYXN0IH0gPSB1c2VUb2FzdCgpO1xyXG4gIGNvbnN0IG5hdmlnYXRlID0gdXNlTmF2aWdhdGUoKTtcclxuICBjb25zdCBbdmlld01vZGUsIHNldFZpZXdNb2RlXSA9IHVzZVN0YXRlPFwiZ3JpZFwiIHwgXCJ0YWJsZVwiPihcImdyaWRcIik7XHJcbiAgY29uc3QgW2FkZENvdXJzZU1vZGFsT3Blbiwgc2V0QWRkQ291cnNlTW9kYWxPcGVuXSA9IHVzZVN0YXRlKGZhbHNlKTtcclxuICBjb25zdCBbbG9hZGluZywgc2V0TG9hZGluZ10gPSB1c2VTdGF0ZSh0cnVlKTtcclxuICBjb25zdCBbY291cnNlcywgc2V0Q291cnNlc10gPSB1c2VTdGF0ZTxhbnlbXT4oW10pO1xyXG5cclxuICBjb25zdCBbdGVhY2hlcnMsIHNldFRlYWNoZXJzXSA9IHVzZVN0YXRlPGFueVtdPihbXSk7XHJcblxyXG4gIC8vIEZvcm0gU3RhdGVcclxuICBjb25zdCBbbmV3Q291cnNlLCBzZXROZXdDb3Vyc2VdID0gdXNlU3RhdGUoe1xyXG4gICAgdGl0bGU6IFwiXCIsXHJcbiAgICBkZXNjcmlwdGlvbjogXCJcIixcclxuICAgIGNhdGVnb3J5OiBcIkRldmVsb3BtZW50XCIsXHJcbiAgICB0ZWFjaGVySWQ6IFwidW5hc3NpZ25lZFwiLFxyXG4gICAgdmlzaWJpbGl0eTogdHJ1ZVxyXG4gIH0pO1xyXG5cclxuICB1c2VFZmZlY3QoKCkgPT4ge1xyXG4gICAgZmV0Y2hEYXRhKCk7XHJcbiAgfSwgW10pO1xyXG5cclxuICBjb25zdCBmZXRjaERhdGEgPSBhc3luYyAoKSA9PiB7XHJcbiAgICBzZXRMb2FkaW5nKHRydWUpO1xyXG5cclxuICAgIC8vIDEuIEZldGNoIEFMTCBUZWFjaGVycyAoQWRtaW4gVmlldylcclxuICAgIGNvbnN0IHsgZGF0YTogdGVhY2hlcnNEYXRhIH0gPSBhd2FpdCBzdXBhYmFzZVxyXG4gICAgICAuZnJvbSgndXNlcnMnKVxyXG4gICAgICAuc2VsZWN0KCdpZCwgZnVsbF9uYW1lJylcclxuICAgICAgLmVxKCdyb2xlJywgJ3RlYWNoZXInKTtcclxuXHJcbiAgICBzZXRUZWFjaGVycyh0ZWFjaGVyc0RhdGEgfHwgW10pO1xyXG5cclxuICAgIC8vIDIuIEZldGNoIEFMTCBDb3Vyc2VzIChBZG1pbiBWaWV3KVxyXG4gICAgY29uc3QgeyBkYXRhOiBjb3Vyc2VzRGF0YSwgZXJyb3I6IGNvdXJzZXNFcnJvciB9ID0gYXdhaXQgc3VwYWJhc2VcclxuICAgICAgLmZyb20oJ2NvdXJzZXMnKVxyXG4gICAgICAuc2VsZWN0KGBcclxuICAgICAgICBpZCwgdGl0bGUsIGRlc2NyaXB0aW9uLCBpc19wdWJsaXNoZWQsIGNyZWF0ZWRfYXQsXHJcbiAgICAgICAgdGVhY2hlcjp1c2VycyF0ZWFjaGVyX2lkKGZ1bGxfbmFtZSlcclxuICAgICAgYClcclxuICAgICAgLm9yZGVyKCdjcmVhdGVkX2F0JywgeyBhc2NlbmRpbmc6IGZhbHNlIH0pO1xyXG5cclxuICAgIGlmIChjb3Vyc2VzRXJyb3IpIHtcclxuICAgICAgY29uc29sZS5lcnJvcihjb3Vyc2VzRXJyb3IpO1xyXG4gICAgICB0b2FzdCh7IHZhcmlhbnQ6IFwiZGVzdHJ1Y3RpdmVcIiwgdGl0bGU6IFwiRmFpbGVkIHRvIGxvYWQgY291cnNlc1wiIH0pO1xyXG4gICAgfSBlbHNlIHtcclxuICAgICAgLy8gVHJhbnNmb3JtIGRhdGEgZm9yIFVJXHJcbiAgICAgIGNvbnN0IGZvcm1hdHRlZCA9IChjb3Vyc2VzRGF0YSBhcyBhbnlbXSB8fCBbXSkubWFwKChjOiBhbnkpID0+ICh7XHJcbiAgICAgICAgaWQ6IGMuaWQsXHJcbiAgICAgICAgdGl0bGU6IGMudGl0bGUsXHJcbiAgICAgICAgZGVzY3JpcHRpb246IGMuZGVzY3JpcHRpb24sXHJcbiAgICAgICAgaW5zdHJ1Y3RvcjogYy50ZWFjaGVyPy5mdWxsX25hbWUgfHwgXCJVbmFzc2lnbmVkXCIsXHJcbiAgICAgICAgY2F0ZWdvcnk6IFwiR2VuZXJhbFwiLFxyXG4gICAgICAgIHN0dWRlbnRzOiAwLFxyXG4gICAgICAgIGxlc3NvbnM6IDAsXHJcbiAgICAgICAgY29tcGxldGlvbjogMCxcclxuICAgICAgICBzdGF0dXM6IGMuaXNfcHVibGlzaGVkID8gXCJwdWJsaXNoZWRcIiA6IFwiZHJhZnRcIixcclxuICAgICAgICB2aXNpYmlsaXR5OiBjLmlzX3B1Ymxpc2hlZCxcclxuICAgICAgICBjcmVhdGVkX2F0OiBjLmNyZWF0ZWRfYXRcclxuICAgICAgfSkpO1xyXG4gICAgICBzZXRDb3Vyc2VzKGZvcm1hdHRlZCk7XHJcbiAgICB9XHJcbiAgICBzZXRMb2FkaW5nKGZhbHNlKTtcclxuICB9O1xyXG5cclxuICBjb25zdCBoYW5kbGVDcmVhdGVDb3Vyc2UgPSBhc3luYyAoKSA9PiB7XHJcbiAgICBpZiAoIW5ld0NvdXJzZS50aXRsZSkgcmV0dXJuO1xyXG5cclxuICAgIHRyeSB7XHJcbiAgICAgIGNvbnN0IHBheWxvYWQ6IGFueSA9IHtcclxuICAgICAgICB0aXRsZTogbmV3Q291cnNlLnRpdGxlLFxyXG4gICAgICAgIGRlc2NyaXB0aW9uOiBuZXdDb3Vyc2UuZGVzY3JpcHRpb24sXHJcbiAgICAgICAgaXNfcHVibGlzaGVkOiBuZXdDb3Vyc2UudmlzaWJpbGl0eSxcclxuICAgICAgICAvLyBpbnN0aXR1dGVfaWQgcmVtb3ZlZFxyXG4gICAgICB9O1xyXG5cclxuICAgICAgaWYgKG5ld0NvdXJzZS50ZWFjaGVySWQgJiYgbmV3Q291cnNlLnRlYWNoZXJJZCAhPT0gXCJ1bmFzc2lnbmVkXCIpIHtcclxuICAgICAgICBwYXlsb2FkLnRlYWNoZXJfaWQgPSBuZXdDb3Vyc2UudGVhY2hlcklkO1xyXG4gICAgICB9XHJcblxyXG4gICAgICBjb25zdCB7IGRhdGEsIGVycm9yIH0gPSBhd2FpdCBzdXBhYmFzZVxyXG4gICAgICAgIC5mcm9tKCdjb3Vyc2VzJylcclxuICAgICAgICAuaW5zZXJ0KFtwYXlsb2FkXSlcclxuICAgICAgICAuc2VsZWN0KCdpZCcpXHJcbiAgICAgICAgLnNpbmdsZSgpO1xyXG5cclxuICAgICAgaWYgKGVycm9yKSB0aHJvdyBlcnJvcjtcclxuXHJcbiAgICAgIHRvYXN0KHsgdGl0bGU6IFwiQ291cnNlIGNyZWF0ZWQgc3VjY2Vzc2Z1bGx5XCIgfSk7XHJcbiAgICAgIHNldEFkZENvdXJzZU1vZGFsT3BlbihmYWxzZSk7XHJcblxyXG4gICAgICAvLyBSZWRpcmVjdCB0byBidWlsZGVyXHJcbiAgICAgIG5hdmlnYXRlKGAvYWRtaW4vY291cnNlcy8ke2RhdGEuaWR9L2VkaXRgKTtcclxuXHJcbiAgICB9IGNhdGNoIChlcnI6IGFueSkge1xyXG4gICAgICBjb25zb2xlLmVycm9yKGVycik7XHJcbiAgICAgIHRvYXN0KHsgdmFyaWFudDogXCJkZXN0cnVjdGl2ZVwiLCB0aXRsZTogXCJFcnJvclwiLCBkZXNjcmlwdGlvbjogZXJyLm1lc3NhZ2UgfSk7XHJcbiAgICB9XHJcbiAgfTtcclxuXHJcbiAgY29uc3QgaGFuZGxlRGVsZXRlQ291cnNlID0gYXN5bmMgKGlkOiBzdHJpbmcpID0+IHtcclxuICAgIGNvbnN0IGNvdXJzZSA9IGNvdXJzZXMuZmluZChjID0+IGMuaWQgPT09IGlkKTtcclxuICAgIGlmIChjb3Vyc2UgJiYgY291cnNlLnN0YXR1cyA9PT0gXCJwdWJsaXNoZWRcIikge1xyXG4gICAgICB0b2FzdCh7IFxyXG4gICAgICAgIHZhcmlhbnQ6IFwiZGVzdHJ1Y3RpdmVcIiwgXHJcbiAgICAgICAgdGl0bGU6IFwiQWN0aW9uIEJsb2NrZWRcIiwgXHJcbiAgICAgICAgZGVzY3JpcHRpb246IFwiWW91IGNhbiBvbmx5IGRlbGV0ZSBkcmFmdCBjb3Vyc2VzLiBQbGVhc2UgdW5wdWJsaXNoIHRoZSBjb3Vyc2UgZmlyc3QuXCIgXHJcbiAgICAgIH0pO1xyXG4gICAgICByZXR1cm47XHJcbiAgICB9XHJcblxyXG4gICAgaWYgKCFjb25maXJtKFwiQXJlIHlvdSBzdXJlIHlvdSB3YW50IHRvIHBlcm1hbmVudGx5IGRlbGV0ZSB0aGlzIGRyYWZ0IGNvdXJzZT9cIikpIHJldHVybjtcclxuICAgIGNvbnN0IHsgZXJyb3IgfSA9IGF3YWl0IHN1cGFiYXNlLmZyb20oJ2NvdXJzZXMnKS5kZWxldGUoKS5lcSgnaWQnLCBpZCk7XHJcbiAgICBpZiAoZXJyb3IpIHtcclxuICAgICAgdG9hc3QoeyB2YXJpYW50OiBcImRlc3RydWN0aXZlXCIsIHRpdGxlOiBcIkVycm9yXCIsIGRlc2NyaXB0aW9uOiBlcnJvci5tZXNzYWdlIH0pO1xyXG4gICAgfSBlbHNlIHtcclxuICAgICAgdG9hc3QoeyB0aXRsZTogXCJEZWxldGVkIFBlcm1hbmVudGx5XCIgfSk7XHJcbiAgICAgIGZldGNoRGF0YSgpO1xyXG4gICAgfVxyXG4gIH07XHJcblxyXG4gIGNvbnN0IGhhbmRsZVVucHVibGlzaENvdXJzZSA9IGFzeW5jIChpZDogc3RyaW5nKSA9PiB7XHJcbiAgICBjb25zdCB7IGVycm9yIH0gPSBhd2FpdCBzdXBhYmFzZS5mcm9tKCdjb3Vyc2VzJykudXBkYXRlKHsgaXNfcHVibGlzaGVkOiBmYWxzZSB9KS5lcSgnaWQnLCBpZCk7XHJcbiAgICBpZiAoZXJyb3IpIHtcclxuICAgICAgdG9hc3QoeyB2YXJpYW50OiBcImRlc3RydWN0aXZlXCIsIHRpdGxlOiBcIkVycm9yXCIsIGRlc2NyaXB0aW9uOiBlcnJvci5tZXNzYWdlIH0pO1xyXG4gICAgfSBlbHNlIHtcclxuICAgICAgdG9hc3QoeyB0aXRsZTogXCJDb3Vyc2Ugc2F2ZWQgYXMgRHJhZnRcIiB9KTtcclxuICAgICAgZmV0Y2hEYXRhKCk7XHJcbiAgICB9XHJcbiAgfTtcclxuXHJcbiAgY29uc3QgaGFuZGxlUHVibGlzaENvdXJzZSA9IGFzeW5jIChpZDogc3RyaW5nKSA9PiB7XHJcbiAgICBjb25zdCB7IGVycm9yIH0gPSBhd2FpdCBzdXBhYmFzZS5mcm9tKCdjb3Vyc2VzJykudXBkYXRlKHsgaXNfcHVibGlzaGVkOiB0cnVlIH0pLmVxKCdpZCcsIGlkKTtcclxuICAgIGlmIChlcnJvcikge1xyXG4gICAgICB0b2FzdCh7IHZhcmlhbnQ6IFwiZGVzdHJ1Y3RpdmVcIiwgdGl0bGU6IFwiRXJyb3JcIiwgZGVzY3JpcHRpb246IGVycm9yLm1lc3NhZ2UgfSk7XHJcbiAgICB9IGVsc2Uge1xyXG4gICAgICB0b2FzdCh7IHRpdGxlOiBcIkNvdXJzZSBQdWJsaXNoZWRcIiB9KTtcclxuICAgICAgZmV0Y2hEYXRhKCk7XHJcbiAgICB9XHJcbiAgfTtcclxuXHJcbiAgY29uc3QgdGFibGVDb2x1bW5zID0gW1xyXG4gICAge1xyXG4gICAgICBrZXk6IFwidGl0bGVcIixcclxuICAgICAgaGVhZGVyOiBcIkNvdXJzZVwiLFxyXG4gICAgICBjZWxsOiAocm93OiBhbnkpID0+IChcclxuICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImZsZXggaXRlbXMtY2VudGVyIGdhcC0zXCI+XHJcbiAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInctMTIgaC0xMiByb3VuZGVkLWxnIGJnLWdyYWRpZW50LXRvLWJyIGZyb20tcHJpbWFyeS8yMCB0by1hY2NlbnQvMjAgZmxleCBpdGVtcy1jZW50ZXIganVzdGlmeS1jZW50ZXIgc2hyaW5rLTBcIj5cclxuICAgICAgICAgICAgPEJvb2tPcGVuIGNsYXNzTmFtZT1cImgtNSB3LTUgdGV4dC1wcmltYXJ5XCIgLz5cclxuICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgPGRpdj5cclxuICAgICAgICAgICAgPHAgY2xhc3NOYW1lPVwiZm9udC1tZWRpdW1cIj57cm93LnRpdGxlfTwvcD5cclxuICAgICAgICAgICAgPHAgY2xhc3NOYW1lPVwidGV4dC14cyB0ZXh0LW11dGVkLWZvcmVncm91bmRcIj57cm93Lmluc3RydWN0b3J9PC9wPlxyXG4gICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgPC9kaXY+XHJcbiAgICAgICksXHJcbiAgICB9LFxyXG4gICAge1xyXG4gICAgICBrZXk6IFwic3RhdHVzXCIsXHJcbiAgICAgIGhlYWRlcjogXCJTdGF0dXNcIixcclxuICAgICAgY2VsbDogKHJvdzogYW55KSA9PiAoXHJcbiAgICAgICAgPEJhZGdlIHZhcmlhbnQ9e3Jvdy5zdGF0dXMgPT09IFwicHVibGlzaGVkXCIgPyBcImRlZmF1bHRcIiA6IFwic2Vjb25kYXJ5XCJ9PlxyXG4gICAgICAgICAge3Jvdy5zdGF0dXN9XHJcbiAgICAgICAgPC9CYWRnZT5cclxuICAgICAgKSxcclxuICAgIH0sXHJcbiAgICB7XHJcbiAgICAgIGtleTogXCJhY3Rpb25zXCIsXHJcbiAgICAgIGhlYWRlcjogXCJcIixcclxuICAgICAgY2VsbDogKHJvdzogYW55KSA9PiAoXHJcbiAgICAgICAgPERyb3Bkb3duTWVudT5cclxuICAgICAgICAgIDxEcm9wZG93bk1lbnVUcmlnZ2VyIGFzQ2hpbGQ+XHJcbiAgICAgICAgICAgIDxCdXR0b24gdmFyaWFudD1cImdob3N0XCIgc2l6ZT1cImljb25cIj5cclxuICAgICAgICAgICAgICA8TW9yZUhvcml6b250YWwgY2xhc3NOYW1lPVwiaC00IHctNFwiIC8+XHJcbiAgICAgICAgICAgIDwvQnV0dG9uPlxyXG4gICAgICAgICAgPC9Ecm9wZG93bk1lbnVUcmlnZ2VyPlxyXG4gICAgICAgICAgPERyb3Bkb3duTWVudUNvbnRlbnQgYWxpZ249XCJlbmRcIj5cclxuICAgICAgICAgICAgPERyb3Bkb3duTWVudUl0ZW0gY2xhc3NOYW1lPVwiZ2FwLTJcIiBhc0NoaWxkPlxyXG4gICAgICAgICAgICAgIDxMaW5rIHRvPXtgL2FkbWluL2NvdXJzZXMvJHtyb3cuaWR9L2VkaXRgfT5cclxuICAgICAgICAgICAgICAgIDxQZW5jaWwgY2xhc3NOYW1lPVwiaC00IHctNFwiIC8+IEVkaXQgQ29udGVudFxyXG4gICAgICAgICAgICAgIDwvTGluaz5cclxuICAgICAgICAgICAgPC9Ecm9wZG93bk1lbnVJdGVtPlxyXG4gICAgICAgICAgICA8RHJvcGRvd25NZW51U2VwYXJhdG9yIC8+XHJcbiAgICAgICAgICAgIDxEcm9wZG93bk1lbnVJdGVtIGNsYXNzTmFtZT1cImdhcC0yXCIgYXNDaGlsZD5cclxuICAgICAgICAgICAgICA8TGluayB0bz17YC9hZG1pbi9jb3Vyc2VzLyR7cm93LmlkfS9lZGl0P3RhYj1zdHVkZW50c2B9PlxyXG4gICAgICAgICAgICAgICAgPFVzZXJzIGNsYXNzTmFtZT1cImgtNCB3LTRcIiAvPiBWaWV3IEVucm9sbGVkIFN0dWRlbnRzXHJcbiAgICAgICAgICAgICAgPC9MaW5rPlxyXG4gICAgICAgICAgICA8L0Ryb3Bkb3duTWVudUl0ZW0+XHJcbiAgICAgICAgICAgIDxEcm9wZG93bk1lbnVTZXBhcmF0b3IgLz5cclxuICAgICAgICAgICAge3Jvdy5zdGF0dXMgPT09ICdwdWJsaXNoZWQnID8gKFxyXG4gICAgICAgICAgICAgIDxEcm9wZG93bk1lbnVJdGVtIGNsYXNzTmFtZT1cImdhcC0yXCIgb25DbGljaz17KCkgPT4gaGFuZGxlVW5wdWJsaXNoQ291cnNlKHJvdy5pZCl9PlxyXG4gICAgICAgICAgICAgICAgPEJvb2tPcGVuIGNsYXNzTmFtZT1cImgtNCB3LTRcIiAvPiBVbnB1Ymxpc2hcclxuICAgICAgICAgICAgICA8L0Ryb3Bkb3duTWVudUl0ZW0+XHJcbiAgICAgICAgICAgICkgOiAoXHJcbiAgICAgICAgICAgICAgPD5cclxuICAgICAgICAgICAgICAgIDxEcm9wZG93bk1lbnVJdGVtIGNsYXNzTmFtZT1cImdhcC0yIHRleHQtcHJpbWFyeVwiIG9uQ2xpY2s9eygpID0+IGhhbmRsZVB1Ymxpc2hDb3Vyc2Uocm93LmlkKX0+XHJcbiAgICAgICAgICAgICAgICAgIDxCb29rT3BlbiBjbGFzc05hbWU9XCJoLTQgdy00XCIgLz4gUHVibGlzaCBDb3Vyc2VcclxuICAgICAgICAgICAgICAgIDwvRHJvcGRvd25NZW51SXRlbT5cclxuICAgICAgICAgICAgICAgIDxEcm9wZG93bk1lbnVTZXBhcmF0b3IgLz5cclxuICAgICAgICAgICAgICAgIDxEcm9wZG93bk1lbnVJdGVtIGNsYXNzTmFtZT1cImdhcC0yIHRleHQtZGVzdHJ1Y3RpdmVcIiBvbkNsaWNrPXsoKSA9PiBoYW5kbGVEZWxldGVDb3Vyc2Uocm93LmlkKX0+XHJcbiAgICAgICAgICAgICAgICAgIDxUcmFzaDIgY2xhc3NOYW1lPVwiaC00IHctNFwiIC8+IERlbGV0ZSBQZXJtYW5lbnRseVxyXG4gICAgICAgICAgICAgICAgPC9Ecm9wZG93bk1lbnVJdGVtPlxyXG4gICAgICAgICAgICAgIDwvPlxyXG4gICAgICAgICAgICApfVxyXG4gICAgICAgICAgPC9Ecm9wZG93bk1lbnVDb250ZW50PlxyXG4gICAgICAgIDwvRHJvcGRvd25NZW51PlxyXG4gICAgICApLFxyXG4gICAgICBjbGFzc05hbWU6IFwidy0xMlwiLFxyXG4gICAgfSxcclxuICBdO1xyXG5cclxuICByZXR1cm4gKFxyXG4gICAgPEFkbWluTGF5b3V0PlxyXG4gICAgICA8ZGl2IGNsYXNzTmFtZT1cInNwYWNlLXktNiBhbmltYXRlLWZhZGUtaW5cIj5cclxuICAgICAgICB7LyogSGVhZGVyICovfVxyXG4gICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZmxleCBmbGV4LWNvbCBnYXAtNCBtZDpmbGV4LXJvdyBtZDppdGVtcy1jZW50ZXIgbWQ6anVzdGlmeS1iZXR3ZWVuXCI+XHJcbiAgICAgICAgICA8ZGl2PlxyXG4gICAgICAgICAgICA8aDEgY2xhc3NOYW1lPVwidGV4dC0yeGwgbGc6dGV4dC0zeGwgZm9udC1kaXNwbGF5IGZvbnQtYm9sZCB0ZXh0LWZvcmVncm91bmRcIj5cclxuICAgICAgICAgICAgICBDb3Vyc2UgTWFuYWdlbWVudFxyXG4gICAgICAgICAgICA8L2gxPlxyXG4gICAgICAgICAgICA8cCBjbGFzc05hbWU9XCJ0ZXh0LW11dGVkLWZvcmVncm91bmQgbXQtMVwiPlxyXG4gICAgICAgICAgICAgIENyZWF0ZSBhbmQgYXNzaWduIGNvdXJzZXMuXHJcbiAgICAgICAgICAgIDwvcD5cclxuICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJmbGV4IGJnLW11dGVkIHAtMSByb3VuZGVkLWxnIGdhcC0yXCI+XHJcbiAgICAgICAgICAgIDxCdXR0b24gdmFyaWFudD1cIm91dGxpbmVcIiBzaXplPVwic21cIiBvbkNsaWNrPXtmZXRjaERhdGF9IGNsYXNzTmFtZT1cImJvcmRlci0wIGJnLXRyYW5zcGFyZW50XCI+XHJcbiAgICAgICAgICAgICAgPFJlZnJlc2hDdyBjbGFzc05hbWU9e2BoLTQgdy00ICR7bG9hZGluZyA/ICdhbmltYXRlLXNwaW4nIDogJyd9YH0gLz5cclxuICAgICAgICAgICAgPC9CdXR0b24+XHJcbiAgICAgICAgICAgIDxEaWFsb2cgb3Blbj17YWRkQ291cnNlTW9kYWxPcGVufSBvbk9wZW5DaGFuZ2U9e3NldEFkZENvdXJzZU1vZGFsT3Blbn0+XHJcbiAgICAgICAgICAgICAgPERpYWxvZ1RyaWdnZXIgYXNDaGlsZD5cclxuICAgICAgICAgICAgICAgIDxCdXR0b24gY2xhc3NOYW1lPVwiZ2FwLTJcIj5cclxuICAgICAgICAgICAgICAgICAgPFBsdXMgY2xhc3NOYW1lPVwiaC00IHctNFwiIC8+XHJcbiAgICAgICAgICAgICAgICAgIEFkZCBDb3Vyc2VcclxuICAgICAgICAgICAgICAgIDwvQnV0dG9uPlxyXG4gICAgICAgICAgICAgIDwvRGlhbG9nVHJpZ2dlcj5cclxuICAgICAgICAgICAgICA8RGlhbG9nQ29udGVudCBjbGFzc05hbWU9XCJzbTptYXgtdy1sZ1wiPlxyXG4gICAgICAgICAgICAgICAgPERpYWxvZ0hlYWRlcj5cclxuICAgICAgICAgICAgICAgICAgPERpYWxvZ1RpdGxlPkNyZWF0ZSBOZXcgQ291cnNlPC9EaWFsb2dUaXRsZT5cclxuICAgICAgICAgICAgICAgICAgPERpYWxvZ0Rlc2NyaXB0aW9uPlxyXG4gICAgICAgICAgICAgICAgICAgIEZpbGwgaW4gdGhlIGRldGFpbHMuIFlvdSBjYW4gYWRkIG1vZHVsZXMgYW5kIGNvbnRlbnQgaW4gdGhlIG5leHQgc3RlcC5cclxuICAgICAgICAgICAgICAgICAgPC9EaWFsb2dEZXNjcmlwdGlvbj5cclxuICAgICAgICAgICAgICAgIDwvRGlhbG9nSGVhZGVyPlxyXG5cclxuICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwic3BhY2UteS00IHB5LTRcIj5cclxuICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJzcGFjZS15LTJcIj5cclxuICAgICAgICAgICAgICAgICAgICA8TGFiZWw+Q291cnNlIFRpdGxlPC9MYWJlbD5cclxuICAgICAgICAgICAgICAgICAgICA8SW5wdXRcclxuICAgICAgICAgICAgICAgICAgICAgIHZhbHVlPXtuZXdDb3Vyc2UudGl0bGV9XHJcbiAgICAgICAgICAgICAgICAgICAgICBvbkNoYW5nZT17KGUpID0+IHNldE5ld0NvdXJzZSh7IC4uLm5ld0NvdXJzZSwgdGl0bGU6IGUudGFyZ2V0LnZhbHVlIH0pfVxyXG4gICAgICAgICAgICAgICAgICAgICAgcGxhY2Vob2xkZXI9XCJlLmcuIEFkdmFuY2VkIE1hdGhlbWF0aWNzXCJcclxuICAgICAgICAgICAgICAgICAgICAvPlxyXG4gICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJzcGFjZS15LTJcIj5cclxuICAgICAgICAgICAgICAgICAgICA8TGFiZWw+RGVzY3JpcHRpb248L0xhYmVsPlxyXG4gICAgICAgICAgICAgICAgICAgIDxUZXh0YXJlYVxyXG4gICAgICAgICAgICAgICAgICAgICAgdmFsdWU9e25ld0NvdXJzZS5kZXNjcmlwdGlvbn1cclxuICAgICAgICAgICAgICAgICAgICAgIG9uQ2hhbmdlPXsoZSkgPT4gc2V0TmV3Q291cnNlKHsgLi4ubmV3Q291cnNlLCBkZXNjcmlwdGlvbjogZS50YXJnZXQudmFsdWUgfSl9XHJcbiAgICAgICAgICAgICAgICAgICAgICBwbGFjZWhvbGRlcj1cIlNob3J0IGRlc2NyaXB0aW9uLi4uXCJcclxuICAgICAgICAgICAgICAgICAgICAvPlxyXG4gICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuXHJcbiAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwic3BhY2UteS0yXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgPExhYmVsPkFzc2lnbiBUZWFjaGVyIChPcHRpb25hbCk8L0xhYmVsPlxyXG4gICAgICAgICAgICAgICAgICAgIDxTZWxlY3RcclxuICAgICAgICAgICAgICAgICAgICAgIHZhbHVlPXtuZXdDb3Vyc2UudGVhY2hlcklkfVxyXG4gICAgICAgICAgICAgICAgICAgICAgb25WYWx1ZUNoYW5nZT17KHZhbCkgPT4gc2V0TmV3Q291cnNlKHsgLi4ubmV3Q291cnNlLCB0ZWFjaGVySWQ6IHZhbCB9KX1cclxuICAgICAgICAgICAgICAgICAgICA+XHJcbiAgICAgICAgICAgICAgICAgICAgICA8U2VsZWN0VHJpZ2dlcj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgPFNlbGVjdFZhbHVlIHBsYWNlaG9sZGVyPVwiU2VsZWN0IHRlYWNoZXJcIiAvPlxyXG4gICAgICAgICAgICAgICAgICAgICAgPC9TZWxlY3RUcmlnZ2VyPlxyXG4gICAgICAgICAgICAgICAgICAgICAgPFNlbGVjdENvbnRlbnQ+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgIDxTZWxlY3RJdGVtIHZhbHVlPVwidW5hc3NpZ25lZFwiPlVuYXNzaWduZWQ8L1NlbGVjdEl0ZW0+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgIHt0ZWFjaGVycy5tYXAoKHQpID0+IChcclxuICAgICAgICAgICAgICAgICAgICAgICAgICA8U2VsZWN0SXRlbSBrZXk9e3QuaWR9IHZhbHVlPXt0LmlkfT5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIHt0LmZ1bGxfbmFtZX1cclxuICAgICAgICAgICAgICAgICAgICAgICAgICA8L1NlbGVjdEl0ZW0+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICkpfVxyXG4gICAgICAgICAgICAgICAgICAgICAgPC9TZWxlY3RDb250ZW50PlxyXG4gICAgICAgICAgICAgICAgICAgIDwvU2VsZWN0PlxyXG4gICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJmbGV4IGl0ZW1zLWNlbnRlciBnYXAtMiBwdC0yXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgPFN3aXRjaFxyXG4gICAgICAgICAgICAgICAgICAgICAgY2hlY2tlZD17bmV3Q291cnNlLnZpc2liaWxpdHl9XHJcbiAgICAgICAgICAgICAgICAgICAgICBvbkNoZWNrZWRDaGFuZ2U9eyhjKSA9PiBzZXROZXdDb3Vyc2UoeyAuLi5uZXdDb3Vyc2UsIHZpc2liaWxpdHk6IGMgfSl9XHJcbiAgICAgICAgICAgICAgICAgICAgLz5cclxuICAgICAgICAgICAgICAgICAgICA8TGFiZWw+VmlzaWJsZSB0byBzdHVkZW50cyAoUHVibGlzaGVkKTwvTGFiZWw+XHJcbiAgICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgPC9kaXY+XHJcblxyXG4gICAgICAgICAgICAgICAgPERpYWxvZ0Zvb3Rlcj5cclxuICAgICAgICAgICAgICAgICAgPEJ1dHRvbiB2YXJpYW50PVwib3V0bGluZVwiIG9uQ2xpY2s9eygpID0+IHNldEFkZENvdXJzZU1vZGFsT3BlbihmYWxzZSl9PlxyXG4gICAgICAgICAgICAgICAgICAgIENhbmNlbFxyXG4gICAgICAgICAgICAgICAgICA8L0J1dHRvbj5cclxuICAgICAgICAgICAgICAgICAgPEJ1dHRvbiBvbkNsaWNrPXtoYW5kbGVDcmVhdGVDb3Vyc2V9PkNyZWF0ZSAmIEJ1aWxkPC9CdXR0b24+XHJcbiAgICAgICAgICAgICAgICA8L0RpYWxvZ0Zvb3Rlcj5cclxuICAgICAgICAgICAgICA8L0RpYWxvZ0NvbnRlbnQ+XHJcbiAgICAgICAgICAgIDwvRGlhbG9nPlxyXG4gICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgPC9kaXY+XHJcblxyXG4gICAgICAgIHsvKiBWaWV3IFRvZ2dsZSAqL31cclxuICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImZsZXgganVzdGlmeS1lbmQgZ2FwLTJcIj5cclxuICAgICAgICAgIDxCdXR0b25cclxuICAgICAgICAgICAgdmFyaWFudD17dmlld01vZGUgPT09IFwiZ3JpZFwiID8gXCJzZWNvbmRhcnlcIiA6IFwiZ2hvc3RcIn1cclxuICAgICAgICAgICAgc2l6ZT1cInNtXCJcclxuICAgICAgICAgICAgb25DbGljaz17KCkgPT4gc2V0Vmlld01vZGUoXCJncmlkXCIpfVxyXG4gICAgICAgICAgPlxyXG4gICAgICAgICAgICA8TGF5b3V0R3JpZCBjbGFzc05hbWU9XCJoLTQgdy00XCIgLz5cclxuICAgICAgICAgIDwvQnV0dG9uPlxyXG4gICAgICAgICAgPEJ1dHRvblxyXG4gICAgICAgICAgICB2YXJpYW50PXt2aWV3TW9kZSA9PT0gXCJ0YWJsZVwiID8gXCJzZWNvbmRhcnlcIiA6IFwiZ2hvc3RcIn1cclxuICAgICAgICAgICAgc2l6ZT1cInNtXCJcclxuICAgICAgICAgICAgb25DbGljaz17KCkgPT4gc2V0Vmlld01vZGUoXCJ0YWJsZVwiKX1cclxuICAgICAgICAgID5cclxuICAgICAgICAgICAgPExpc3QgY2xhc3NOYW1lPVwiaC00IHctNFwiIC8+XHJcbiAgICAgICAgICA8L0J1dHRvbj5cclxuICAgICAgICA8L2Rpdj5cclxuXHJcbiAgICAgICAgey8qIENvbnRlbnQgKi99XHJcbiAgICAgICAge3ZpZXdNb2RlID09PSBcImdyaWRcIiA/IChcclxuICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZ3JpZCBnYXAtNCBzbTpncmlkLWNvbHMtMiBsZzpncmlkLWNvbHMtM1wiPlxyXG4gICAgICAgICAgICB7Y291cnNlcy5tYXAoKGNvdXJzZSkgPT4gKFxyXG4gICAgICAgICAgICAgIDxDYXJkIGtleT17Y291cnNlLmlkfSBjbGFzc05hbWU9XCJncm91cCBob3ZlcjpzaGFkb3ctbGcgdHJhbnNpdGlvbi1hbGwgZHVyYXRpb24tMjAwXCI+XHJcbiAgICAgICAgICAgICAgICA8Q2FyZENvbnRlbnQgY2xhc3NOYW1lPVwicC0wXCI+XHJcbiAgICAgICAgICAgICAgICAgIDxMaW5rIHRvPXtgL2FkbWluL2NvdXJzZXMvJHtjb3Vyc2UuaWR9L2VkaXRgfSBjbGFzc05hbWU9XCJibG9ja1wiPlxyXG4gICAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwicmVsYXRpdmUgaC0zNiBiZy1ncmFkaWVudC10by1iciBmcm9tLXByaW1hcnkvMjAgdG8tYWNjZW50LzIwIGZsZXggaXRlbXMtY2VudGVyIGp1c3RpZnktY2VudGVyXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICA8Qm9va09wZW4gY2xhc3NOYW1lPVwiaC0xMiB3LTEyIHRleHQtcHJpbWFyeS81MFwiIC8+XHJcbiAgICAgICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImFic29sdXRlIHRvcC0zIHJpZ2h0LTMgZmxleCBpdGVtcy1jZW50ZXIgZ2FwLTJcIj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgPEJhZGdlIHZhcmlhbnQ9e2NvdXJzZS5zdGF0dXMgPT09IFwicHVibGlzaGVkXCIgPyBcImRlZmF1bHRcIiA6IFwic2Vjb25kYXJ5XCJ9PlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgIHtjb3Vyc2Uuc3RhdHVzfVxyXG4gICAgICAgICAgICAgICAgICAgICAgICA8L0JhZGdlPlxyXG4gICAgICAgICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgICAgICAgPC9kaXY+XHJcblxyXG4gICAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwicC00IHNwYWNlLXktM1wiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgPGRpdj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgPGgzIGNsYXNzTmFtZT1cImZvbnQtc2VtaWJvbGQgZ3JvdXAtaG92ZXI6dGV4dC1wcmltYXJ5IHRyYW5zaXRpb24tY29sb3JzIGxpbmUtY2xhbXAtMVwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgIHtjb3Vyc2UudGl0bGV9XHJcbiAgICAgICAgICAgICAgICAgICAgICAgIDwvaDM+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgIDxwIGNsYXNzTmFtZT1cInRleHQtc20gdGV4dC1tdXRlZC1mb3JlZ3JvdW5kXCI+e2NvdXJzZS5kZXNjcmlwdGlvbiB8fCBcIk5vIGRlc2NyaXB0aW9uXCJ9PC9wPlxyXG4gICAgICAgICAgICAgICAgICAgICAgPC9kaXY+XHJcblxyXG4gICAgICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJ0ZXh0LXhzIHRleHQtbXV0ZWQtZm9yZWdyb3VuZCBwYi0yXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgIEluc3RydWN0b3I6IDxzcGFuIGNsYXNzTmFtZT1cInRleHQtZm9yZWdyb3VuZFwiPntjb3Vyc2UuaW5zdHJ1Y3Rvcn08L3NwYW4+XHJcbiAgICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgICAgPC9MaW5rPlxyXG5cclxuICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJmbGV4IGl0ZW1zLWNlbnRlciBqdXN0aWZ5LWJldHdlZW4gcHQtMiBib3JkZXItdCBib3JkZXItYm9yZGVyXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgPExpbmsgdG89e2AvYWRtaW4vY291cnNlcy8ke2NvdXJzZS5pZH0vZWRpdGB9PlxyXG4gICAgICAgICAgICAgICAgICAgICAgPEJ1dHRvbiB2YXJpYW50PVwib3V0bGluZVwiIHNpemU9XCJzbVwiIGNsYXNzTmFtZT1cImdhcC0yXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgIDxQZW5jaWwgY2xhc3NOYW1lPVwiaC00IHctNFwiIC8+IEVkaXQgQ29udGVudFxyXG4gICAgICAgICAgICAgICAgICAgICAgPC9CdXR0b24+XHJcbiAgICAgICAgICAgICAgICAgICAgPC9MaW5rPlxyXG4gICAgICAgICAgICAgICAgICAgIDxEcm9wZG93bk1lbnU+XHJcbiAgICAgICAgICAgICAgICAgICAgICA8RHJvcGRvd25NZW51VHJpZ2dlciBhc0NoaWxkPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICA8QnV0dG9uIHZhcmlhbnQ9XCJnaG9zdFwiIHNpemU9XCJpY29uXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgPE1vcmVIb3Jpem9udGFsIGNsYXNzTmFtZT1cImgtNCB3LTRcIiAvPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICA8L0J1dHRvbj5cclxuICAgICAgICAgICAgICAgICAgICAgIDwvRHJvcGRvd25NZW51VHJpZ2dlcj5cclxuICAgICAgICAgICAgICAgICAgICAgIDxEcm9wZG93bk1lbnVDb250ZW50IGFsaWduPVwiZW5kXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgIDxEcm9wZG93bk1lbnVJdGVtIGNsYXNzTmFtZT1cImdhcC0yXCIgYXNDaGlsZD5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICA8TGluayB0bz17YC9hZG1pbi9jb3Vyc2VzLyR7Y291cnNlLmlkfS9lZGl0P3RhYj1zdHVkZW50c2B9PlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgPFVzZXJzIGNsYXNzTmFtZT1cImgtNCB3LTRcIiAvPiBWaWV3IEVucm9sbGVkIFN0dWRlbnRzXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgPC9MaW5rPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICA8L0Ryb3Bkb3duTWVudUl0ZW0+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgIDxEcm9wZG93bk1lbnVTZXBhcmF0b3IgLz5cclxuICAgICAgICAgICAgICAgICAgICAgICAge2NvdXJzZS5zdGF0dXMgPT09ICdwdWJsaXNoZWQnID8gKFxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgIDxEcm9wZG93bk1lbnVJdGVtIGNsYXNzTmFtZT1cImdhcC0yXCIgb25DbGljaz17KCkgPT4gaGFuZGxlVW5wdWJsaXNoQ291cnNlKGNvdXJzZS5pZCl9PlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgPEJvb2tPcGVuIGNsYXNzTmFtZT1cImgtNCB3LTRcIiAvPiBVbnB1Ymxpc2hcclxuICAgICAgICAgICAgICAgICAgICAgICAgICA8L0Ryb3Bkb3duTWVudUl0ZW0+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICkgOiAoXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgPD5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxEcm9wZG93bk1lbnVJdGVtIGNsYXNzTmFtZT1cImdhcC0yIHRleHQtcHJpbWFyeVwiIG9uQ2xpY2s9eygpID0+IGhhbmRsZVB1Ymxpc2hDb3Vyc2UoY291cnNlLmlkKX0+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxCb29rT3BlbiBjbGFzc05hbWU9XCJoLTQgdy00XCIgLz4gUHVibGlzaCBDb3Vyc2VcclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvRHJvcGRvd25NZW51SXRlbT5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxEcm9wZG93bk1lbnVTZXBhcmF0b3IgLz5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxEcm9wZG93bk1lbnVJdGVtIGNsYXNzTmFtZT1cImdhcC0yIHRleHQtZGVzdHJ1Y3RpdmVcIiBvbkNsaWNrPXsoKSA9PiBoYW5kbGVEZWxldGVDb3Vyc2UoY291cnNlLmlkKX0+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxUcmFzaDIgY2xhc3NOYW1lPVwiaC00IHctNFwiIC8+IERlbGV0ZSBQZXJtYW5lbnRseVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgPC9Ecm9wZG93bk1lbnVJdGVtPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgIDwvPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICApfVxyXG4gICAgICAgICAgICAgICAgICAgICAgPC9Ecm9wZG93bk1lbnVDb250ZW50PlxyXG4gICAgICAgICAgICAgICAgICAgIDwvRHJvcGRvd25NZW51PlxyXG4gICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgIDwvQ2FyZENvbnRlbnQ+XHJcbiAgICAgICAgICAgICAgPC9DYXJkPlxyXG4gICAgICAgICAgICApKX1cclxuICAgICAgICAgICAge2NvdXJzZXMubGVuZ3RoID09PSAwICYmICFsb2FkaW5nICYmIChcclxuICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImNvbC1zcGFuLWZ1bGwgdGV4dC1jZW50ZXIgcHktMTAgdGV4dC1tdXRlZC1mb3JlZ3JvdW5kXCI+XHJcbiAgICAgICAgICAgICAgICBObyBjb3Vyc2VzIGZvdW5kLiBDbGljayBcIkFkZCBDb3Vyc2VcIiB0byBjcmVhdGUgb25lLlxyXG4gICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICApfVxyXG4gICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgKSA6IChcclxuICAgICAgICAgIDxEYXRhVGFibGVcclxuICAgICAgICAgICAgZGF0YT17Y291cnNlc31cclxuICAgICAgICAgICAgY29sdW1ucz17dGFibGVDb2x1bW5zfVxyXG4gICAgICAgICAgICBzZWFyY2hQbGFjZWhvbGRlcj1cIlNlYXJjaCBjb3Vyc2VzLi4uXCJcclxuICAgICAgICAgIC8+XHJcbiAgICAgICAgKX1cclxuICAgICAgPC9kaXY+XHJcbiAgICA8L0FkbWluTGF5b3V0ID5cclxuICApO1xyXG59XHJcbiJdLCJuYW1lcyI6WyJ1c2VTdGF0ZSIsInVzZUVmZmVjdCIsIkxpbmsiLCJ1c2VOYXZpZ2F0ZSIsIkFkbWluTGF5b3V0IiwiRGF0YVRhYmxlIiwiQnV0dG9uIiwiQmFkZ2UiLCJJbnB1dCIsIkxhYmVsIiwiU3dpdGNoIiwiVGV4dGFyZWEiLCJDYXJkIiwiQ2FyZENvbnRlbnQiLCJEaWFsb2ciLCJEaWFsb2dDb250ZW50IiwiRGlhbG9nRGVzY3JpcHRpb24iLCJEaWFsb2dGb290ZXIiLCJEaWFsb2dIZWFkZXIiLCJEaWFsb2dUaXRsZSIsIkRpYWxvZ1RyaWdnZXIiLCJEcm9wZG93bk1lbnUiLCJEcm9wZG93bk1lbnVDb250ZW50IiwiRHJvcGRvd25NZW51SXRlbSIsIkRyb3Bkb3duTWVudVNlcGFyYXRvciIsIkRyb3Bkb3duTWVudVRyaWdnZXIiLCJTZWxlY3QiLCJTZWxlY3RDb250ZW50IiwiU2VsZWN0SXRlbSIsIlNlbGVjdFRyaWdnZXIiLCJTZWxlY3RWYWx1ZSIsIlBsdXMiLCJNb3JlSG9yaXpvbnRhbCIsIlBlbmNpbCIsIlRyYXNoMiIsIkJvb2tPcGVuIiwiTGF5b3V0R3JpZCIsIkxpc3QiLCJSZWZyZXNoQ3ciLCJVc2VycyIsInVzZVRvYXN0Iiwic3VwYWJhc2UiLCJDb3Vyc2VNYW5hZ2VtZW50IiwidG9hc3QiLCJuYXZpZ2F0ZSIsInZpZXdNb2RlIiwic2V0Vmlld01vZGUiLCJhZGRDb3Vyc2VNb2RhbE9wZW4iLCJzZXRBZGRDb3Vyc2VNb2RhbE9wZW4iLCJsb2FkaW5nIiwic2V0TG9hZGluZyIsImNvdXJzZXMiLCJzZXRDb3Vyc2VzIiwidGVhY2hlcnMiLCJzZXRUZWFjaGVycyIsIm5ld0NvdXJzZSIsInNldE5ld0NvdXJzZSIsInRpdGxlIiwiZGVzY3JpcHRpb24iLCJjYXRlZ29yeSIsInRlYWNoZXJJZCIsInZpc2liaWxpdHkiLCJmZXRjaERhdGEiLCJkYXRhIiwidGVhY2hlcnNEYXRhIiwiZnJvbSIsInNlbGVjdCIsImVxIiwiY291cnNlc0RhdGEiLCJlcnJvciIsImNvdXJzZXNFcnJvciIsIm9yZGVyIiwiYXNjZW5kaW5nIiwiY29uc29sZSIsInZhcmlhbnQiLCJmb3JtYXR0ZWQiLCJtYXAiLCJjIiwiaWQiLCJpbnN0cnVjdG9yIiwidGVhY2hlciIsImZ1bGxfbmFtZSIsInN0dWRlbnRzIiwibGVzc29ucyIsImNvbXBsZXRpb24iLCJzdGF0dXMiLCJpc19wdWJsaXNoZWQiLCJjcmVhdGVkX2F0IiwiaGFuZGxlQ3JlYXRlQ291cnNlIiwicGF5bG9hZCIsInRlYWNoZXJfaWQiLCJpbnNlcnQiLCJzaW5nbGUiLCJlcnIiLCJtZXNzYWdlIiwiaGFuZGxlRGVsZXRlQ291cnNlIiwiY291cnNlIiwiZmluZCIsImNvbmZpcm0iLCJkZWxldGUiLCJoYW5kbGVVbnB1Ymxpc2hDb3Vyc2UiLCJ1cGRhdGUiLCJoYW5kbGVQdWJsaXNoQ291cnNlIiwidGFibGVDb2x1bW5zIiwia2V5IiwiaGVhZGVyIiwiY2VsbCIsInJvdyIsImRpdiIsImNsYXNzTmFtZSIsInAiLCJhc0NoaWxkIiwic2l6ZSIsImFsaWduIiwidG8iLCJvbkNsaWNrIiwiaDEiLCJvcGVuIiwib25PcGVuQ2hhbmdlIiwidmFsdWUiLCJvbkNoYW5nZSIsImUiLCJ0YXJnZXQiLCJwbGFjZWhvbGRlciIsIm9uVmFsdWVDaGFuZ2UiLCJ2YWwiLCJ0IiwiY2hlY2tlZCIsIm9uQ2hlY2tlZENoYW5nZSIsImgzIiwic3BhbiIsImxlbmd0aCIsImNvbHVtbnMiLCJzZWFyY2hQbGFjZWhvbGRlciJdLCJtYXBwaW5ncyI6Ijs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7O0FBQUEsU0FBU0EsUUFBUSxFQUFFQyxTQUFTLFFBQVEsUUFBUTtBQUM1QyxTQUFTQyxJQUFJLEVBQUVDLFdBQVcsUUFBUSxtQkFBbUI7QUFDckQsU0FBU0MsV0FBVyxRQUFRLGtDQUFrQztBQUM5RCxTQUFTQyxTQUFTLFFBQVEsNkJBQTZCO0FBQ3ZELFNBQVNDLE1BQU0sUUFBUSx5QkFBeUI7QUFDaEQsU0FBU0MsS0FBSyxRQUFRLHdCQUF3QjtBQUM5QyxTQUFTQyxLQUFLLFFBQVEsd0JBQXdCO0FBQzlDLFNBQVNDLEtBQUssUUFBUSx3QkFBd0I7QUFDOUMsU0FBU0MsTUFBTSxRQUFRLHlCQUF5QjtBQUNoRCxTQUFTQyxRQUFRLFFBQVEsMkJBQTJCO0FBQ3BELFNBQVNDLElBQUksRUFBRUMsV0FBVyxRQUFRLHVCQUF1QjtBQUN6RCxTQUNFQyxNQUFNLEVBQ05DLGFBQWEsRUFDYkMsaUJBQWlCLEVBQ2pCQyxZQUFZLEVBQ1pDLFlBQVksRUFDWkMsV0FBVyxFQUNYQyxhQUFhLFFBQ1IseUJBQXlCO0FBQ2hDLFNBQ0VDLFlBQVksRUFDWkMsbUJBQW1CLEVBQ25CQyxnQkFBZ0IsRUFDaEJDLHFCQUFxQixFQUNyQkMsbUJBQW1CLFFBQ2QsZ0NBQWdDO0FBQ3ZDLFNBQ0VDLE1BQU0sRUFDTkMsYUFBYSxFQUNiQyxVQUFVLEVBQ1ZDLGFBQWEsRUFDYkMsV0FBVyxRQUNOLHlCQUF5QjtBQUNoQyxTQUNFQyxJQUFJLEVBQ0pDLGNBQWMsRUFDZEMsTUFBTSxFQUNOQyxNQUFNLEVBQ05DLFFBQVEsRUFDUkMsVUFBVSxFQUNWQyxJQUFJLEVBQ0pDLFNBQVMsRUFDVEMsS0FBSyxRQUNBLGVBQWU7QUFDdEIsU0FBU0MsUUFBUSxRQUFRLG9CQUFvQjtBQUM3QyxTQUFTQyxR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

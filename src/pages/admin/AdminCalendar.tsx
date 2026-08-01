@@ -10,9 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
-import { Loader2, Plus, Trash2, Calendar as CalendarIcon } from "lucide-react";
+import { Loader2, Plus, Trash2, Calendar as CalendarIcon, FileJson } from "lucide-react";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
+import { JsonCalendarUpdaterModal } from "@/components/calendar/JsonCalendarUpdaterModal";
 
 export default function AdminCalendar() {
     const { toast } = useToast();
@@ -20,6 +21,7 @@ export default function AdminCalendar() {
     const [events, setEvents] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [open, setOpen] = useState(false);
+    const [jsonModalOpen, setJsonModalOpen] = useState(false);
 
     // Form State
     const [title, setTitle] = useState("");
@@ -143,13 +145,17 @@ export default function AdminCalendar() {
                         <h1 className="text-3xl font-display font-bold">Calendar Management</h1>
                         <p className="text-muted-foreground mt-1">Manage events, holidays, and announcements.</p>
                     </div>
-                    <Dialog open={open} onOpenChange={setOpen}>
-                        <DialogTrigger asChild>
-                            <Button className="gap-2">
-                                <Plus className="h-4 w-4" /> Add Event
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent>
+                    <div className="flex items-center gap-2">
+                        <Button variant="outline" onClick={() => setJsonModalOpen(true)} className="gap-2 border-primary/30 hover:bg-primary/5 text-primary">
+                            <FileJson className="h-4 w-4" /> JSON Schedule Updater (⌘K / Ctrl+K)
+                        </Button>
+                        <Dialog open={open} onOpenChange={setOpen}>
+                            <DialogTrigger asChild>
+                                <Button className="gap-2">
+                                    <Plus className="h-4 w-4" /> Add Event
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent>
                             <DialogHeader>
                                 <DialogTitle>Add New Event</DialogTitle>
                             </DialogHeader>
@@ -212,6 +218,7 @@ export default function AdminCalendar() {
                         </DialogContent>
                     </Dialog>
                 </div>
+            </div>
 
                 <div className="grid md:grid-cols-2 gap-8">
                     <Card>
@@ -290,6 +297,11 @@ export default function AdminCalendar() {
                         </CardContent>
                     </Card>
                 </div>
+                <JsonCalendarUpdaterModal
+                    open={jsonModalOpen}
+                    onOpenChange={setJsonModalOpen}
+                    onSuccess={fetchEvents}
+                />
             </div>
         </AdminLayout>
     );

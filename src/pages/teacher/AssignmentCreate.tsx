@@ -28,6 +28,7 @@ export default function AssignmentCreate() {
     const [title, setTitle] = useState("");
     const [instructions, setInstructions] = useState("");
     const [fileSize, setFileSize] = useState("10");
+    const [teacherDriveUrl, setTeacherDriveUrl] = useState("");
 
     useEffect(() => {
         const fetchCourses = async () => {
@@ -77,7 +78,8 @@ export default function AssignmentCreate() {
                 type: assignmentType,
                 points: parseFloat(points),
                 due_date: dueDate,
-                settings: { max_file_size: parseFloat(fileSize) }
+                teacher_drive_url: teacherDriveUrl || null,
+                max_file_size_mb: parseFloat(fileSize) || 10
             }]);
 
             if (error) throw error;
@@ -88,6 +90,7 @@ export default function AssignmentCreate() {
             setInstructions("");
             setDueDate("");
             setCourseId("");
+            setTeacherDriveUrl("");
         } catch (error: any) {
             toast({ variant: "destructive", title: "Error", description: error.message });
         } finally {
@@ -207,13 +210,30 @@ export default function AssignmentCreate() {
                                             onChange={(e) => setInstructions(e.target.value)}
                                         />
                                     </div>
-                                    <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/20">
-                                        <div className="space-y-0.5">
-                                            <Label className="text-base">File Upload</Label>
-                                            <p className="text-sm text-muted-foreground">Allow students to upload files</p>
-                                        </div>
-                                        <Switch defaultChecked />
-                                    </div>
+                                     {/* Teacher Google Drive Folder Link Option */}
+                                     <div className="space-y-2 p-4 border rounded-xl bg-primary/10 border-primary/30">
+                                         <Label className="font-bold text-primary flex items-center gap-1.5">
+                                             📁 Teacher's Google Drive Submission Folder (Optional)
+                                         </Label>
+                                         <Input
+                                             type="url"
+                                             placeholder="https://drive.google.com/drive/folders/your-folder-id"
+                                             value={teacherDriveUrl}
+                                             onChange={(e) => setTeacherDriveUrl(e.target.value)}
+                                             className="bg-background"
+                                         />
+                                         <p className="text-xs text-muted-foreground">
+                                             Provide a Google Drive folder link where students can upload project files directly. Students will see a prominent <strong>"Upload to Sir's Drive ↗"</strong> button on their submission portal.
+                                         </p>
+                                     </div>
+
+                                     <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/20">
+                                         <div className="space-y-0.5">
+                                             <Label className="text-base">File Upload</Label>
+                                             <p className="text-sm text-muted-foreground">Allow students to upload files</p>
+                                         </div>
+                                         <Switch defaultChecked />
+                                     </div>
 
                                     {/* File Upload Limits */}
                                     <div className="space-y-4 p-4 border rounded-lg bg-muted/10">

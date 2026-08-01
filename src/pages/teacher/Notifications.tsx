@@ -11,10 +11,14 @@ import { Bell, Plus, Send, BookOpen, Loader2, CheckCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 
+import { LetterheadNoticeModal } from "@/components/notice/LetterheadNoticeModal";
+import { FileText } from "lucide-react";
+
 export default function TeacherNotifications() {
     const { toast } = useToast();
     const [loading, setLoading] = useState(true);
     const [createModalOpen, setCreateModalOpen] = useState(false);
+    const [letterheadModalOpen, setLetterheadModalOpen] = useState(false);
     const [courses, setCourses] = useState<any[]>([]);
     const [selectedCourse, setSelectedCourse] = useState("");
     const [notificationType, setNotificationType] = useState("course");
@@ -71,22 +75,55 @@ export default function TeacherNotifications() {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error("Not authenticated");
 
-            // Use RPC function to notify all students in the course
-            const { data: count, error } = await supabase.rpc('x_n_c_s', {
-                p_course_id: selectedCourse,
-                p_title: title,
-                p_message: message,
-                p_notification_type: notificationType,
-                p_sender_id: user.id,
-                p_sender_role: 'teacher',
-                p_priority: 1
-            });
+            let notifiedCount = 0;
 
-            if (error) throw error;
+            // Try RPC function first
+            try {
+                const { data: count, error: rpcErr } = await supabase.rpc('x_n_c_s', {
+                    p_course_id: selectedCourse,
+                    p_title: title,
+                    p_message: message,
+                    p_notification_type: notificationType,
+                    p_sender_id: user.id,
+                    p_sender_role: 'teacher',
+                    p_priority: 1
+                });
+                if (!rpcErr && typeof count === 'number' && count > 0) {
+                    notifiedCount = count;
+                }
+            } catch (e) {
+                console.warn("RPC failed, using direct enrollment insertion", e);
+            }
+
+            // Direct insertion fallback if RPC was not executed or returned 0
+            if (notifiedCount === 0) {
+                const { data: enrollments } = await supabase
+                    .from('enrollments')
+                    .select('student_id')
+                    .eq('course_id', selectedCourse);
+
+                if (enrollments && enrollments.length > 0) {
+                    const insertPayload = enrollments.map(e => ({
+                        user_id: e.student_id,
+                        title: title,
+                        message: message,
+                        notification_type: notificationType || 'course',
+                        sender_role: 'teacher',
+                        is_read: false
+                    }));
+
+                    const { error: insertErr } = await supabase
+                        .from('notifications')
+                        .insert(insertPayload);
+
+                    if (insertErr) throw insertErr;
+                    notifiedCount = enrollments.length;
+                }
+            }
 
             toast({
-                title: "Notification Sent",
-                description: `Successfully sent notification to ${count || 0} students.`
+                title: "Notification Sent! 🔔",
+                description: `Notification delivered to ${notifiedCount} enrolled students.`
             });
 
             setCreateModalOpen(false);
@@ -122,13 +159,18 @@ export default function TeacherNotifications() {
                             Send updates and announcements to your students
                         </p>
                     </div>
-                    <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
-                        <DialogTrigger asChild>
-                            <Button className="gap-2">
-                                <Plus className="h-4 w-4" />
-                                New Notification
-                            </Button>
-                        </DialogTrigger>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Button variant="outline" onClick={() => setLetterheadModalOpen(true)} className="gap-2 border-slate-700/40 font-bold">
+                            <FileText className="h-4 w-4 text-amber-500" />
+                            Generate Official Letterhead Notice
+                        </Button>
+                        <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
+                            <DialogTrigger asChild>
+                                <Button className="gap-2">
+                                    <Plus className="h-4 w-4" />
+                                    New Notification
+                                </Button>
+                            </DialogTrigger>
                         <DialogContent className="sm:max-w-xl">
                             <DialogHeader>
                                 <DialogTitle>Send Course Notification</DialogTitle>
@@ -205,6 +247,7 @@ export default function TeacherNotifications() {
                         </DialogContent>
                     </Dialog>
                 </div>
+            </div>
 
                 {/* Stats */}
                 <div className="grid gap-4 md:grid-cols-3">
@@ -264,6 +307,12 @@ export default function TeacherNotifications() {
                         )}
                     </CardContent>
                 </Card>
+
+                <LetterheadNoticeModal
+                    open={letterheadModalOpen}
+                    onOpenChange={setLetterheadModalOpen}
+                    senderType="teacher"
+                />
             </div>
         </TeacherLayout>
     );

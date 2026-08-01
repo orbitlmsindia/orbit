@@ -25,7 +25,8 @@ import {
     Loader2,
     CheckCircle,
     XCircle,
-    Download
+    Download,
+    Eye
 } from "lucide-react";
 
 export default function AdminCourseDetail() {
@@ -47,7 +48,7 @@ export default function AdminCourseDetail() {
         // Fetch course details
         const { data: courseData, error: courseError } = await supabase
             .from('courses')
-            .select('id, title, description')
+            .select('id, title, description, is_deletion_requested, deletion_requested_at')
             .eq('id', id)
             .single();
 
@@ -192,10 +193,73 @@ export default function AdminCourseDetail() {
         document.body.removeChild(a);
     };
 
+    const handleDeleteCourseAdmin = async () => {
+        if (!confirm(`Are you sure you want to permanently delete "${course.title}"?\n\nAs Admin, this will immediately delete the course and all associated data.`)) return;
+
+        try {
+            const { error } = await supabase.from('courses').delete().eq('id', id);
+            if (error) throw error;
+
+            toast({ title: "Course Permanently Deleted by Admin 🗑️" });
+            navigate('/admin/courses');
+        } catch (err: any) {
+            toast({ variant: "destructive", title: "Error", description: err.message });
+        }
+    };
+
+    const handleApproveDeletion = async () => {
+        if (!confirm(`Approve deletion request for "${course.title}"?\n\nThis will permanently delete the course.`)) return;
+
+        try {
+            const { error } = await supabase.from('courses').delete().eq('id', id);
+            if (error) throw error;
+
+            toast({ title: "Deletion Approved & Course Removed 🗑️" });
+            navigate('/admin/courses');
+        } catch (err: any) {
+            toast({ variant: "destructive", title: "Error", description: err.message });
+        }
+    };
+
+    const handleRejectDeletion = async () => {
+        try {
+            const { error } = await supabase.from('courses').update({
+                is_deletion_requested: false,
+                deletion_requested_at: null
+            }).eq('id', id);
+            if (error) throw error;
+
+            toast({ title: "Deletion Request Rejected", description: "The course remains active." });
+            setCourse((prev: any) => ({ ...prev, is_deletion_requested: false, deletion_requested_at: null }));
+        } catch (err: any) {
+            toast({ variant: "destructive", title: "Error", description: err.message });
+        }
+    };
+
     if (loading) return <AdminLayout><div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div></AdminLayout>;
 
     return (
         <AdminLayout>
+            {course.is_deletion_requested && (
+                <div className="mx-6 mt-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between animate-fade-in">
+                    <div className="flex items-center gap-3">
+                        <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />
+                        <div>
+                            <p className="font-bold text-sm text-amber-600 dark:text-amber-400">Teacher Requested Course Deletion ⚠️</p>
+                            <p className="text-xs text-muted-foreground">The instructor submitted a request to delete this course. Approve to delete permanently or reject to keep active.</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white font-bold" onClick={handleApproveDeletion}>
+                            Approve & Delete 🗑️
+                        </Button>
+                        <Button size="sm" variant="outline" className="border-amber-500/40 text-amber-600 dark:text-amber-400" onClick={handleRejectDeletion}>
+                            Reject Request
+                        </Button>
+                    </div>
+                </div>
+            )}
+
             <div className="flex items-center gap-4 mb-6 animate-fade-in p-6 pb-0">
                 <Link to="/admin/courses">
                     <Button variant="ghost" size="icon">
@@ -203,11 +267,23 @@ export default function AdminCourseDetail() {
                     </Button>
                 </Link>
                 <div className="flex-1">
-                    <h1 className="text-2xl font-display font-bold">{course.title}</h1>
+                    <div className="flex items-center gap-2">
+                        <h1 className="text-2xl font-display font-bold">{course.title}</h1>
+                        {course.is_deletion_requested && (
+                            <Badge className="bg-amber-500 text-slate-900 font-bold">Deletion Requested ⚠️</Badge>
+                        )}
+                    </div>
                     <p className="text-muted-foreground text-sm">{course.description}</p>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="outline">Preview</Button>
+                <div className="flex items-center gap-2">
+                    <Link to={`/student/courses/${id}/learn`} target="_blank">
+                        <Button variant="secondary" className="gap-1.5 font-bold text-primary bg-primary/10 hover:bg-primary/20 border border-primary/30 shadow-xs">
+                            <Eye className="h-4 w-4" /> Preview Student View ↗
+                        </Button>
+                    </Link>
+                    <Button variant="destructive" className="gap-1.5 font-bold" onClick={handleDeleteCourseAdmin}>
+                        <Trash2 className="h-4 w-4" /> Delete Course (Admin)
+                    </Button>
                 </div>
             </div>
 

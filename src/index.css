@@ -16,8 +16,8 @@
     --secondary: 215 20% 95%;
     --secondary-foreground: 220 20% 25%;
     
-    /* Accent - Teal for CTAs and highlights */
-    --accent: 173 58% 39%;
+    /* Accent - Royal Blue branding */
+    --accent: 220 70% 50%;
     --accent-foreground: 0 0% 100%;
     
     /* Success - Green for completion */
@@ -68,7 +68,7 @@
     
     /* Gradients */
     --gradient-primary: linear-gradient(135deg, hsl(220 70% 50%) 0%, hsl(220 80% 40%) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(173 58% 39%) 0%, hsl(180 50% 35%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(220 70% 50%) 0%, hsl(220 80% 40%) 100%);
     --gradient-success: linear-gradient(135deg, hsl(142 71% 45%) 0%, hsl(150 60% 40%) 100%);
     --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(210 20% 98%) 100%);
     
@@ -93,7 +93,7 @@
     --secondary: 220 20% 18%;
     --secondary-foreground: 210 20% 90%;
     
-    --accent: 173 58% 45%;
+    --accent: 220 70% 60%;
     --accent-foreground: 0 0% 100%;
     
     --success: 142 71% 50%;
@@ -136,6 +136,59 @@
     --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.3);
     --shadow-md: 0 4px 6px -1px hsl(0 0% 0% / 0.4), 0 2px 4px -1px hsl(0 0% 0% / 0.2);
     --shadow-lg: 0 10px 15px -3px hsl(0 0% 0% / 0.4), 0 4px 6px -2px hsl(0 0% 0% / 0.2);
+  }
+
+  .doomsday {
+    /* Epic Doomsday Theme - Bio-Green Matrix Obsidian & Pure Radiant White */
+    --primary: 155 100% 48%;
+    --primary-foreground: 165 35% 6%;
+    
+    --secondary: 160 30% 12%;
+    --secondary-foreground: 150 100% 90%;
+    
+    --accent: 155 100% 48%;
+    --accent-foreground: 165 35% 6%;
+    
+    --success: 150 100% 45%;
+    --success-foreground: 0 0% 100%;
+    
+    --warning: 45 100% 50%;
+    --warning-foreground: 0 0% 10%;
+    
+    --destructive: 0 90% 55%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --background: 165 30% 6%;
+    --foreground: 0 0% 100%;
+    
+    --card: 165 25% 9%;
+    --card-foreground: 0 0% 100%;
+    
+    --popover: 165 25% 9%;
+    --popover-foreground: 0 0% 100%;
+    
+    --muted: 160 20% 14%;
+    --muted-foreground: 150 20% 72%;
+    
+    --border: 155 60% 22%;
+    --input: 155 60% 22%;
+    --ring: 155 100% 48%;
+    
+    --sidebar-background: 165 35% 5%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 155 100% 48%;
+    --sidebar-primary-foreground: 165 35% 6%;
+    --sidebar-accent: 160 25% 12%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 155 50% 18%;
+    --sidebar-ring: 155 100% 48%;
+    
+    --gradient-primary: linear-gradient(135deg, hsl(155 100% 45%) 0%, hsl(165 90% 35%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(165 25% 9%) 0%, hsl(165 30% 6%) 100%);
+    
+    --shadow-sm: 0 1px 2px 0 hsl(155 100% 45% / 0.15);
+    --shadow-md: 0 4px 12px -1px hsl(155 100% 45% / 0.25);
+    --shadow-lg: 0 10px 25px -3px hsl(155 100% 45% / 0.35);
   }
 }
 
@@ -195,4 +248,23 @@
   .animation-delay-100 { animation-delay: 100ms; }
   .animation-delay-200 { animation-delay: 200ms; }
   .animation-delay-300 { animation-delay: 300ms; }
+}
+
+/* Global Print Styles for Clean Exam Paper & Report PDF Export */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 11pt !important;
+  }
+
+  /* Hide app layout navigation, headers, sidebars, and dialog modals during print */
+  header, nav, sidebar, footer, .no-print, [role="dialog"] > div:first-child, [data-radix-portal] > div:first-child {
+    display: none !important;
+  }
+
+  @page {
+    size: A4;
+    margin: 10mm;
+  }
 }

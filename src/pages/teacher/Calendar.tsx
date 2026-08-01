@@ -4,13 +4,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/lib/supabase";
-import { Loader2 } from "lucide-react";
+import { Loader2, FileJson, Button } from "lucide-react";
 import { format } from "date-fns";
+import { JsonCalendarUpdaterModal } from "@/components/calendar/JsonCalendarUpdaterModal";
 
 export default function TeacherCalendar() {
     const [date, setDate] = useState<Date | undefined>(new Date());
     const [events, setEvents] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [jsonModalOpen, setJsonModalOpen] = useState(false);
 
     useEffect(() => {
         const fetchEvents = async () => {
@@ -88,7 +90,13 @@ export default function TeacherCalendar() {
             <div className="space-y-6 animate-fade-in">
                 <div className="flex items-center justify-between">
                     <h1 className="text-3xl font-display font-bold">Calendar</h1>
-                    {/* Future: Add 'Create Event' button for teachers */}
+                    <button
+                        type="button"
+                        onClick={() => setJsonModalOpen(true)}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-primary/30 text-primary hover:bg-primary/5 text-sm font-semibold transition-colors cursor-pointer"
+                    >
+                        <FileJson className="h-4 w-4" /> JSON Schedule Updater (⌘K / Ctrl+K)
+                    </button>
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-8">
@@ -170,6 +178,11 @@ export default function TeacherCalendar() {
                         </CardContent>
                     </Card>
                 </div>
+                <JsonCalendarUpdaterModal
+                    open={jsonModalOpen}
+                    onOpenChange={setJsonModalOpen}
+                    onSuccess={() => window.location.reload()}
+                />
             </div>
         </TeacherLayout>
     );

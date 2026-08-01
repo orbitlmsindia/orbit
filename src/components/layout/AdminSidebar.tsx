@@ -11,7 +11,9 @@ import {
   Building2,
   ChevronDown,
   LogOut,
-  Calendar
+  Calendar,
+  Trophy,
+  Mail
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -45,9 +47,11 @@ import { useNotifications } from "@/contexts/NotificationContext";
 
 const mainNavItems = [
   { title: "Dashboard", url: "/admin", icon: Home },
+  { title: "Get In Touch", url: "/admin/inquiries", icon: Mail },
   { title: "User Management", url: "/admin/users", icon: Users },
   { title: "Course Management", url: "/admin/courses", icon: BookOpen },
   { title: "Calendar", url: "/admin/calendar", icon: Calendar },
+  { title: "Leaderboard", url: "/admin/leaderboard", icon: Trophy },
   { title: "Monitoring", url: "/admin/monitoring", icon: BarChart3 },
   { title: "Notifications", url: "/admin/notifications", icon: Bell },
 ];

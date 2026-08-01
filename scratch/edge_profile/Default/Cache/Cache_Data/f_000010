@@ -1,0 +1,1286 @@
+import { createHotContext as __vite__createHotContext } from "/@vite/client";import.meta.hot = __vite__createHotContext("/src/pages/admin/AdminDashboard.tsx");import * as RefreshRuntime from "/@react-refresh";
+const inWebWorker = typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope;
+
+let prevRefreshReg;
+let prevRefreshSig;
+
+if (import.meta.hot && !inWebWorker) {
+  if (!window.$RefreshReg$) {
+    throw new Error(
+      "@vitejs/plugin-react-swc can't detect preamble. Something is wrong."
+    );
+  }
+
+  prevRefreshReg = window.$RefreshReg$;
+  prevRefreshSig = window.$RefreshSig$;
+  window.$RefreshReg$ = RefreshRuntime.getRefreshReg("D:/Orbitlms/src/pages/admin/AdminDashboard.tsx");
+  window.$RefreshSig$ = RefreshRuntime.createSignatureFunctionForTransform;
+}
+
+import __vite__cjsImport2_react_jsxDevRuntime from "/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=88ed5bfa"; const _jsxDEV = __vite__cjsImport2_react_jsxDevRuntime["jsxDEV"];
+var _s = $RefreshSig$();
+import __vite__cjsImport3_react from "/node_modules/.vite/deps/react.js?v=88ed5bfa"; const useState = __vite__cjsImport3_react["useState"]; const useEffect = __vite__cjsImport3_react["useEffect"];
+import { AdminLayout } from "/src/components/layout/AdminLayout.tsx";
+import { StatCard } from "/src/components/ui/stat-card.tsx";
+import { Card, CardContent, CardHeader, CardTitle } from "/src/components/ui/card.tsx";
+import { Progress } from "/src/components/ui/progress.tsx";
+import { Badge } from "/src/components/ui/badge.tsx";
+import { Button } from "/src/components/ui/button.tsx";
+import { Users, GraduationCap, BookOpen, TrendingUp, Calendar, ChevronRight, RefreshCw, CheckCircle, XCircle, SearchCode } from "/node_modules/.vite/deps/lucide-react.js?v=88ed5bfa";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from "/node_modules/.vite/deps/recharts.js?v=88ed5bfa";
+import { supabase } from "/src/lib/supabase.ts";
+import { useToast } from "/src/hooks/use-toast.ts";
+export default function AdminDashboard() {
+    _s();
+    const { toast } = useToast();
+    const [loading, setLoading] = useState(true);
+    const [stats, setStats] = useState({
+        students: 0,
+        teachers: 0,
+        activeCourses: 0,
+        avgAttendance: 0
+    });
+    const [attendanceData, setAttendanceData] = useState([]);
+    const [courseCompletionData, setCourseCompletionData] = useState([]);
+    const [enrollmentTrend, setEnrollmentTrend] = useState([]);
+    const [topCourses, setTopCourses] = useState([]);
+    const [recentActivities, setRecentActivities] = useState([]);
+    const [pendingEnrollments, setPendingEnrollments] = useState([]);
+    const fetchDashboardData = async ()=>{
+        setLoading(true);
+        try {
+            // 1. Stats Counts
+            const { count: studentCount } = await supabase.from("users").select("*", {
+                count: "exact",
+                head: true
+            }).eq("role", "student");
+            const { count: teacherCount } = await supabase.from("users").select("*", {
+                count: "exact",
+                head: true
+            }).eq("role", "teacher");
+            const { count: courseCount } = await supabase.from("courses").select("*", {
+                count: "exact",
+                head: true
+            }).eq("is_published", true);
+            // Attendance Stats
+            const { data: attendanceRecords } = await supabase.from("attendance").select("status, date");
+            let avgAtt = 0;
+            let weeklyData = [];
+            if (attendanceRecords && attendanceRecords.length > 0) {
+                // Avg Attendance
+                const presentCount = attendanceRecords.filter((r)=>r.status === 'present').length;
+                avgAtt = Math.round(presentCount / attendanceRecords.length * 100);
+                // Weekly Attendance Chart (Last 7 days)
+                const days = [
+                    "Sun",
+                    "Mon",
+                    "Tue",
+                    "Wed",
+                    "Thu",
+                    "Fri",
+                    "Sat"
+                ];
+                const last7Days = Array.from({
+                    length: 7
+                }, (_, i)=>{
+                    const d = new Date();
+                    d.setDate(d.getDate() - (6 - i));
+                    return d;
+                });
+                weeklyData = last7Days.map((date)=>{
+                    const dayStr = date.toISOString().split('T')[0];
+                    const dayRecords = attendanceRecords.filter((r)=>r.date === dayStr);
+                    return {
+                        day: days[date.getDay()],
+                        present: dayRecords.filter((r)=>r.status === 'present').length,
+                        absent: dayRecords.filter((r)=>r.status === 'absent').length
+                    };
+                });
+            } else {
+                // Fallback for empty data to show empty chart structure
+                weeklyData = [
+                    {
+                        day: "Mon",
+                        present: 0,
+                        absent: 0
+                    },
+                    {
+                        day: "Tue",
+                        present: 0,
+                        absent: 0
+                    },
+                    {
+                        day: "Wed",
+                        present: 0,
+                        absent: 0
+                    },
+                    {
+                        day: "Thu",
+                        present: 0,
+                        absent: 0
+                    },
+                    {
+                        day: "Fri",
+                        present: 0,
+                        absent: 0
+                    }
+                ];
+            }
+            setAttendanceData(weeklyData);
+            setStats({
+                students: studentCount || 0,
+                teachers: teacherCount || 0,
+                activeCourses: courseCount || 0,
+                avgAttendance: avgAtt
+            });
+            // 2. Course Completion
+            const { data: enrollments } = await supabase.from("enrollments").select("completed");
+            const completed = enrollments?.filter((e)=>e.completed).length || 0;
+            const ongoing = (enrollments?.length || 0) - completed;
+            setCourseCompletionData([
+                {
+                    name: "Completed",
+                    value: completed,
+                    color: "hsl(142, 71%, 45%)"
+                },
+                {
+                    name: "Ongoing",
+                    value: ongoing,
+                    color: "hsl(217, 91%, 60%)"
+                }
+            ]);
+            // 3. User Growth Trend (Mocking monthly based on created_at is complex for simple query, simplifying to recent 6 months)
+            // For now, let's just get All users and group by month in JS
+            const { data: users } = await supabase.from("users").select("created_at, role");
+            if (users) {
+                const months = [
+                    "Jan",
+                    "Feb",
+                    "Mar",
+                    "Apr",
+                    "May",
+                    "Jun",
+                    "Jul",
+                    "Aug",
+                    "Sep",
+                    "Oct",
+                    "Nov",
+                    "Dec"
+                ];
+                const trendMap = new Map();
+                users.forEach((u)=>{
+                    const d = new Date(u.created_at);
+                    const key = `${months[d.getMonth()]}`;
+                    if (!trendMap.has(key)) trendMap.set(key, {
+                        students: 0,
+                        teachers: 0
+                    });
+                    if (u.role === 'student') trendMap.get(key).students++;
+                    if (u.role === 'teacher') trendMap.get(key).teachers++;
+                });
+                // Convert map to array (sorting by month index would be better but simple iteration for now)
+                const trend = Array.from(trendMap.entries()).map(([month, counts])=>({
+                        month,
+                        ...counts
+                    })).slice(-6); // Last 6 months only
+                setEnrollmentTrend(trend.length ? trend : [
+                    {
+                        month: 'Current',
+                        students: 0,
+                        teachers: 0
+                    }
+                ]);
+            }
+            // 4. Top Courses
+            // We need to join enrollments and courses. 
+            // Supabase join: enrollments(course_id, courses(title))
+            const { data: topData } = await supabase.from("enrollments").select("course_id, courses(title)").limit(100);
+            if (topData) {
+                const courseCounts = {};
+                topData.forEach((e)=>{
+                    const title = e.courses?.title || "Unknown Course";
+                    if (!courseCounts[title]) courseCounts[title] = {
+                        title,
+                        count: 0
+                    };
+                    courseCounts[title].count++;
+                });
+                const sortedCourses = Object.values(courseCounts).sort((a, b)=>b.count - a.count).slice(0, 5).map((c)=>({
+                        name: c.title,
+                        enrolled: c.count,
+                        completion: Math.floor(Math.random() * 40) + 60 // Mock completion % for now as it requires checking boolean per user
+                    }));
+                setTopCourses(sortedCourses);
+            }
+            // 5. Recent Activities (Mocking from checking recent enrollments/logins)
+            const { data: recentEnr } = await supabase.from("enrollments").select("enrolled_at, users(full_name), courses(title)").order("enrolled_at", {
+                ascending: false
+            }).limit(5);
+            if (recentEnr) {
+                setRecentActivities(recentEnr.map((e)=>({
+                        type: "enrollment",
+                        action: `Enrolled in ${e.courses?.title}`,
+                        user: e.users?.full_name || "Unknown User",
+                        time: new Date(e.enrolled_at).toLocaleDateString()
+                    })));
+            }
+            // 6. Pending Enrollments
+            const { data: pending } = await supabase.from("enrollments").select("id, transaction_id, enrolled_at, users(full_name, email), courses(title)").eq("status", "pending").order("enrolled_at", {
+                ascending: false
+            });
+            setPendingEnrollments(pending || []);
+        } catch (error) {
+            console.error("Dashboard fetch error:", error);
+            toast({
+                variant: "destructive",
+                title: "Failed to load dashboard data"
+            });
+        } finally{
+            setLoading(false);
+        }
+    };
+    useEffect(()=>{
+        fetchDashboardData();
+    }, []);
+    const handleApproveEnrollment = async (enrollmentId, userEmail)=>{
+        try {
+            const { error } = await supabase.from("enrollments").update({
+                status: 'approved'
+            }).eq("id", enrollmentId);
+            if (error) throw error;
+            toast({
+                title: "Enrollment Approved",
+                description: `Confirmation email sent to ${userEmail}. Course access granted.`
+            });
+            fetchDashboardData();
+        } catch (e) {
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: e.message
+            });
+        }
+    };
+    const handleRejectEnrollment = async (enrollmentId)=>{
+        try {
+            const { error } = await supabase.from("enrollments").update({
+                status: 'rejected'
+            }).eq("id", enrollmentId);
+            if (error) throw error;
+            toast({
+                title: "Enrollment Declined."
+            });
+            fetchDashboardData();
+        } catch (e) {
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: e.message
+            });
+        }
+    };
+    return /*#__PURE__*/ _jsxDEV(AdminLayout, {
+        children: /*#__PURE__*/ _jsxDEV("div", {
+            className: "space-y-6 animate-fade-in",
+            children: [
+                /*#__PURE__*/ _jsxDEV("div", {
+                    className: "flex flex-col gap-4 md:flex-row md:items-center md:justify-between",
+                    children: [
+                        /*#__PURE__*/ _jsxDEV("div", {
+                            children: [
+                                /*#__PURE__*/ _jsxDEV("h1", {
+                                    className: "text-2xl lg:text-3xl font-display font-bold text-foreground",
+                                    children: "Admin Dashboard"
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                    lineNumber: 255,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV("p", {
+                                    className: "text-muted-foreground mt-1",
+                                    children: "Overview of your institute's performance"
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                    lineNumber: 258,
+                                    columnNumber: 13
+                                }, this)
+                            ]
+                        }, void 0, true, {
+                            fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                            lineNumber: 254,
+                            columnNumber: 11
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV("div", {
+                            className: "flex items-center gap-2",
+                            children: [
+                                /*#__PURE__*/ _jsxDEV(Button, {
+                                    variant: "outline",
+                                    size: "icon",
+                                    onClick: fetchDashboardData,
+                                    disabled: loading,
+                                    children: /*#__PURE__*/ _jsxDEV(RefreshCw, {
+                                        className: `h-4 w-4 ${loading ? 'animate-spin' : ''}`
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                        lineNumber: 264,
+                                        columnNumber: 15
+                                    }, this)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                    lineNumber: 263,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Button, {
+                                    variant: "outline",
+                                    className: "gap-2",
+                                    children: [
+                                        /*#__PURE__*/ _jsxDEV(Calendar, {
+                                            className: "h-4 w-4"
+                                        }, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                            lineNumber: 267,
+                                            columnNumber: 15
+                                        }, this),
+                                        "Last 30 Days"
+                                    ]
+                                }, void 0, true, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                    lineNumber: 266,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Button, {
+                                    className: "gap-2",
+                                    children: "Download Report"
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                    lineNumber: 270,
+                                    columnNumber: 13
+                                }, this)
+                            ]
+                        }, void 0, true, {
+                            fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                            lineNumber: 262,
+                            columnNumber: 11
+                        }, this)
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                    lineNumber: 253,
+                    columnNumber: 9
+                }, this),
+                /*#__PURE__*/ _jsxDEV("div", {
+                    className: "grid gap-4 md:grid-cols-2 lg:grid-cols-4",
+                    children: [
+                        /*#__PURE__*/ _jsxDEV(StatCard, {
+                            title: "Total Students",
+                            value: stats.students.toString(),
+                            icon: /*#__PURE__*/ _jsxDEV(Users, {
+                                className: "h-5 w-5"
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                lineNumber: 281,
+                                columnNumber: 19
+                            }, void 0)
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                            lineNumber: 278,
+                            columnNumber: 11
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV(StatCard, {
+                            title: "Total Teachers",
+                            value: stats.teachers.toString(),
+                            icon: /*#__PURE__*/ _jsxDEV(GraduationCap, {
+                                className: "h-5 w-5"
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                lineNumber: 286,
+                                columnNumber: 19
+                            }, void 0),
+                            variant: "accent"
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                            lineNumber: 283,
+                            columnNumber: 11
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV(StatCard, {
+                            title: "Active Courses",
+                            value: stats.activeCourses.toString(),
+                            icon: /*#__PURE__*/ _jsxDEV(BookOpen, {
+                                className: "h-5 w-5"
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                lineNumber: 292,
+                                columnNumber: 19
+                            }, void 0),
+                            variant: "primary"
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                            lineNumber: 289,
+                            columnNumber: 11
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV(StatCard, {
+                            title: "Avg. Attendance",
+                            value: `${stats.avgAttendance}%`,
+                            icon: /*#__PURE__*/ _jsxDEV(TrendingUp, {
+                                className: "h-5 w-5"
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                lineNumber: 298,
+                                columnNumber: 19
+                            }, void 0),
+                            variant: "warning"
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                            lineNumber: 295,
+                            columnNumber: 11
+                        }, this)
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                    lineNumber: 277,
+                    columnNumber: 9
+                }, this),
+                /*#__PURE__*/ _jsxDEV("div", {
+                    className: "grid gap-6 lg:grid-cols-2",
+                    children: [
+                        /*#__PURE__*/ _jsxDEV(Card, {
+                            children: [
+                                /*#__PURE__*/ _jsxDEV(CardHeader, {
+                                    className: "pb-2",
+                                    children: /*#__PURE__*/ _jsxDEV(CardTitle, {
+                                        className: "text-lg font-display flex items-center justify-between",
+                                        children: [
+                                            "Weekly Attendance",
+                                            /*#__PURE__*/ _jsxDEV(Badge, {
+                                                variant: "secondary",
+                                                children: "Last 7 Days"
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                lineNumber: 310,
+                                                columnNumber: 17
+                                            }, this)
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                        lineNumber: 308,
+                                        columnNumber: 15
+                                    }, this)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                    lineNumber: 307,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(CardContent, {
+                                    children: /*#__PURE__*/ _jsxDEV("div", {
+                                        className: "h-[280px]",
+                                        children: /*#__PURE__*/ _jsxDEV(ResponsiveContainer, {
+                                            width: "100%",
+                                            height: "100%",
+                                            children: /*#__PURE__*/ _jsxDEV(BarChart, {
+                                                data: attendanceData,
+                                                children: [
+                                                    /*#__PURE__*/ _jsxDEV(CartesianGrid, {
+                                                        strokeDasharray: "3 3",
+                                                        className: "stroke-border"
+                                                    }, void 0, false, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                        lineNumber: 317,
+                                                        columnNumber: 21
+                                                    }, this),
+                                                    /*#__PURE__*/ _jsxDEV(XAxis, {
+                                                        dataKey: "day",
+                                                        className: "text-xs"
+                                                    }, void 0, false, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                        lineNumber: 318,
+                                                        columnNumber: 21
+                                                    }, this),
+                                                    /*#__PURE__*/ _jsxDEV(YAxis, {
+                                                        className: "text-xs"
+                                                    }, void 0, false, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                        lineNumber: 319,
+                                                        columnNumber: 21
+                                                    }, this),
+                                                    /*#__PURE__*/ _jsxDEV(Tooltip, {
+                                                        contentStyle: {
+                                                            backgroundColor: "hsl(var(--card))",
+                                                            border: "1px solid hsl(var(--border))",
+                                                            borderRadius: "8px"
+                                                        }
+                                                    }, void 0, false, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                        lineNumber: 320,
+                                                        columnNumber: 21
+                                                    }, this),
+                                                    /*#__PURE__*/ _jsxDEV(Bar, {
+                                                        dataKey: "present",
+                                                        fill: "hsl(142, 71%, 45%)",
+                                                        radius: [
+                                                            4,
+                                                            4,
+                                                            0,
+                                                            0
+                                                        ],
+                                                        name: "Present"
+                                                    }, void 0, false, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                        lineNumber: 327,
+                                                        columnNumber: 21
+                                                    }, this),
+                                                    /*#__PURE__*/ _jsxDEV(Bar, {
+                                                        dataKey: "absent",
+                                                        fill: "hsl(0, 72%, 51%)",
+                                                        radius: [
+                                                            4,
+                                                            4,
+                                                            0,
+                                                            0
+                                                        ],
+                                                        name: "Absent"
+                                                    }, void 0, false, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                        lineNumber: 328,
+                                                        columnNumber: 21
+                                                    }, this)
+                                                ]
+                                            }, void 0, true, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                lineNumber: 316,
+                                                columnNumber: 19
+                                            }, this)
+                                        }, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                            lineNumber: 315,
+                                            columnNumber: 17
+                                        }, this)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                        lineNumber: 314,
+                                        columnNumber: 15
+                                    }, this)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                    lineNumber: 313,
+                                    columnNumber: 13
+                                }, this)
+                            ]
+                        }, void 0, true, {
+                            fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                            lineNumber: 306,
+                            columnNumber: 11
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV(Card, {
+                            children: [
+                                /*#__PURE__*/ _jsxDEV(CardHeader, {
+                                    className: "pb-2",
+                                    children: /*#__PURE__*/ _jsxDEV(CardTitle, {
+                                        className: "text-lg font-display",
+                                        children: "Course Completion Status"
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                        lineNumber: 338,
+                                        columnNumber: 15
+                                    }, this)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                    lineNumber: 337,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(CardContent, {
+                                    children: /*#__PURE__*/ _jsxDEV("div", {
+                                        className: "h-[280px] flex items-center",
+                                        children: /*#__PURE__*/ _jsxDEV(ResponsiveContainer, {
+                                            width: "100%",
+                                            height: "100%",
+                                            children: /*#__PURE__*/ _jsxDEV(PieChart, {
+                                                children: [
+                                                    /*#__PURE__*/ _jsxDEV(Pie, {
+                                                        data: courseCompletionData,
+                                                        cx: "50%",
+                                                        cy: "50%",
+                                                        innerRadius: 60,
+                                                        outerRadius: 100,
+                                                        paddingAngle: 4,
+                                                        dataKey: "value",
+                                                        children: courseCompletionData.map((entry, index)=>/*#__PURE__*/ _jsxDEV(Cell, {
+                                                                fill: entry.color
+                                                            }, `cell-${index}`, false, {
+                                                                fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                                lineNumber: 354,
+                                                                columnNumber: 25
+                                                            }, this))
+                                                    }, void 0, false, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                        lineNumber: 344,
+                                                        columnNumber: 21
+                                                    }, this),
+                                                    /*#__PURE__*/ _jsxDEV(Tooltip, {
+                                                        contentStyle: {
+                                                            backgroundColor: "hsl(var(--card))",
+                                                            border: "1px solid hsl(var(--border))",
+                                                            borderRadius: "8px"
+                                                        }
+                                                    }, void 0, false, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                        lineNumber: 357,
+                                                        columnNumber: 21
+                                                    }, this),
+                                                    /*#__PURE__*/ _jsxDEV(Legend, {}, void 0, false, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                        lineNumber: 364,
+                                                        columnNumber: 21
+                                                    }, this)
+                                                ]
+                                            }, void 0, true, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                lineNumber: 343,
+                                                columnNumber: 19
+                                            }, this)
+                                        }, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                            lineNumber: 342,
+                                            columnNumber: 17
+                                        }, this)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                        lineNumber: 341,
+                                        columnNumber: 15
+                                    }, this)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                    lineNumber: 340,
+                                    columnNumber: 13
+                                }, this)
+                            ]
+                        }, void 0, true, {
+                            fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                            lineNumber: 336,
+                            columnNumber: 11
+                        }, this)
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                    lineNumber: 304,
+                    columnNumber: 9
+                }, this),
+                /*#__PURE__*/ _jsxDEV(Card, {
+                    children: [
+                        /*#__PURE__*/ _jsxDEV(CardHeader, {
+                            className: "pb-2",
+                            children: /*#__PURE__*/ _jsxDEV(CardTitle, {
+                                className: "text-lg font-display flex items-center justify-between",
+                                children: [
+                                    "Enrollment Trend",
+                                    /*#__PURE__*/ _jsxDEV(Button, {
+                                        variant: "ghost",
+                                        size: "sm",
+                                        className: "gap-1",
+                                        children: [
+                                            "View Details ",
+                                            /*#__PURE__*/ _jsxDEV(ChevronRight, {
+                                                className: "h-4 w-4"
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                lineNumber: 378,
+                                                columnNumber: 30
+                                            }, this)
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                        lineNumber: 377,
+                                        columnNumber: 15
+                                    }, this)
+                                ]
+                            }, void 0, true, {
+                                fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                lineNumber: 375,
+                                columnNumber: 13
+                            }, this)
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                            lineNumber: 374,
+                            columnNumber: 11
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV(CardContent, {
+                            children: /*#__PURE__*/ _jsxDEV("div", {
+                                className: "h-[300px]",
+                                children: /*#__PURE__*/ _jsxDEV(ResponsiveContainer, {
+                                    width: "100%",
+                                    height: "100%",
+                                    children: /*#__PURE__*/ _jsxDEV(LineChart, {
+                                        data: enrollmentTrend,
+                                        children: [
+                                            /*#__PURE__*/ _jsxDEV(CartesianGrid, {
+                                                strokeDasharray: "3 3",
+                                                className: "stroke-border"
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                lineNumber: 386,
+                                                columnNumber: 19
+                                            }, this),
+                                            /*#__PURE__*/ _jsxDEV(XAxis, {
+                                                dataKey: "month",
+                                                className: "text-xs"
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                lineNumber: 387,
+                                                columnNumber: 19
+                                            }, this),
+                                            /*#__PURE__*/ _jsxDEV(YAxis, {
+                                                className: "text-xs"
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                lineNumber: 388,
+                                                columnNumber: 19
+                                            }, this),
+                                            /*#__PURE__*/ _jsxDEV(Tooltip, {
+                                                contentStyle: {
+                                                    backgroundColor: "hsl(var(--card))",
+                                                    border: "1px solid hsl(var(--border))",
+                                                    borderRadius: "8px"
+                                                }
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                lineNumber: 389,
+                                                columnNumber: 19
+                                            }, this),
+                                            /*#__PURE__*/ _jsxDEV(Legend, {}, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                lineNumber: 396,
+                                                columnNumber: 19
+                                            }, this),
+                                            /*#__PURE__*/ _jsxDEV(Line, {
+                                                type: "monotone",
+                                                dataKey: "students",
+                                                stroke: "hsl(220, 70%, 50%)",
+                                                strokeWidth: 2,
+                                                dot: {
+                                                    fill: "hsl(220, 70%, 50%)"
+                                                }
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                lineNumber: 397,
+                                                columnNumber: 19
+                                            }, this),
+                                            /*#__PURE__*/ _jsxDEV(Line, {
+                                                type: "monotone",
+                                                dataKey: "teachers",
+                                                stroke: "hsl(173, 58%, 39%)",
+                                                strokeWidth: 2,
+                                                dot: {
+                                                    fill: "hsl(173, 58%, 39%)"
+                                                }
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                lineNumber: 404,
+                                                columnNumber: 19
+                                            }, this)
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                        lineNumber: 385,
+                                        columnNumber: 17
+                                    }, this)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                    lineNumber: 384,
+                                    columnNumber: 15
+                                }, this)
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                lineNumber: 383,
+                                columnNumber: 13
+                            }, this)
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                            lineNumber: 382,
+                            columnNumber: 11
+                        }, this)
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                    lineNumber: 373,
+                    columnNumber: 9
+                }, this),
+                /*#__PURE__*/ _jsxDEV(Card, {
+                    className: "border-yellow-500/30 shadow-lg",
+                    children: [
+                        /*#__PURE__*/ _jsxDEV(CardHeader, {
+                            className: "bg-yellow-500/5 pb-4",
+                            children: /*#__PURE__*/ _jsxDEV(CardTitle, {
+                                className: "text-lg font-display flex items-center justify-between text-yellow-600 dark:text-yellow-500",
+                                children: /*#__PURE__*/ _jsxDEV("span", {
+                                    className: "flex items-center gap-2",
+                                    children: [
+                                        /*#__PURE__*/ _jsxDEV(SearchCode, {
+                                            className: "h-5 w-5"
+                                        }, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                            lineNumber: 422,
+                                            columnNumber: 17
+                                        }, this),
+                                        "Pending Payment Verifications (",
+                                        pendingEnrollments.length,
+                                        ")"
+                                    ]
+                                }, void 0, true, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                    lineNumber: 421,
+                                    columnNumber: 15
+                                }, this)
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                lineNumber: 420,
+                                columnNumber: 13
+                            }, this)
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                            lineNumber: 419,
+                            columnNumber: 11
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV(CardContent, {
+                            className: "pt-4",
+                            children: pendingEnrollments.length > 0 ? /*#__PURE__*/ _jsxDEV("div", {
+                                className: "space-y-4 max-h-[300px] overflow-y-auto pr-2",
+                                children: pendingEnrollments.map((enr, i)=>/*#__PURE__*/ _jsxDEV("div", {
+                                        className: "flex flex-col md:flex-row md:items-center justify-between p-4 border rounded-lg bg-card gap-4",
+                                        children: [
+                                            /*#__PURE__*/ _jsxDEV("div", {
+                                                children: [
+                                                    /*#__PURE__*/ _jsxDEV("h4", {
+                                                        className: "font-semibold text-sm",
+                                                        children: [
+                                                            enr.users?.full_name,
+                                                            " ",
+                                                            /*#__PURE__*/ _jsxDEV("span", {
+                                                                className: "text-muted-foreground font-normal",
+                                                                children: [
+                                                                    "(",
+                                                                    enr.users?.email,
+                                                                    ")"
+                                                                ]
+                                                            }, void 0, true, {
+                                                                fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                                lineNumber: 433,
+                                                                columnNumber: 84
+                                                            }, this)
+                                                        ]
+                                                    }, void 0, true, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                        lineNumber: 433,
+                                                        columnNumber: 23
+                                                    }, this),
+                                                    /*#__PURE__*/ _jsxDEV("p", {
+                                                        className: "text-sm text-foreground my-1",
+                                                        children: [
+                                                            "Course: ",
+                                                            /*#__PURE__*/ _jsxDEV("span", {
+                                                                className: "font-medium",
+                                                                children: enr.courses?.title
+                                                            }, void 0, false, {
+                                                                fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                                lineNumber: 435,
+                                                                columnNumber: 33
+                                                            }, this)
+                                                        ]
+                                                    }, void 0, true, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                        lineNumber: 434,
+                                                        columnNumber: 23
+                                                    }, this),
+                                                    /*#__PURE__*/ _jsxDEV(Badge, {
+                                                        variant: "outline",
+                                                        className: "mt-1 font-mono bg-muted",
+                                                        children: [
+                                                            "Tx ID: ",
+                                                            enr.transaction_id || "N/A"
+                                                        ]
+                                                    }, void 0, true, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                        lineNumber: 437,
+                                                        columnNumber: 23
+                                                    }, this),
+                                                    /*#__PURE__*/ _jsxDEV("p", {
+                                                        className: "text-xs text-muted-foreground mt-2",
+                                                        children: [
+                                                            "Submitted on ",
+                                                            new Date(enr.enrolled_at).toLocaleString()
+                                                        ]
+                                                    }, void 0, true, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                        lineNumber: 440,
+                                                        columnNumber: 23
+                                                    }, this)
+                                                ]
+                                            }, void 0, true, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                lineNumber: 432,
+                                                columnNumber: 21
+                                            }, this),
+                                            /*#__PURE__*/ _jsxDEV("div", {
+                                                className: "flex items-center gap-2",
+                                                children: [
+                                                    /*#__PURE__*/ _jsxDEV(Button, {
+                                                        variant: "outline",
+                                                        size: "sm",
+                                                        className: "text-red-500 hover:text-red-600 hover:bg-red-500/10 border-red-200",
+                                                        onClick: ()=>handleRejectEnrollment(enr.id),
+                                                        children: [
+                                                            /*#__PURE__*/ _jsxDEV(XCircle, {
+                                                                className: "h-4 w-4 mr-1"
+                                                            }, void 0, false, {
+                                                                fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                                lineNumber: 444,
+                                                                columnNumber: 25
+                                                            }, this),
+                                                            " Reject"
+                                                        ]
+                                                    }, void 0, true, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                        lineNumber: 443,
+                                                        columnNumber: 23
+                                                    }, this),
+                                                    /*#__PURE__*/ _jsxDEV(Button, {
+                                                        size: "sm",
+                                                        className: "bg-green-600 hover:bg-green-700 text-white",
+                                                        onClick: ()=>handleApproveEnrollment(enr.id, enr.users?.email),
+                                                        children: [
+                                                            /*#__PURE__*/ _jsxDEV(CheckCircle, {
+                                                                className: "h-4 w-4 mr-1"
+                                                            }, void 0, false, {
+                                                                fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                                lineNumber: 447,
+                                                                columnNumber: 25
+                                                            }, this),
+                                                            " Approve Payment"
+                                                        ]
+                                                    }, void 0, true, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                        lineNumber: 446,
+                                                        columnNumber: 23
+                                                    }, this)
+                                                ]
+                                            }, void 0, true, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                lineNumber: 442,
+                                                columnNumber: 21
+                                            }, this)
+                                        ]
+                                    }, enr.id, true, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                        lineNumber: 431,
+                                        columnNumber: 19
+                                    }, this))
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                lineNumber: 429,
+                                columnNumber: 15
+                            }, this) : /*#__PURE__*/ _jsxDEV("div", {
+                                className: "text-center py-8 text-muted-foreground bg-muted/20 border-2 border-dashed rounded-lg",
+                                children: [
+                                    /*#__PURE__*/ _jsxDEV(SearchCode, {
+                                        className: "h-8 w-8 mx-auto mb-2 opacity-50"
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                        lineNumber: 455,
+                                        columnNumber: 17
+                                    }, this),
+                                    /*#__PURE__*/ _jsxDEV("p", {
+                                        children: "No pending payment verifications at the moment."
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                        lineNumber: 456,
+                                        columnNumber: 17
+                                    }, this)
+                                ]
+                            }, void 0, true, {
+                                fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                lineNumber: 454,
+                                columnNumber: 15
+                            }, this)
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                            lineNumber: 427,
+                            columnNumber: 11
+                        }, this)
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                    lineNumber: 418,
+                    columnNumber: 9
+                }, this),
+                /*#__PURE__*/ _jsxDEV("div", {
+                    className: "grid gap-6 lg:grid-cols-3",
+                    children: [
+                        /*#__PURE__*/ _jsxDEV(Card, {
+                            className: "lg:col-span-2",
+                            children: [
+                                /*#__PURE__*/ _jsxDEV(CardHeader, {
+                                    className: "pb-2",
+                                    children: /*#__PURE__*/ _jsxDEV(CardTitle, {
+                                        className: "text-lg font-display flex items-center justify-between",
+                                        children: [
+                                            "Top Performing Courses",
+                                            /*#__PURE__*/ _jsxDEV(Button, {
+                                                variant: "ghost",
+                                                size: "sm",
+                                                className: "gap-1",
+                                                children: [
+                                                    "View All ",
+                                                    /*#__PURE__*/ _jsxDEV(ChevronRight, {
+                                                        className: "h-4 w-4"
+                                                    }, void 0, false, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                        lineNumber: 470,
+                                                        columnNumber: 28
+                                                    }, this)
+                                                ]
+                                            }, void 0, true, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                lineNumber: 469,
+                                                columnNumber: 17
+                                            }, this)
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                        lineNumber: 467,
+                                        columnNumber: 15
+                                    }, this)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                    lineNumber: 466,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(CardContent, {
+                                    children: /*#__PURE__*/ _jsxDEV("div", {
+                                        className: "space-y-4",
+                                        children: topCourses.length > 0 ? topCourses.map((course, i)=>/*#__PURE__*/ _jsxDEV("div", {
+                                                className: "flex items-center gap-4",
+                                                children: [
+                                                    /*#__PURE__*/ _jsxDEV("div", {
+                                                        className: "w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary",
+                                                        children: i + 1
+                                                    }, void 0, false, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                        lineNumber: 478,
+                                                        columnNumber: 21
+                                                    }, this),
+                                                    /*#__PURE__*/ _jsxDEV("div", {
+                                                        className: "flex-1 min-w-0",
+                                                        children: [
+                                                            /*#__PURE__*/ _jsxDEV("p", {
+                                                                className: "font-medium text-sm truncate",
+                                                                children: course.name
+                                                            }, void 0, false, {
+                                                                fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                                lineNumber: 482,
+                                                                columnNumber: 23
+                                                            }, this),
+                                                            /*#__PURE__*/ _jsxDEV("p", {
+                                                                className: "text-xs text-muted-foreground",
+                                                                children: [
+                                                                    course.enrolled,
+                                                                    " enrolled"
+                                                                ]
+                                                            }, void 0, true, {
+                                                                fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                                lineNumber: 483,
+                                                                columnNumber: 23
+                                                            }, this)
+                                                        ]
+                                                    }, void 0, true, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                        lineNumber: 481,
+                                                        columnNumber: 21
+                                                    }, this),
+                                                    /*#__PURE__*/ _jsxDEV("div", {
+                                                        className: "w-32 hidden sm:block",
+                                                        children: /*#__PURE__*/ _jsxDEV(Progress, {
+                                                            value: course.completion,
+                                                            size: "sm",
+                                                            variant: "success"
+                                                        }, void 0, false, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                            lineNumber: 486,
+                                                            columnNumber: 23
+                                                        }, this)
+                                                    }, void 0, false, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                        lineNumber: 485,
+                                                        columnNumber: 21
+                                                    }, this),
+                                                    /*#__PURE__*/ _jsxDEV("span", {
+                                                        className: "text-sm font-medium w-12 text-right",
+                                                        children: [
+                                                            course.completion,
+                                                            "%"
+                                                        ]
+                                                    }, void 0, true, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                        lineNumber: 488,
+                                                        columnNumber: 21
+                                                    }, this)
+                                                ]
+                                            }, i, true, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                lineNumber: 477,
+                                                columnNumber: 19
+                                            }, this)) : /*#__PURE__*/ _jsxDEV("div", {
+                                            className: "text-center text-muted-foreground py-4",
+                                            children: "No enrollment data available."
+                                        }, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                            lineNumber: 491,
+                                            columnNumber: 19
+                                        }, this)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                        lineNumber: 475,
+                                        columnNumber: 15
+                                    }, this)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                    lineNumber: 474,
+                                    columnNumber: 13
+                                }, this)
+                            ]
+                        }, void 0, true, {
+                            fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                            lineNumber: 465,
+                            columnNumber: 11
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV(Card, {
+                            children: [
+                                /*#__PURE__*/ _jsxDEV(CardHeader, {
+                                    className: "pb-2",
+                                    children: /*#__PURE__*/ _jsxDEV(CardTitle, {
+                                        className: "text-lg font-display",
+                                        children: "Recent Activities"
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                        lineNumber: 500,
+                                        columnNumber: 15
+                                    }, this)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                    lineNumber: 499,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(CardContent, {
+                                    children: /*#__PURE__*/ _jsxDEV("div", {
+                                        className: "space-y-4",
+                                        children: recentActivities.length > 0 ? recentActivities.map((activity, i)=>/*#__PURE__*/ _jsxDEV("div", {
+                                                className: "flex items-start gap-3",
+                                                children: [
+                                                    /*#__PURE__*/ _jsxDEV("div", {
+                                                        className: `w-2 h-2 rounded-full mt-2 ${activity.type === "enrollment" ? "bg-primary" : "bg-accent"}`
+                                                    }, void 0, false, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                        lineNumber: 506,
+                                                        columnNumber: 21
+                                                    }, this),
+                                                    /*#__PURE__*/ _jsxDEV("div", {
+                                                        className: "flex-1 min-w-0",
+                                                        children: [
+                                                            /*#__PURE__*/ _jsxDEV("p", {
+                                                                className: "text-sm font-medium",
+                                                                children: activity.action
+                                                            }, void 0, false, {
+                                                                fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                                lineNumber: 512,
+                                                                columnNumber: 23
+                                                            }, this),
+                                                            /*#__PURE__*/ _jsxDEV("p", {
+                                                                className: "text-xs text-muted-foreground",
+                                                                children: [
+                                                                    activity.user,
+                                                                    " · ",
+                                                                    activity.time
+                                                                ]
+                                                            }, void 0, true, {
+                                                                fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                                lineNumber: 513,
+                                                                columnNumber: 23
+                                                            }, this)
+                                                        ]
+                                                    }, void 0, true, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                        lineNumber: 511,
+                                                        columnNumber: 21
+                                                    }, this)
+                                                ]
+                                            }, i, true, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                                lineNumber: 505,
+                                                columnNumber: 19
+                                            }, this)) : /*#__PURE__*/ _jsxDEV("div", {
+                                            className: "text-center text-muted-foreground py-4",
+                                            children: "No recent activities."
+                                        }, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                            lineNumber: 519,
+                                            columnNumber: 19
+                                        }, this)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                        lineNumber: 503,
+                                        columnNumber: 15
+                                    }, this)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                                    lineNumber: 502,
+                                    columnNumber: 13
+                                }, this)
+                            ]
+                        }, void 0, true, {
+                            fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                            lineNumber: 498,
+                            columnNumber: 11
+                        }, this)
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+                    lineNumber: 463,
+                    columnNumber: 9
+                }, this)
+            ]
+        }, void 0, true, {
+            fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+            lineNumber: 251,
+            columnNumber: 7
+        }, this)
+    }, void 0, false, {
+        fileName: "D:/Orbitlms/src/pages/admin/AdminDashboard.tsx",
+        lineNumber: 250,
+        columnNumber: 5
+    }, this);
+}
+_s(AdminDashboard, "WYjP+WnbIKj8d93X1W5UTaqv2p0=", false, function() {
+    return [
+        useToast
+    ];
+});
+_c = AdminDashboard;
+var _c;
+$RefreshReg$(_c, "AdminDashboard");
+
+
+if (import.meta.hot && !inWebWorker) {
+  window.$RefreshReg$ = prevRefreshReg;
+  window.$RefreshSig$ = prevRefreshSig;
+}
+
+
+if (import.meta.hot && !inWebWorker) {
+  RefreshRuntime.__hmr_import(import.meta.url).then((currentExports) => {
+    RefreshRuntime.registerExportsForReactRefresh("D:/Orbitlms/src/pages/admin/AdminDashboard.tsx", currentExports);
+    import.meta.hot.accept((nextExports) => {
+      if (!nextExports) return;
+      const invalidateMessage = RefreshRuntime.validateRefreshBoundaryAndEnqueueUpdate("D:/Orbitlms/src/pages/admin/AdminDashboard.tsx", currentExports, nextExports);
+      if (invalidateMessage) import.meta.hot.invalidate(invalidateMessage);
+    });
+  });
+}
+
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbIkFkbWluRGFzaGJvYXJkLnRzeCJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgeyB1c2VTdGF0ZSwgdXNlRWZmZWN0IH0gZnJvbSBcInJlYWN0XCI7XHJcbmltcG9ydCB7IEFkbWluTGF5b3V0IH0gZnJvbSBcIkAvY29tcG9uZW50cy9sYXlvdXQvQWRtaW5MYXlvdXRcIjtcclxuaW1wb3J0IHsgU3RhdENhcmQgfSBmcm9tIFwiQC9jb21wb25lbnRzL3VpL3N0YXQtY2FyZFwiO1xyXG5pbXBvcnQgeyBDYXJkLCBDYXJkQ29udGVudCwgQ2FyZEhlYWRlciwgQ2FyZFRpdGxlIH0gZnJvbSBcIkAvY29tcG9uZW50cy91aS9jYXJkXCI7XHJcbmltcG9ydCB7IFByb2dyZXNzIH0gZnJvbSBcIkAvY29tcG9uZW50cy91aS9wcm9ncmVzc1wiO1xyXG5pbXBvcnQgeyBCYWRnZSB9IGZyb20gXCJAL2NvbXBvbmVudHMvdWkvYmFkZ2VcIjtcclxuaW1wb3J0IHsgQnV0dG9uIH0gZnJvbSBcIkAvY29tcG9uZW50cy91aS9idXR0b25cIjtcclxuaW1wb3J0IHtcclxuICBVc2VycyxcclxuICBHcmFkdWF0aW9uQ2FwLFxyXG4gIEJvb2tPcGVuLFxyXG4gIFRyZW5kaW5nVXAsXHJcbiAgQ2FsZW5kYXIsXHJcbiAgQ2hldnJvblJpZ2h0LFxyXG4gIFJlZnJlc2hDdyxcclxuICBDaGVja0NpcmNsZSxcclxuICBYQ2lyY2xlLFxyXG4gIFNlYXJjaENvZGVcclxufSBmcm9tIFwibHVjaWRlLXJlYWN0XCI7XHJcbmltcG9ydCB7XHJcbiAgQmFyQ2hhcnQsXHJcbiAgQmFyLFxyXG4gIFhBeGlzLFxyXG4gIFlBeGlzLFxyXG4gIENhcnRlc2lhbkdyaWQsXHJcbiAgVG9vbHRpcCxcclxuICBSZXNwb25zaXZlQ29udGFpbmVyLFxyXG4gIFBpZUNoYXJ0LFxyXG4gIFBpZSxcclxuICBDZWxsLFxyXG4gIExpbmVDaGFydCxcclxuICBMaW5lLFxyXG4gIExlZ2VuZCxcclxufSBmcm9tIFwicmVjaGFydHNcIjtcclxuaW1wb3J0IHsgc3VwYWJhc2UgfSBmcm9tIFwiQC9saWIvc3VwYWJhc2VcIjtcclxuaW1wb3J0IHsgdXNlVG9hc3QgfSBmcm9tIFwiQC9ob29rcy91c2UtdG9hc3RcIjtcclxuXHJcbmV4cG9ydCBkZWZhdWx0IGZ1bmN0aW9uIEFkbWluRGFzaGJvYXJkKCkge1xyXG4gIGNvbnN0IHsgdG9hc3QgfSA9IHVzZVRvYXN0KCk7XHJcbiAgY29uc3QgW2xvYWRpbmcsIHNldExvYWRpbmddID0gdXNlU3RhdGUodHJ1ZSk7XHJcbiAgY29uc3QgW3N0YXRzLCBzZXRTdGF0c10gPSB1c2VTdGF0ZSh7XHJcbiAgICBzdHVkZW50czogMCxcclxuICAgIHRlYWNoZXJzOiAwLFxyXG4gICAgYWN0aXZlQ291cnNlczogMCxcclxuICAgIGF2Z0F0dGVuZGFuY2U6IDAsXHJcbiAgfSk7XHJcbiAgY29uc3QgW2F0dGVuZGFuY2VEYXRhLCBzZXRBdHRlbmRhbmNlRGF0YV0gPSB1c2VTdGF0ZTxhbnlbXT4oW10pO1xyXG4gIGNvbnN0IFtjb3Vyc2VDb21wbGV0aW9uRGF0YSwgc2V0Q291cnNlQ29tcGxldGlvbkRhdGFdID0gdXNlU3RhdGU8YW55W10+KFtdKTtcclxuICBjb25zdCBbZW5yb2xsbWVudFRyZW5kLCBzZXRFbnJvbGxtZW50VHJlbmRdID0gdXNlU3RhdGU8YW55W10+KFtdKTtcclxuICBjb25zdCBbdG9wQ291cnNlcywgc2V0VG9wQ291cnNlc10gPSB1c2VTdGF0ZTxhbnlbXT4oW10pO1xyXG4gIGNvbnN0IFtyZWNlbnRBY3Rpdml0aWVzLCBzZXRSZWNlbnRBY3Rpdml0aWVzXSA9IHVzZVN0YXRlPGFueVtdPihbXSk7XHJcbiAgY29uc3QgW3BlbmRpbmdFbnJvbGxtZW50cywgc2V0UGVuZGluZ0Vucm9sbG1lbnRzXSA9IHVzZVN0YXRlPGFueVtdPihbXSk7XHJcblxyXG4gIGNvbnN0IGZldGNoRGFzaGJvYXJkRGF0YSA9IGFzeW5jICgpID0+IHtcclxuICAgIHNldExvYWRpbmcodHJ1ZSk7XHJcbiAgICB0cnkge1xyXG4gICAgICAvLyAxLiBTdGF0cyBDb3VudHNcclxuICAgICAgY29uc3QgeyBjb3VudDogc3R1ZGVudENvdW50IH0gPSBhd2FpdCBzdXBhYmFzZVxyXG4gICAgICAgIC5mcm9tKFwidXNlcnNcIilcclxuICAgICAgICAuc2VsZWN0KFwiKlwiLCB7IGNvdW50OiBcImV4YWN0XCIsIGhlYWQ6IHRydWUgfSlcclxuICAgICAgICAuZXEoXCJyb2xlXCIsIFwic3R1ZGVudFwiKTtcclxuXHJcbiAgICAgIGNvbnN0IHsgY291bnQ6IHRlYWNoZXJDb3VudCB9ID0gYXdhaXQgc3VwYWJhc2VcclxuICAgICAgICAuZnJvbShcInVzZXJzXCIpXHJcbiAgICAgICAgLnNlbGVjdChcIipcIiwgeyBjb3VudDogXCJleGFjdFwiLCBoZWFkOiB0cnVlIH0pXHJcbiAgICAgICAgLmVxKFwicm9sZVwiLCBcInRlYWNoZXJcIik7XHJcblxyXG4gICAgICBjb25zdCB7IGNvdW50OiBjb3Vyc2VDb3VudCB9ID0gYXdhaXQgc3VwYWJhc2VcclxuICAgICAgICAuZnJvbShcImNvdXJzZXNcIilcclxuICAgICAgICAuc2VsZWN0KFwiKlwiLCB7IGNvdW50OiBcImV4YWN0XCIsIGhlYWQ6IHRydWUgfSlcclxuICAgICAgICAuZXEoXCJpc19wdWJsaXNoZWRcIiwgdHJ1ZSk7XHJcblxyXG4gICAgICAvLyBBdHRlbmRhbmNlIFN0YXRzXHJcbiAgICAgIGNvbnN0IHsgZGF0YTogYXR0ZW5kYW5jZVJlY29yZHMgfSA9IGF3YWl0IHN1cGFiYXNlXHJcbiAgICAgICAgLmZyb20oXCJhdHRlbmRhbmNlXCIpXHJcbiAgICAgICAgLnNlbGVjdChcInN0YXR1cywgZGF0ZVwiKTtcclxuXHJcbiAgICAgIGxldCBhdmdBdHQgPSAwO1xyXG4gICAgICBsZXQgd2Vla2x5RGF0YTogYW55W10gPSBbXTtcclxuXHJcbiAgICAgIGlmIChhdHRlbmRhbmNlUmVjb3JkcyAmJiBhdHRlbmRhbmNlUmVjb3Jkcy5sZW5ndGggPiAwKSB7XHJcbiAgICAgICAgLy8gQXZnIEF0dGVuZGFuY2VcclxuICAgICAgICBjb25zdCBwcmVzZW50Q291bnQgPSBhdHRlbmRhbmNlUmVjb3Jkcy5maWx0ZXIociA9PiByLnN0YXR1cyA9PT0gJ3ByZXNlbnQnKS5sZW5ndGg7XHJcbiAgICAgICAgYXZnQXR0ID0gTWF0aC5yb3VuZCgocHJlc2VudENvdW50IC8gYXR0ZW5kYW5jZVJlY29yZHMubGVuZ3RoKSAqIDEwMCk7XHJcblxyXG4gICAgICAgIC8vIFdlZWtseSBBdHRlbmRhbmNlIENoYXJ0IChMYXN0IDcgZGF5cylcclxuICAgICAgICBjb25zdCBkYXlzID0gW1wiU3VuXCIsIFwiTW9uXCIsIFwiVHVlXCIsIFwiV2VkXCIsIFwiVGh1XCIsIFwiRnJpXCIsIFwiU2F0XCJdO1xyXG4gICAgICAgIGNvbnN0IGxhc3Q3RGF5cyA9IEFycmF5LmZyb20oeyBsZW5ndGg6IDcgfSwgKF8sIGkpID0+IHtcclxuICAgICAgICAgIGNvbnN0IGQgPSBuZXcgRGF0ZSgpO1xyXG4gICAgICAgICAgZC5zZXREYXRlKGQuZ2V0RGF0ZSgpIC0gKDYgLSBpKSk7XHJcbiAgICAgICAgICByZXR1cm4gZDtcclxuICAgICAgICB9KTtcclxuXHJcbiAgICAgICAgd2Vla2x5RGF0YSA9IGxhc3Q3RGF5cy5tYXAoZGF0ZSA9PiB7XHJcbiAgICAgICAgICBjb25zdCBkYXlTdHIgPSBkYXRlLnRvSVNPU3RyaW5nKCkuc3BsaXQoJ1QnKVswXTtcclxuICAgICAgICAgIGNvbnN0IGRheVJlY29yZHMgPSBhdHRlbmRhbmNlUmVjb3Jkcy5maWx0ZXIociA9PiByLmRhdGUgPT09IGRheVN0cik7XHJcbiAgICAgICAgICByZXR1cm4ge1xyXG4gICAgICAgICAgICBkYXk6IGRheXNbZGF0ZS5nZXREYXkoKV0sXHJcbiAgICAgICAgICAgIHByZXNlbnQ6IGRheVJlY29yZHMuZmlsdGVyKHIgPT4gci5zdGF0dXMgPT09ICdwcmVzZW50JykubGVuZ3RoLFxyXG4gICAgICAgICAgICBhYnNlbnQ6IGRheVJlY29yZHMuZmlsdGVyKHIgPT4gci5zdGF0dXMgPT09ICdhYnNlbnQnKS5sZW5ndGgsXHJcbiAgICAgICAgICB9O1xyXG4gICAgICAgIH0pO1xyXG4gICAgICB9IGVsc2Uge1xyXG4gICAgICAgIC8vIEZhbGxiYWNrIGZvciBlbXB0eSBkYXRhIHRvIHNob3cgZW1wdHkgY2hhcnQgc3RydWN0dXJlXHJcbiAgICAgICAgd2Vla2x5RGF0YSA9IFtcclxuICAgICAgICAgIHsgZGF5OiBcIk1vblwiLCBwcmVzZW50OiAwLCBhYnNlbnQ6IDAgfSxcclxuICAgICAgICAgIHsgZGF5OiBcIlR1ZVwiLCBwcmVzZW50OiAwLCBhYnNlbnQ6IDAgfSxcclxuICAgICAgICAgIHsgZGF5OiBcIldlZFwiLCBwcmVzZW50OiAwLCBhYnNlbnQ6IDAgfSxcclxuICAgICAgICAgIHsgZGF5OiBcIlRodVwiLCBwcmVzZW50OiAwLCBhYnNlbnQ6IDAgfSxcclxuICAgICAgICAgIHsgZGF5OiBcIkZyaVwiLCBwcmVzZW50OiAwLCBhYnNlbnQ6IDAgfSxcclxuICAgICAgICBdO1xyXG4gICAgICB9XHJcbiAgICAgIHNldEF0dGVuZGFuY2VEYXRhKHdlZWtseURhdGEpO1xyXG5cclxuICAgICAgc2V0U3RhdHMoe1xyXG4gICAgICAgIHN0dWRlbnRzOiBzdHVkZW50Q291bnQgfHwgMCxcclxuICAgICAgICB0ZWFjaGVyczogdGVhY2hlckNvdW50IHx8IDAsXHJcbiAgICAgICAgYWN0aXZlQ291cnNlczogY291cnNlQ291bnQgfHwgMCxcclxuICAgICAgICBhdmdBdHRlbmRhbmNlOiBhdmdBdHQsXHJcbiAgICAgIH0pO1xyXG5cclxuICAgICAgLy8gMi4gQ291cnNlIENvbXBsZXRpb25cclxuICAgICAgY29uc3QgeyBkYXRhOiBlbnJvbGxtZW50cyB9ID0gYXdhaXQgc3VwYWJhc2UuZnJvbShcImVucm9sbG1lbnRzXCIpLnNlbGVjdChcImNvbXBsZXRlZFwiKTtcclxuICAgICAgY29uc3QgY29tcGxldGVkID0gZW5yb2xsbWVudHM/LmZpbHRlcihlID0+IGUuY29tcGxldGVkKS5sZW5ndGggfHwgMDtcclxuICAgICAgY29uc3Qgb25nb2luZyA9IChlbnJvbGxtZW50cz8ubGVuZ3RoIHx8IDApIC0gY29tcGxldGVkO1xyXG4gICAgICBzZXRDb3Vyc2VDb21wbGV0aW9uRGF0YShbXHJcbiAgICAgICAgeyBuYW1lOiBcIkNvbXBsZXRlZFwiLCB2YWx1ZTogY29tcGxldGVkLCBjb2xvcjogXCJoc2woMTQyLCA3MSUsIDQ1JSlcIiB9LFxyXG4gICAgICAgIHsgbmFtZTogXCJPbmdvaW5nXCIsIHZhbHVlOiBvbmdvaW5nLCBjb2xvcjogXCJoc2woMjE3LCA5MSUsIDYwJSlcIiB9XHJcbiAgICAgIF0pO1xyXG5cclxuICAgICAgLy8gMy4gVXNlciBHcm93dGggVHJlbmQgKE1vY2tpbmcgbW9udGhseSBiYXNlZCBvbiBjcmVhdGVkX2F0IGlzIGNvbXBsZXggZm9yIHNpbXBsZSBxdWVyeSwgc2ltcGxpZnlpbmcgdG8gcmVjZW50IDYgbW9udGhzKVxyXG4gICAgICAvLyBGb3Igbm93LCBsZXQncyBqdXN0IGdldCBBbGwgdXNlcnMgYW5kIGdyb3VwIGJ5IG1vbnRoIGluIEpTXHJcbiAgICAgIGNvbnN0IHsgZGF0YTogdXNlcnMgfSA9IGF3YWl0IHN1cGFiYXNlLmZyb20oXCJ1c2Vyc1wiKS5zZWxlY3QoXCJjcmVhdGVkX2F0LCByb2xlXCIpO1xyXG4gICAgICBpZiAodXNlcnMpIHtcclxuICAgICAgICBjb25zdCBtb250aHMgPSBbXCJKYW5cIiwgXCJGZWJcIiwgXCJNYXJcIiwgXCJBcHJcIiwgXCJNYXlcIiwgXCJKdW5cIiwgXCJKdWxcIiwgXCJBdWdcIiwgXCJTZXBcIiwgXCJPY3RcIiwgXCJOb3ZcIiwgXCJEZWNcIl07XHJcbiAgICAgICAgY29uc3QgdHJlbmRNYXAgPSBuZXcgTWFwKCk7XHJcblxyXG4gICAgICAgIHVzZXJzLmZvckVhY2godSA9PiB7XHJcbiAgICAgICAgICBjb25zdCBkID0gbmV3IERhdGUodS5jcmVhdGVkX2F0KTtcclxuICAgICAgICAgIGNvbnN0IGtleSA9IGAke21vbnRoc1tkLmdldE1vbnRoKCldfWA7XHJcbiAgICAgICAgICBpZiAoIXRyZW5kTWFwLmhhcyhrZXkpKSB0cmVuZE1hcC5zZXQoa2V5LCB7IHN0dWRlbnRzOiAwLCB0ZWFjaGVyczogMCB9KTtcclxuICAgICAgICAgIGlmICh1LnJvbGUgPT09ICdzdHVkZW50JykgdHJlbmRNYXAuZ2V0KGtleSkuc3R1ZGVudHMrKztcclxuICAgICAgICAgIGlmICh1LnJvbGUgPT09ICd0ZWFjaGVyJykgdHJlbmRNYXAuZ2V0KGtleSkudGVhY2hlcnMrKztcclxuICAgICAgICB9KTtcclxuXHJcbiAgICAgICAgLy8gQ29udmVydCBtYXAgdG8gYXJyYXkgKHNvcnRpbmcgYnkgbW9udGggaW5kZXggd291bGQgYmUgYmV0dGVyIGJ1dCBzaW1wbGUgaXRlcmF0aW9uIGZvciBub3cpXHJcbiAgICAgICAgY29uc3QgdHJlbmQgPSBBcnJheS5mcm9tKHRyZW5kTWFwLmVudHJpZXMoKSkubWFwKChbbW9udGgsIGNvdW50c10pID0+ICh7XHJcbiAgICAgICAgICBtb250aCxcclxuICAgICAgICAgIC4uLmNvdW50c1xyXG4gICAgICAgIH0pKS5zbGljZSgtNik7IC8vIExhc3QgNiBtb250aHMgb25seVxyXG4gICAgICAgIHNldEVucm9sbG1lbnRUcmVuZCh0cmVuZC5sZW5ndGggPyB0cmVuZCA6IFt7IG1vbnRoOiAnQ3VycmVudCcsIHN0dWRlbnRzOiAwLCB0ZWFjaGVyczogMCB9XSk7XHJcbiAgICAgIH1cclxuXHJcbiAgICAgIC8vIDQuIFRvcCBDb3Vyc2VzXHJcbiAgICAgIC8vIFdlIG5lZWQgdG8gam9pbiBlbnJvbGxtZW50cyBhbmQgY291cnNlcy4gXHJcbiAgICAgIC8vIFN1cGFiYXNlIGpvaW46IGVucm9sbG1lbnRzKGNvdXJzZV9pZCwgY291cnNlcyh0aXRsZSkpXHJcbiAgICAgIGNvbnN0IHsgZGF0YTogdG9wRGF0YSB9ID0gYXdhaXQgc3VwYWJhc2VcclxuICAgICAgICAuZnJvbShcImVucm9sbG1lbnRzXCIpXHJcbiAgICAgICAgLnNlbGVjdChcImNvdXJzZV9pZCwgY291cnNlcyh0aXRsZSlcIilcclxuICAgICAgICAubGltaXQoMTAwKTtcclxuXHJcbiAgICAgIGlmICh0b3BEYXRhKSB7XHJcbiAgICAgICAgY29uc3QgY291cnNlQ291bnRzOiBSZWNvcmQ8c3RyaW5nLCB7IHRpdGxlOiBzdHJpbmcsIGNvdW50OiBudW1iZXIgfT4gPSB7fTtcclxuICAgICAgICB0b3BEYXRhLmZvckVhY2goKGU6IGFueSkgPT4ge1xyXG4gICAgICAgICAgY29uc3QgdGl0bGUgPSBlLmNvdXJzZXM/LnRpdGxlIHx8IFwiVW5rbm93biBDb3Vyc2VcIjtcclxuICAgICAgICAgIGlmICghY291cnNlQ291bnRzW3RpdGxlXSkgY291cnNlQ291bnRzW3RpdGxlXSA9IHsgdGl0bGUsIGNvdW50OiAwIH07XHJcbiAgICAgICAgICBjb3Vyc2VDb3VudHNbdGl0bGVdLmNvdW50Kys7XHJcbiAgICAgICAgfSk7XHJcblxyXG4gICAgICAgIGNvbnN0IHNvcnRlZENvdXJzZXMgPSBPYmplY3QudmFsdWVzKGNvdXJzZUNvdW50cylcclxuICAgICAgICAgIC5zb3J0KChhLCBiKSA9PiBiLmNvdW50IC0gYS5jb3VudClcclxuICAgICAgICAgIC5zbGljZSgwLCA1KVxyXG4gICAgICAgICAgLm1hcChjID0+ICh7XHJcbiAgICAgICAgICAgIG5hbWU6IGMudGl0bGUsXHJcbiAgICAgICAgICAgIGVucm9sbGVkOiBjLmNvdW50LFxyXG4gICAgICAgICAgICBjb21wbGV0aW9uOiBNYXRoLmZsb29yKE1hdGgucmFuZG9tKCkgKiA0MCkgKyA2MCAvLyBNb2NrIGNvbXBsZXRpb24gJSBmb3Igbm93IGFzIGl0IHJlcXVpcmVzIGNoZWNraW5nIGJvb2xlYW4gcGVyIHVzZXJcclxuICAgICAgICAgIH0pKTtcclxuXHJcbiAgICAgICAgc2V0VG9wQ291cnNlcyhzb3J0ZWRDb3Vyc2VzKTtcclxuICAgICAgfVxyXG5cclxuICAgICAgLy8gNS4gUmVjZW50IEFjdGl2aXRpZXMgKE1vY2tpbmcgZnJvbSBjaGVja2luZyByZWNlbnQgZW5yb2xsbWVudHMvbG9naW5zKVxyXG4gICAgICBjb25zdCB7IGRhdGE6IHJlY2VudEVuciB9ID0gYXdhaXQgc3VwYWJhc2VcclxuICAgICAgICAuZnJvbShcImVucm9sbG1lbnRzXCIpXHJcbiAgICAgICAgLnNlbGVjdChcImVucm9sbGVkX2F0LCB1c2VycyhmdWxsX25hbWUpLCBjb3Vyc2VzKHRpdGxlKVwiKVxyXG4gICAgICAgIC5vcmRlcihcImVucm9sbGVkX2F0XCIsIHsgYXNjZW5kaW5nOiBmYWxzZSB9KVxyXG4gICAgICAgIC5saW1pdCg1KTtcclxuXHJcbiAgICAgIGlmIChyZWNlbnRFbnIpIHtcclxuICAgICAgICBzZXRSZWNlbnRBY3Rpdml0aWVzKHJlY2VudEVuci5tYXAoKGU6IGFueSkgPT4gKHtcclxuICAgICAgICAgIHR5cGU6IFwiZW5yb2xsbWVudFwiLFxyXG4gICAgICAgICAgYWN0aW9uOiBgRW5yb2xsZWQgaW4gJHtlLmNvdXJzZXM/LnRpdGxlfWAsXHJcbiAgICAgICAgICB1c2VyOiBlLnVzZXJzPy5mdWxsX25hbWUgfHwgXCJVbmtub3duIFVzZXJcIixcclxuICAgICAgICAgIHRpbWU6IG5ldyBEYXRlKGUuZW5yb2xsZWRfYXQpLnRvTG9jYWxlRGF0ZVN0cmluZygpXHJcbiAgICAgICAgfSkpKTtcclxuICAgICAgfVxyXG5cclxuICAgICAgLy8gNi4gUGVuZGluZyBFbnJvbGxtZW50c1xyXG4gICAgICBjb25zdCB7IGRhdGE6IHBlbmRpbmcgfSA9IGF3YWl0IHN1cGFiYXNlXHJcbiAgICAgICAgLmZyb20oXCJlbnJvbGxtZW50c1wiKVxyXG4gICAgICAgIC5zZWxlY3QoXCJpZCwgdHJhbnNhY3Rpb25faWQsIGVucm9sbGVkX2F0LCB1c2VycyhmdWxsX25hbWUsIGVtYWlsKSwgY291cnNlcyh0aXRsZSlcIilcclxuICAgICAgICAuZXEoXCJzdGF0dXNcIiwgXCJwZW5kaW5nXCIpXHJcbiAgICAgICAgLm9yZGVyKFwiZW5yb2xsZWRfYXRcIiwgeyBhc2NlbmRpbmc6IGZhbHNlIH0pO1xyXG5cclxuICAgICAgc2V0UGVuZGluZ0Vucm9sbG1lbnRzKHBlbmRpbmcgfHwgW10pO1xyXG5cclxuICAgIH0gY2F0Y2ggKGVycm9yKSB7XHJcbiAgICAgIGNvbnNvbGUuZXJyb3IoXCJEYXNoYm9hcmQgZmV0Y2ggZXJyb3I6XCIsIGVycm9yKTtcclxuICAgICAgdG9hc3QoeyB2YXJpYW50OiBcImRlc3RydWN0aXZlXCIsIHRpdGxlOiBcIkZhaWxlZCB0byBsb2FkIGRhc2hib2FyZCBkYXRhXCIgfSk7XHJcbiAgICB9IGZpbmFsbHkge1xyXG4gICAgICBzZXRMb2FkaW5nKGZhbHNlKTtcclxuICAgIH1cclxuICB9O1xyXG5cclxuICB1c2VFZmZlY3QoKCkgPT4ge1xyXG4gICAgZmV0Y2hEYXNoYm9hcmREYXRhKCk7XHJcbiAgfSwgW10pO1xyXG5cclxuICBjb25zdCBoYW5kbGVBcHByb3ZlRW5yb2xsbWVudCA9IGFzeW5jIChlbnJvbGxtZW50SWQ6IHN0cmluZywgdXNlckVtYWlsOiBzdHJpbmcpID0+IHtcclxuICAgIHRyeSB7XHJcbiAgICAgIGNvbnN0IHsgZXJyb3IgfSA9IGF3YWl0IHN1cGFiYXNlXHJcbiAgICAgICAgLmZyb20oXCJlbnJvbGxtZW50c1wiKVxyXG4gICAgICAgIC51cGRhdGUoeyBzdGF0dXM6ICdhcHByb3ZlZCcgfSlcclxuICAgICAgICAuZXEoXCJpZFwiLCBlbnJvbGxtZW50SWQpO1xyXG4gICAgICBpZiAoZXJyb3IpIHRocm93IGVycm9yO1xyXG5cclxuICAgICAgdG9hc3QoeyB0aXRsZTogXCJFbnJvbGxtZW50IEFwcHJvdmVkXCIsIGRlc2NyaXB0aW9uOiBgQ29uZmlybWF0aW9uIGVtYWlsIHNlbnQgdG8gJHt1c2VyRW1haWx9LiBDb3Vyc2UgYWNjZXNzIGdyYW50ZWQuYCB9KTtcclxuICAgICAgZmV0Y2hEYXNoYm9hcmREYXRhKCk7XHJcbiAgICB9IGNhdGNoIChlOiBhbnkpIHtcclxuICAgICAgdG9hc3QoeyB2YXJpYW50OiBcImRlc3RydWN0aXZlXCIsIHRpdGxlOiBcIkVycm9yXCIsIGRlc2NyaXB0aW9uOiBlLm1lc3NhZ2UgfSk7XHJcbiAgICB9XHJcbiAgfTtcclxuXHJcbiAgY29uc3QgaGFuZGxlUmVqZWN0RW5yb2xsbWVudCA9IGFzeW5jIChlbnJvbGxtZW50SWQ6IHN0cmluZykgPT4ge1xyXG4gICAgdHJ5IHtcclxuICAgICAgY29uc3QgeyBlcnJvciB9ID0gYXdhaXQgc3VwYWJhc2VcclxuICAgICAgICAuZnJvbShcImVucm9sbG1lbnRzXCIpXHJcbiAgICAgICAgLnVwZGF0ZSh7IHN0YXR1czogJ3JlamVjdGVkJyB9KVxyXG4gICAgICAgIC5lcShcImlkXCIsIGVucm9sbG1lbnRJZCk7XHJcbiAgICAgIGlmIChlcnJvcikgdGhyb3cgZXJyb3I7XHJcblxyXG4gICAgICB0b2FzdCh7IHRpdGxlOiBcIkVucm9sbG1lbnQgRGVjbGluZWQuXCIgfSk7XHJcbiAgICAgIGZldGNoRGFzaGJvYXJkRGF0YSgpO1xyXG4gICAgfSBjYXRjaCAoZTogYW55KSB7XHJcbiAgICAgIHRvYXN0KHsgdmFyaWFudDogXCJkZXN0cnVjdGl2ZVwiLCB0aXRsZTogXCJFcnJvclwiLCBkZXNjcmlwdGlvbjogZS5tZXNzYWdlIH0pO1xyXG4gICAgfVxyXG4gIH07XHJcblxyXG4gIHJldHVybiAoXHJcbiAgICA8QWRtaW5MYXlvdXQ+XHJcbiAgICAgIDxkaXYgY2xhc3NOYW1lPVwic3BhY2UteS02IGFuaW1hdGUtZmFkZS1pblwiPlxyXG4gICAgICAgIHsvKiBIZWFkZXIgKi99XHJcbiAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJmbGV4IGZsZXgtY29sIGdhcC00IG1kOmZsZXgtcm93IG1kOml0ZW1zLWNlbnRlciBtZDpqdXN0aWZ5LWJldHdlZW5cIj5cclxuICAgICAgICAgIDxkaXY+XHJcbiAgICAgICAgICAgIDxoMSBjbGFzc05hbWU9XCJ0ZXh0LTJ4bCBsZzp0ZXh0LTN4bCBmb250LWRpc3BsYXkgZm9udC1ib2xkIHRleHQtZm9yZWdyb3VuZFwiPlxyXG4gICAgICAgICAgICAgIEFkbWluIERhc2hib2FyZFxyXG4gICAgICAgICAgICA8L2gxPlxyXG4gICAgICAgICAgICA8cCBjbGFzc05hbWU9XCJ0ZXh0LW11dGVkLWZvcmVncm91bmQgbXQtMVwiPlxyXG4gICAgICAgICAgICAgIE92ZXJ2aWV3IG9mIHlvdXIgaW5zdGl0dXRlJ3MgcGVyZm9ybWFuY2VcclxuICAgICAgICAgICAgPC9wPlxyXG4gICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImZsZXggaXRlbXMtY2VudGVyIGdhcC0yXCI+XHJcbiAgICAgICAgICAgIDxCdXR0b24gdmFyaWFudD1cIm91dGxpbmVcIiBzaXplPVwiaWNvblwiIG9uQ2xpY2s9e2ZldGNoRGFzaGJvYXJkRGF0YX0gZGlzYWJsZWQ9e2xvYWRpbmd9PlxyXG4gICAgICAgICAgICAgIDxSZWZyZXNoQ3cgY2xhc3NOYW1lPXtgaC00IHctNCAke2xvYWRpbmcgPyAnYW5pbWF0ZS1zcGluJyA6ICcnfWB9IC8+XHJcbiAgICAgICAgICAgIDwvQnV0dG9uPlxyXG4gICAgICAgICAgICA8QnV0dG9uIHZhcmlhbnQ9XCJvdXRsaW5lXCIgY2xhc3NOYW1lPVwiZ2FwLTJcIj5cclxuICAgICAgICAgICAgICA8Q2FsZW5kYXIgY2xhc3NOYW1lPVwiaC00IHctNFwiIC8+XHJcbiAgICAgICAgICAgICAgTGFzdCAzMCBEYXlzXHJcbiAgICAgICAgICAgIDwvQnV0dG9uPlxyXG4gICAgICAgICAgICA8QnV0dG9uIGNsYXNzTmFtZT1cImdhcC0yXCI+XHJcbiAgICAgICAgICAgICAgRG93bmxvYWQgUmVwb3J0XHJcbiAgICAgICAgICAgIDwvQnV0dG9uPlxyXG4gICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgPC9kaXY+XHJcblxyXG4gICAgICAgIHsvKiBTdGF0cyBHcmlkICovfVxyXG4gICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZ3JpZCBnYXAtNCBtZDpncmlkLWNvbHMtMiBsZzpncmlkLWNvbHMtNFwiPlxyXG4gICAgICAgICAgPFN0YXRDYXJkXHJcbiAgICAgICAgICAgIHRpdGxlPVwiVG90YWwgU3R1ZGVudHNcIlxyXG4gICAgICAgICAgICB2YWx1ZT17c3RhdHMuc3R1ZGVudHMudG9TdHJpbmcoKX1cclxuICAgICAgICAgICAgaWNvbj17PFVzZXJzIGNsYXNzTmFtZT1cImgtNSB3LTVcIiAvPn1cclxuICAgICAgICAgIC8+XHJcbiAgICAgICAgICA8U3RhdENhcmRcclxuICAgICAgICAgICAgdGl0bGU9XCJUb3RhbCBUZWFjaGVyc1wiXHJcbiAgICAgICAgICAgIHZhbHVlPXtzdGF0cy50ZWFjaGVycy50b1N0cmluZygpfVxyXG4gICAgICAgICAgICBpY29uPXs8R3JhZHVhdGlvbkNhcCBjbGFzc05hbWU9XCJoLTUgdy01XCIgLz59XHJcbiAgICAgICAgICAgIHZhcmlhbnQ9XCJhY2NlbnRcIlxyXG4gICAgICAgICAgLz5cclxuICAgICAgICAgIDxTdGF0Q2FyZFxyXG4gICAgICAgICAgICB0aXRsZT1cIkFjdGl2ZSBDb3Vyc2VzXCJcclxuICAgICAgICAgICAgdmFsdWU9e3N0YXRzLmFjdGl2ZUNvdXJzZXMudG9TdHJpbmcoKX1cclxuICAgICAgICAgICAgaWNvbj17PEJvb2tPcGVuIGNsYXNzTmFtZT1cImgtNSB3LTVcIiAvPn1cclxuICAgICAgICAgICAgdmFyaWFudD1cInByaW1hcnlcIlxyXG4gICAgICAgICAgLz5cclxuICAgICAgICAgIDxTdGF0Q2FyZFxyXG4gICAgICAgICAgICB0aXRsZT1cIkF2Zy4gQXR0ZW5kYW5jZVwiXHJcbiAgICAgICAgICAgIHZhbHVlPXtgJHtzdGF0cy5hdmdBdHRlbmRhbmNlfSVgfVxyXG4gICAgICAgICAgICBpY29uPXs8VHJlbmRpbmdVcCBjbGFzc05hbWU9XCJoLTUgdy01XCIgLz59XHJcbiAgICAgICAgICAgIHZhcmlhbnQ9XCJ3YXJuaW5nXCJcclxuICAgICAgICAgIC8+XHJcbiAgICAgICAgPC9kaXY+XHJcblxyXG4gICAgICAgIHsvKiBDaGFydHMgUm93ICovfVxyXG4gICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZ3JpZCBnYXAtNiBsZzpncmlkLWNvbHMtMlwiPlxyXG4gICAgICAgICAgey8qIEF0dGVuZGFuY2UgQ2hhcnQgKi99XHJcbiAgICAgICAgICA8Q2FyZD5cclxuICAgICAgICAgICAgPENhcmRIZWFkZXIgY2xhc3NOYW1lPVwicGItMlwiPlxyXG4gICAgICAgICAgICAgIDxDYXJkVGl0bGUgY2xhc3NOYW1lPVwidGV4dC1sZyBmb250LWRpc3BsYXkgZmxleCBpdGVtcy1jZW50ZXIganVzdGlmeS1iZXR3ZWVuXCI+XHJcbiAgICAgICAgICAgICAgICBXZWVrbHkgQXR0ZW5kYW5jZVxyXG4gICAgICAgICAgICAgICAgPEJhZGdlIHZhcmlhbnQ9XCJzZWNvbmRhcnlcIj5MYXN0IDcgRGF5czwvQmFkZ2U+XHJcbiAgICAgICAgICAgICAgPC9DYXJkVGl0bGU+XHJcbiAgICAgICAgICAgIDwvQ2FyZEhlYWRlcj5cclxuICAgICAgICAgICAgPENhcmRDb250ZW50PlxyXG4gICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiaC1bMjgwcHhdXCI+XHJcbiAgICAgICAgICAgICAgICA8UmVzcG9uc2l2ZUNvbnRhaW5lciB3aWR0aD1cIjEwMCVcIiBoZWlnaHQ9XCIxMDAlXCI+XHJcbiAgICAgICAgICAgICAgICAgIDxCYXJDaGFydCBkYXRhPXthdHRlbmRhbmNlRGF0YX0+XHJcbiAgICAgICAgICAgICAgICAgICAgPENhcnRlc2lhbkdyaWQgc3Ryb2tlRGFzaGFycmF5PVwiMyAzXCIgY2xhc3NOYW1lPVwic3Ryb2tlLWJvcmRlclwiIC8+XHJcbiAgICAgICAgICAgICAgICAgICAgPFhBeGlzIGRhdGFLZXk9XCJkYXlcIiBjbGFzc05hbWU9XCJ0ZXh0LXhzXCIgLz5cclxuICAgICAgICAgICAgICAgICAgICA8WUF4aXMgY2xhc3NOYW1lPVwidGV4dC14c1wiIC8+XHJcbiAgICAgICAgICAgICAgICAgICAgPFRvb2x0aXBcclxuICAgICAgICAgICAgICAgICAgICAgIGNvbnRlbnRTdHlsZT17e1xyXG4gICAgICAgICAgICAgICAgICAgICAgICBiYWNrZ3JvdW5kQ29sb3I6IFwiaHNsKHZhcigtLWNhcmQpKVwiLFxyXG4gICAgICAgICAgICAgICAgICAgICAgICBib3JkZXI6IFwiMXB4IHNvbGlkIGhzbCh2YXIoLS1ib3JkZXIpKVwiLFxyXG4gICAgICAgICAgICAgICAgICAgICAgICBib3JkZXJSYWRpdXM6IFwiOHB4XCIsXHJcbiAgICAgICAgICAgICAgICAgICAgICB9fVxyXG4gICAgICAgICAgICAgICAgICAgIC8+XHJcbiAgICAgICAgICAgICAgICAgICAgPEJhciBkYXRhS2V5PVwicHJlc2VudFwiIGZpbGw9XCJoc2woMTQyLCA3MSUsIDQ1JSlcIiByYWRpdXM9e1s0LCA0LCAwLCAwXX0gbmFtZT1cIlByZXNlbnRcIiAvPlxyXG4gICAgICAgICAgICAgICAgICAgIDxCYXIgZGF0YUtleT1cImFic2VudFwiIGZpbGw9XCJoc2woMCwgNzIlLCA1MSUpXCIgcmFkaXVzPXtbNCwgNCwgMCwgMF19IG5hbWU9XCJBYnNlbnRcIiAvPlxyXG4gICAgICAgICAgICAgICAgICA8L0JhckNoYXJ0PlxyXG4gICAgICAgICAgICAgICAgPC9SZXNwb25zaXZlQ29udGFpbmVyPlxyXG4gICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICA8L0NhcmRDb250ZW50PlxyXG4gICAgICAgICAgPC9DYXJkPlxyXG5cclxuICAgICAgICAgIHsvKiBDb3Vyc2UgQ29tcGxldGlvbiBQaWUgKi99XHJcbiAgICAgICAgICA8Q2FyZD5cclxuICAgICAgICAgICAgPENhcmRIZWFkZXIgY2xhc3NOYW1lPVwicGItMlwiPlxyXG4gICAgICAgICAgICAgIDxDYXJkVGl0bGUgY2xhc3NOYW1lPVwidGV4dC1sZyBmb250LWRpc3BsYXlcIj5Db3Vyc2UgQ29tcGxldGlvbiBTdGF0dXM8L0NhcmRUaXRsZT5cclxuICAgICAgICAgICAgPC9DYXJkSGVhZGVyPlxyXG4gICAgICAgICAgICA8Q2FyZENvbnRlbnQ+XHJcbiAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJoLVsyODBweF0gZmxleCBpdGVtcy1jZW50ZXJcIj5cclxuICAgICAgICAgICAgICAgIDxSZXNwb25zaXZlQ29udGFpbmVyIHdpZHRoPVwiMTAwJVwiIGhlaWdodD1cIjEwMCVcIj5cclxuICAgICAgICAgICAgICAgICAgPFBpZUNoYXJ0PlxyXG4gICAgICAgICAgICAgICAgICAgIDxQaWVcclxuICAgICAgICAgICAgICAgICAgICAgIGRhdGE9e2NvdXJzZUNvbXBsZXRpb25EYXRhfVxyXG4gICAgICAgICAgICAgICAgICAgICAgY3g9XCI1MCVcIlxyXG4gICAgICAgICAgICAgICAgICAgICAgY3k9XCI1MCVcIlxyXG4gICAgICAgICAgICAgICAgICAgICAgaW5uZXJSYWRpdXM9ezYwfVxyXG4gICAgICAgICAgICAgICAgICAgICAgb3V0ZXJSYWRpdXM9ezEwMH1cclxuICAgICAgICAgICAgICAgICAgICAgIHBhZGRpbmdBbmdsZT17NH1cclxuICAgICAgICAgICAgICAgICAgICAgIGRhdGFLZXk9XCJ2YWx1ZVwiXHJcbiAgICAgICAgICAgICAgICAgICAgPlxyXG4gICAgICAgICAgICAgICAgICAgICAge2NvdXJzZUNvbXBsZXRpb25EYXRhLm1hcCgoZW50cnksIGluZGV4KSA9PiAoXHJcbiAgICAgICAgICAgICAgICAgICAgICAgIDxDZWxsIGtleT17YGNlbGwtJHtpbmRleH1gfSBmaWxsPXtlbnRyeS5jb2xvcn0gLz5cclxuICAgICAgICAgICAgICAgICAgICAgICkpfVxyXG4gICAgICAgICAgICAgICAgICAgIDwvUGllPlxyXG4gICAgICAgICAgICAgICAgICAgIDxUb29sdGlwXHJcbiAgICAgICAgICAgICAgICAgICAgICBjb250ZW50U3R5bGU9e3tcclxuICAgICAgICAgICAgICAgICAgICAgICAgYmFja2dyb3VuZENvbG9yOiBcImhzbCh2YXIoLS1jYXJkKSlcIixcclxuICAgICAgICAgICAgICAgICAgICAgICAgYm9yZGVyOiBcIjFweCBzb2xpZCBoc2wodmFyKC0tYm9yZGVyKSlcIixcclxuICAgICAgICAgICAgICAgICAgICAgICAgYm9yZGVyUmFkaXVzOiBcIjhweFwiLFxyXG4gICAgICAgICAgICAgICAgICAgICAgfX1cclxuICAgICAgICAgICAgICAgICAgICAvPlxyXG4gICAgICAgICAgICAgICAgICAgIDxMZWdlbmQgLz5cclxuICAgICAgICAgICAgICAgICAgPC9QaWVDaGFydD5cclxuICAgICAgICAgICAgICAgIDwvUmVzcG9uc2l2ZUNvbnRhaW5lcj5cclxuICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgPC9DYXJkQ29udGVudD5cclxuICAgICAgICAgIDwvQ2FyZD5cclxuICAgICAgICA8L2Rpdj5cclxuXHJcbiAgICAgICAgey8qIEVucm9sbG1lbnQgVHJlbmQgKi99XHJcbiAgICAgICAgPENhcmQ+XHJcbiAgICAgICAgICA8Q2FyZEhlYWRlciBjbGFzc05hbWU9XCJwYi0yXCI+XHJcbiAgICAgICAgICAgIDxDYXJkVGl0bGUgY2xhc3NOYW1lPVwidGV4dC1sZyBmb250LWRpc3BsYXkgZmxleCBpdGVtcy1jZW50ZXIganVzdGlmeS1iZXR3ZWVuXCI+XHJcbiAgICAgICAgICAgICAgRW5yb2xsbWVudCBUcmVuZFxyXG4gICAgICAgICAgICAgIDxCdXR0b24gdmFyaWFudD1cImdob3N0XCIgc2l6ZT1cInNtXCIgY2xhc3NOYW1lPVwiZ2FwLTFcIj5cclxuICAgICAgICAgICAgICAgIFZpZXcgRGV0YWlscyA8Q2hldnJvblJpZ2h0IGNsYXNzTmFtZT1cImgtNCB3LTRcIiAvPlxyXG4gICAgICAgICAgICAgIDwvQnV0dG9uPlxyXG4gICAgICAgICAgICA8L0NhcmRUaXRsZT5cclxuICAgICAgICAgIDwvQ2FyZEhlYWRlcj5cclxuICAgICAgICAgIDxDYXJkQ29udGVudD5cclxuICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJoLVszMDBweF1cIj5cclxuICAgICAgICAgICAgICA8UmVzcG9uc2l2ZUNvbnRhaW5lciB3aWR0aD1cIjEwMCVcIiBoZWlnaHQ9XCIxMDAlXCI+XHJcbiAgICAgICAgICAgICAgICA8TGluZUNoYXJ0IGRhdGE9e2Vucm9sbG1lbnRUcmVuZH0+XHJcbiAgICAgICAgICAgICAgICAgIDxDYXJ0ZXNpYW5HcmlkIHN0cm9rZURhc2hhcnJheT1cIjMgM1wiIGNsYXNzTmFtZT1cInN0cm9rZS1ib3JkZXJcIiAvPlxyXG4gICAgICAgICAgICAgICAgICA8WEF4aXMgZGF0YUtleT1cIm1vbnRoXCIgY2xhc3NOYW1lPVwidGV4dC14c1wiIC8+XHJcbiAgICAgICAgICAgICAgICAgIDxZQXhpcyBjbGFzc05hbWU9XCJ0ZXh0LXhzXCIgLz5cclxuICAgICAgICAgICAgICAgICAgPFRvb2x0aXBcclxuICAgICAgICAgICAgICAgICAgICBjb250ZW50U3R5bGU9e3tcclxuICAgICAgICAgICAgICAgICAgICAgIGJhY2tncm91bmRDb2xvcjogXCJoc2wodmFyKC0tY2FyZCkpXCIsXHJcbiAgICAgICAgICAgICAgICAgICAgICBib3JkZXI6IFwiMXB4IHNvbGlkIGhzbCh2YXIoLS1ib3JkZXIpKVwiLFxyXG4gICAgICAgICAgICAgICAgICAgICAgYm9yZGVyUmFkaXVzOiBcIjhweFwiLFxyXG4gICAgICAgICAgICAgICAgICAgIH19XHJcbiAgICAgICAgICAgICAgICAgIC8+XHJcbiAgICAgICAgICAgICAgICAgIDxMZWdlbmQgLz5cclxuICAgICAgICAgICAgICAgICAgPExpbmVcclxuICAgICAgICAgICAgICAgICAgICB0eXBlPVwibW9ub3RvbmVcIlxyXG4gICAgICAgICAgICAgICAgICAgIGRhdGFLZXk9XCJzdHVkZW50c1wiXHJcbiAgICAgICAgICAgICAgICAgICAgc3Ryb2tlPVwiaHNsKDIyMCwgNzAlLCA1MCUpXCJcclxuICAgICAgICAgICAgICAgICAgICBzdHJva2VXaWR0aD17Mn1cclxuICAgICAgICAgICAgICAgICAgICBkb3Q9e3sgZmlsbDogXCJoc2woMjIwLCA3MCUsIDUwJSlcIiB9fVxyXG4gICAgICAgICAgICAgICAgICAvPlxyXG4gICAgICAgICAgICAgICAgICA8TGluZVxyXG4gICAgICAgICAgICAgICAgICAgIHR5cGU9XCJtb25vdG9uZVwiXHJcbiAgICAgICAgICAgICAgICAgICAgZGF0YUtleT1cInRlYWNoZXJzXCJcclxuICAgICAgICAgICAgICAgICAgICBzdHJva2U9XCJoc2woMTczLCA1OCUsIDM5JSlcIlxyXG4gICAgICAgICAgICAgICAgICAgIHN0cm9rZVdpZHRoPXsyfVxyXG4gICAgICAgICAgICAgICAgICAgIGRvdD17eyBmaWxsOiBcImhzbCgxNzMsIDU4JSwgMzklKVwiIH19XHJcbiAgICAgICAgICAgICAgICAgIC8+XHJcbiAgICAgICAgICAgICAgICA8L0xpbmVDaGFydD5cclxuICAgICAgICAgICAgICA8L1Jlc3BvbnNpdmVDb250YWluZXI+XHJcbiAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgPC9DYXJkQ29udGVudD5cclxuICAgICAgICA8L0NhcmQ+XHJcblxyXG4gICAgICAgIHsvKiBQZW5kaW5nIFZlcmlmaWNhdGlvbnMgKi99XHJcbiAgICAgICAgPENhcmQgY2xhc3NOYW1lPVwiYm9yZGVyLXllbGxvdy01MDAvMzAgc2hhZG93LWxnXCI+XHJcbiAgICAgICAgICA8Q2FyZEhlYWRlciBjbGFzc05hbWU9XCJiZy15ZWxsb3ctNTAwLzUgcGItNFwiPlxyXG4gICAgICAgICAgICA8Q2FyZFRpdGxlIGNsYXNzTmFtZT1cInRleHQtbGcgZm9udC1kaXNwbGF5IGZsZXggaXRlbXMtY2VudGVyIGp1c3RpZnktYmV0d2VlbiB0ZXh0LXllbGxvdy02MDAgZGFyazp0ZXh0LXllbGxvdy01MDBcIj5cclxuICAgICAgICAgICAgICA8c3BhbiBjbGFzc05hbWU9XCJmbGV4IGl0ZW1zLWNlbnRlciBnYXAtMlwiPlxyXG4gICAgICAgICAgICAgICAgPFNlYXJjaENvZGUgY2xhc3NOYW1lPVwiaC01IHctNVwiIC8+XHJcbiAgICAgICAgICAgICAgICBQZW5kaW5nIFBheW1lbnQgVmVyaWZpY2F0aW9ucyAoe3BlbmRpbmdFbnJvbGxtZW50cy5sZW5ndGh9KVxyXG4gICAgICAgICAgICAgIDwvc3Bhbj5cclxuICAgICAgICAgICAgPC9DYXJkVGl0bGU+XHJcbiAgICAgICAgICA8L0NhcmRIZWFkZXI+XHJcbiAgICAgICAgICA8Q2FyZENvbnRlbnQgY2xhc3NOYW1lPVwicHQtNFwiPlxyXG4gICAgICAgICAgICB7cGVuZGluZ0Vucm9sbG1lbnRzLmxlbmd0aCA+IDAgPyAoXHJcbiAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJzcGFjZS15LTQgbWF4LWgtWzMwMHB4XSBvdmVyZmxvdy15LWF1dG8gcHItMlwiPlxyXG4gICAgICAgICAgICAgICAge3BlbmRpbmdFbnJvbGxtZW50cy5tYXAoKGVuciwgaSkgPT4gKFxyXG4gICAgICAgICAgICAgICAgICA8ZGl2IGtleT17ZW5yLmlkfSBjbGFzc05hbWU9XCJmbGV4IGZsZXgtY29sIG1kOmZsZXgtcm93IG1kOml0ZW1zLWNlbnRlciBqdXN0aWZ5LWJldHdlZW4gcC00IGJvcmRlciByb3VuZGVkLWxnIGJnLWNhcmQgZ2FwLTRcIj5cclxuICAgICAgICAgICAgICAgICAgICA8ZGl2PlxyXG4gICAgICAgICAgICAgICAgICAgICAgPGg0IGNsYXNzTmFtZT1cImZvbnQtc2VtaWJvbGQgdGV4dC1zbVwiPntlbnIudXNlcnM/LmZ1bGxfbmFtZX0gPHNwYW4gY2xhc3NOYW1lPVwidGV4dC1tdXRlZC1mb3JlZ3JvdW5kIGZvbnQtbm9ybWFsXCI+KHtlbnIudXNlcnM/LmVtYWlsfSk8L3NwYW4+PC9oND5cclxuICAgICAgICAgICAgICAgICAgICAgIDxwIGNsYXNzTmFtZT1cInRleHQtc20gdGV4dC1mb3JlZ3JvdW5kIG15LTFcIj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgQ291cnNlOiA8c3BhbiBjbGFzc05hbWU9XCJmb250LW1lZGl1bVwiPntlbnIuY291cnNlcz8udGl0bGV9PC9zcGFuPlxyXG4gICAgICAgICAgICAgICAgICAgICAgPC9wPlxyXG4gICAgICAgICAgICAgICAgICAgICAgPEJhZGdlIHZhcmlhbnQ9XCJvdXRsaW5lXCIgY2xhc3NOYW1lPVwibXQtMSBmb250LW1vbm8gYmctbXV0ZWRcIj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgVHggSUQ6IHtlbnIudHJhbnNhY3Rpb25faWQgfHwgXCJOL0FcIn1cclxuICAgICAgICAgICAgICAgICAgICAgIDwvQmFkZ2U+XHJcbiAgICAgICAgICAgICAgICAgICAgICA8cCBjbGFzc05hbWU9XCJ0ZXh0LXhzIHRleHQtbXV0ZWQtZm9yZWdyb3VuZCBtdC0yXCI+U3VibWl0dGVkIG9uIHtuZXcgRGF0ZShlbnIuZW5yb2xsZWRfYXQpLnRvTG9jYWxlU3RyaW5nKCl9PC9wPlxyXG4gICAgICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZmxleCBpdGVtcy1jZW50ZXIgZ2FwLTJcIj5cclxuICAgICAgICAgICAgICAgICAgICAgIDxCdXR0b24gdmFyaWFudD1cIm91dGxpbmVcIiBzaXplPVwic21cIiBjbGFzc05hbWU9XCJ0ZXh0LXJlZC01MDAgaG92ZXI6dGV4dC1yZWQtNjAwIGhvdmVyOmJnLXJlZC01MDAvMTAgYm9yZGVyLXJlZC0yMDBcIiBvbkNsaWNrPXsoKSA9PiBoYW5kbGVSZWplY3RFbnJvbGxtZW50KGVuci5pZCl9PlxyXG4gICAgICAgICAgICAgICAgICAgICAgICA8WENpcmNsZSBjbGFzc05hbWU9XCJoLTQgdy00IG1yLTFcIiAvPiBSZWplY3RcclxuICAgICAgICAgICAgICAgICAgICAgIDwvQnV0dG9uPlxyXG4gICAgICAgICAgICAgICAgICAgICAgPEJ1dHRvbiBzaXplPVwic21cIiBjbGFzc05hbWU9XCJiZy1ncmVlbi02MDAgaG92ZXI6YmctZ3JlZW4tNzAwIHRleHQtd2hpdGVcIiBvbkNsaWNrPXsoKSA9PiBoYW5kbGVBcHByb3ZlRW5yb2xsbWVudChlbnIuaWQsIGVuci51c2Vycz8uZW1haWwpfT5cclxuICAgICAgICAgICAgICAgICAgICAgICAgPENoZWNrQ2lyY2xlIGNsYXNzTmFtZT1cImgtNCB3LTQgbXItMVwiIC8+IEFwcHJvdmUgUGF5bWVudFxyXG4gICAgICAgICAgICAgICAgICAgICAgPC9CdXR0b24+XHJcbiAgICAgICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgKSl9XHJcbiAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICkgOiAoXHJcbiAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJ0ZXh0LWNlbnRlciBweS04IHRleHQtbXV0ZWQtZm9yZWdyb3VuZCBiZy1tdXRlZC8yMCBib3JkZXItMiBib3JkZXItZGFzaGVkIHJvdW5kZWQtbGdcIj5cclxuICAgICAgICAgICAgICAgIDxTZWFyY2hDb2RlIGNsYXNzTmFtZT1cImgtOCB3LTggbXgtYXV0byBtYi0yIG9wYWNpdHktNTBcIiAvPlxyXG4gICAgICAgICAgICAgICAgPHA+Tm8gcGVuZGluZyBwYXltZW50IHZlcmlmaWNhdGlvbnMgYXQgdGhlIG1vbWVudC48L3A+XHJcbiAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICl9XHJcbiAgICAgICAgICA8L0NhcmRDb250ZW50PlxyXG4gICAgICAgIDwvQ2FyZD5cclxuXHJcbiAgICAgICAgey8qIEJvdHRvbSBHcmlkICovfVxyXG4gICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZ3JpZCBnYXAtNiBsZzpncmlkLWNvbHMtM1wiPlxyXG4gICAgICAgICAgey8qIFRvcCBDb3Vyc2VzICovfVxyXG4gICAgICAgICAgPENhcmQgY2xhc3NOYW1lPVwibGc6Y29sLXNwYW4tMlwiPlxyXG4gICAgICAgICAgICA8Q2FyZEhlYWRlciBjbGFzc05hbWU9XCJwYi0yXCI+XHJcbiAgICAgICAgICAgICAgPENhcmRUaXRsZSBjbGFzc05hbWU9XCJ0ZXh0LWxnIGZvbnQtZGlzcGxheSBmbGV4IGl0ZW1zLWNlbnRlciBqdXN0aWZ5LWJldHdlZW5cIj5cclxuICAgICAgICAgICAgICAgIFRvcCBQZXJmb3JtaW5nIENvdXJzZXNcclxuICAgICAgICAgICAgICAgIDxCdXR0b24gdmFyaWFudD1cImdob3N0XCIgc2l6ZT1cInNtXCIgY2xhc3NOYW1lPVwiZ2FwLTFcIj5cclxuICAgICAgICAgICAgICAgICAgVmlldyBBbGwgPENoZXZyb25SaWdodCBjbGFzc05hbWU9XCJoLTQgdy00XCIgLz5cclxuICAgICAgICAgICAgICAgIDwvQnV0dG9uPlxyXG4gICAgICAgICAgICAgIDwvQ2FyZFRpdGxlPlxyXG4gICAgICAgICAgICA8L0NhcmRIZWFkZXI+XHJcbiAgICAgICAgICAgIDxDYXJkQ29udGVudD5cclxuICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInNwYWNlLXktNFwiPlxyXG4gICAgICAgICAgICAgICAge3RvcENvdXJzZXMubGVuZ3RoID4gMCA/IHRvcENvdXJzZXMubWFwKChjb3Vyc2UsIGkpID0+IChcclxuICAgICAgICAgICAgICAgICAgPGRpdiBrZXk9e2l9IGNsYXNzTmFtZT1cImZsZXggaXRlbXMtY2VudGVyIGdhcC00XCI+XHJcbiAgICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJ3LTggaC04IHJvdW5kZWQtbGcgYmctcHJpbWFyeS8xMCBmbGV4IGl0ZW1zLWNlbnRlciBqdXN0aWZ5LWNlbnRlciB0ZXh0LXNtIGZvbnQtc2VtaWJvbGQgdGV4dC1wcmltYXJ5XCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICB7aSArIDF9XHJcbiAgICAgICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJmbGV4LTEgbWluLXctMFwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgPHAgY2xhc3NOYW1lPVwiZm9udC1tZWRpdW0gdGV4dC1zbSB0cnVuY2F0ZVwiPntjb3Vyc2UubmFtZX08L3A+XHJcbiAgICAgICAgICAgICAgICAgICAgICA8cCBjbGFzc05hbWU9XCJ0ZXh0LXhzIHRleHQtbXV0ZWQtZm9yZWdyb3VuZFwiPntjb3Vyc2UuZW5yb2xsZWR9IGVucm9sbGVkPC9wPlxyXG4gICAgICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwidy0zMiBoaWRkZW4gc206YmxvY2tcIj5cclxuICAgICAgICAgICAgICAgICAgICAgIDxQcm9ncmVzcyB2YWx1ZT17Y291cnNlLmNvbXBsZXRpb259IHNpemU9XCJzbVwiIHZhcmlhbnQ9XCJzdWNjZXNzXCIgLz5cclxuICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgICAgICA8c3BhbiBjbGFzc05hbWU9XCJ0ZXh0LXNtIGZvbnQtbWVkaXVtIHctMTIgdGV4dC1yaWdodFwiPntjb3Vyc2UuY29tcGxldGlvbn0lPC9zcGFuPlxyXG4gICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgICkpIDogKFxyXG4gICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInRleHQtY2VudGVyIHRleHQtbXV0ZWQtZm9yZWdyb3VuZCBweS00XCI+Tm8gZW5yb2xsbWVudCBkYXRhIGF2YWlsYWJsZS48L2Rpdj5cclxuICAgICAgICAgICAgICAgICl9XHJcbiAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgIDwvQ2FyZENvbnRlbnQ+XHJcbiAgICAgICAgICA8L0NhcmQ+XHJcblxyXG4gICAgICAgICAgey8qIFJlY2VudCBBY3Rpdml0aWVzICovfVxyXG4gICAgICAgICAgPENhcmQ+XHJcbiAgICAgICAgICAgIDxDYXJkSGVhZGVyIGNsYXNzTmFtZT1cInBiLTJcIj5cclxuICAgICAgICAgICAgICA8Q2FyZFRpdGxlIGNsYXNzTmFtZT1cInRleHQtbGcgZm9udC1kaXNwbGF5XCI+UmVjZW50IEFjdGl2aXRpZXM8L0NhcmRUaXRsZT5cclxuICAgICAgICAgICAgPC9DYXJkSGVhZGVyPlxyXG4gICAgICAgICAgICA8Q2FyZENvbnRlbnQ+XHJcbiAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJzcGFjZS15LTRcIj5cclxuICAgICAgICAgICAgICAgIHtyZWNlbnRBY3Rpdml0aWVzLmxlbmd0aCA+IDAgPyByZWNlbnRBY3Rpdml0aWVzLm1hcCgoYWN0aXZpdHksIGkpID0+IChcclxuICAgICAgICAgICAgICAgICAgPGRpdiBrZXk9e2l9IGNsYXNzTmFtZT1cImZsZXggaXRlbXMtc3RhcnQgZ2FwLTNcIj5cclxuICAgICAgICAgICAgICAgICAgICA8ZGl2XHJcbiAgICAgICAgICAgICAgICAgICAgICBjbGFzc05hbWU9e2B3LTIgaC0yIHJvdW5kZWQtZnVsbCBtdC0yICR7YWN0aXZpdHkudHlwZSA9PT0gXCJlbnJvbGxtZW50XCJcclxuICAgICAgICAgICAgICAgICAgICAgICAgPyBcImJnLXByaW1hcnlcIlxyXG4gICAgICAgICAgICAgICAgICAgICAgICA6IFwiYmctYWNjZW50XCJ9YH1cclxuICAgICAgICAgICAgICAgICAgICAvPlxyXG4gICAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZmxleC0xIG1pbi13LTBcIj5cclxuICAgICAgICAgICAgICAgICAgICAgIDxwIGNsYXNzTmFtZT1cInRleHQtc20gZm9udC1tZWRpdW1cIj57YWN0aXZpdHkuYWN0aW9ufTwvcD5cclxuICAgICAgICAgICAgICAgICAgICAgIDxwIGNsYXNzTmFtZT1cInRleHQteHMgdGV4dC1tdXRlZC1mb3JlZ3JvdW5kXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgIHthY3Rpdml0eS51c2VyfSDCtyB7YWN0aXZpdHkudGltZX1cclxuICAgICAgICAgICAgICAgICAgICAgIDwvcD5cclxuICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgICApKSA6IChcclxuICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJ0ZXh0LWNlbnRlciB0ZXh0LW11dGVkLWZvcmVncm91bmQgcHktNFwiPk5vIHJlY2VudCBhY3Rpdml0aWVzLjwvZGl2PlxyXG4gICAgICAgICAgICAgICAgKX1cclxuICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgPC9DYXJkQ29udGVudD5cclxuICAgICAgICAgIDwvQ2FyZD5cclxuICAgICAgICA8L2Rpdj5cclxuICAgICAgPC9kaXY+XHJcbiAgICA8L0FkbWluTGF5b3V0PlxyXG4gICk7XHJcbn1cclxuIl0sIm5hbWVzIjpbInVzZVN0YXRlIiwidXNlRWZmZWN0IiwiQWRtaW5MYXlvdXQiLCJTdGF0Q2FyZCIsIkNhcmQiLCJDYXJkQ29udGVudCIsIkNhcmRIZWFkZXIiLCJDYXJkVGl0bGUiLCJQcm9ncmVzcyIsIkJhZGdlIiwiQnV0dG9uIiwiVXNlcnMiLCJHcmFkdWF0aW9uQ2FwIiwiQm9va09wZW4iLCJUcmVuZGluZ1VwIiwiQ2FsZW5kYXIiLCJDaGV2cm9uUmlnaHQiLCJSZWZyZXNoQ3ciLCJDaGVja0NpcmNsZSIsIlhDaXJjbGUiLCJTZWFyY2hDb2RlIiwiQmFyQ2hhcnQiLCJCYXIiLCJYQXhpcyIsIllBeGlzIiwiQ2FydGVzaWFuR3JpZCIsIlRvb2x0aXAiLCJSZXNwb25zaXZlQ29udGFpbmVyIiwiUGllQ2hhcnQiLCJQaWUiLCJDZWxsIiwiTGluZUNoYXJ0IiwiTGluZSIsIkxlZ2VuZCIsInN1cGFiYXNlIiwidXNlVG9hc3QiLCJBZG1pbkRhc2hib2FyZCIsInRvYXN0IiwibG9hZGluZyIsInNldExvYWRpbmciLCJzdGF0cyIsInNldFN0YXRzIiwic3R1ZGVudHMiLCJ0ZWFjaGVycyIsImFjdGl2ZUNvdXJzZXMiLCJhdmdBdHRlbmRhbmNlIiwiYXR0ZW5kYW5jZURhdGEiLCJzZXRBdHRlbmRhbmNlRGF0YSIsImNvdXJzZUNvbXBsZXRpb25EYXRhIiwic2V0Q291cnNlQ29tcGxldGlvbkRhdGEiLCJlbnJvbGxtZW50VHJlbmQiLCJzZXRFbnJvbGxtZW50VHJlbmQiLCJ0b3BDb3Vyc2VzIiwic2V0VG9wQ291cnNlcyIsInJlY2VudEFjdGl2aXRpZXMiLCJzZXRSZWNlbnRBY3Rpdml0aWVzIiwicGVuZGluZ0Vucm9sbG1lbnRzIiwic2V0UGVuZGluZ0Vucm9sbG1lbnRzIiwiZmV0Y2hEYXNoYm9hcmREYXRhIiwiY291bnQiLCJzdHVkZW50Q291bnQiLCJmcm9tIiwic2VsZWN0IiwiaGVhZCIsImVxIiwidGVhY2hlckNvdW50IiwiY291cnNlQ291bnQiLCJkYXRhIiwiYXR0ZW5kYW5jZVJlY29yZHMiLCJhdmdBdHQiLCJ3ZWVrbHlEYXRhIiwibGVuZ3RoIiwicHJlc2VudENvdW50IiwiZmlsdGVyIiwiciIsInN0YXR1cyIsIk1hdGgiLCJyb3VuZCIsImRheXMiLCJsYXN0N0RheXMiLCJBcnJheSIsIl8iLCJpIiwiZCIsIkRhdGUiLCJzZXREYXRlIiwiZ2V0RGF0ZSIsIm1hcCIsImRhdGUiLCJkYXlTdHIiLCJ0b0lTT1N0cmluZyIsInNwbGl0IiwiZGF5UmVjb3JkcyIsImRheSIsImdldERheSIsInByZXNlbnQiLCJhYnNlbnQiLCJlbnJvbGxtZW50cyIsImNvbXBsZXRlZCIsImUiLCJvbmdvaW5nIiwibmFtZSIsInZhbHVlIiwiY29sb3IiLCJ1c2VycyIsIm1vbnRocyIsInRyZW5kTWFwIiwiTWFwIiwiZm9yRWFjaCIsInUiLCJjcmVhdGVkX2F0Iiwia2V5IiwiZ2V0TW9udGgiLCJoYXMiLCJzZXQiLCJyb2xlIiwiZ2V0IiwidHJlbmQiLCJlbnRyaWVzIiwibW9udGgiLCJjb3VudHMiLCJzbGljZSIsInRvcERhdGEiLCJsaW1pdCIsImNvdXJzZUNvdW50cyIsInRpdGxlIiwiY291cnNlcyIsInNvcnRlZENvdXJzZXMiLCJPYmplY3QiLCJ2YWx1ZXMiLCJzb3J0IiwiYSIsImIiLCJjIiwiZW5yb2xsZWQiLCJjb21wbGV0aW9uIiwiZmxvb3IiLCJyYW5kb20iLCJyZWNlbnRFbnIiLCJvcmRlciIsImFzY2VuZGluZyIsInR5cGUiLCJhY3Rpb24iLCJ1c2VyIiwiZnVsbF9uYW1lIiwidGltZSIsImVucm9sbGVkX2F0IiwidG9Mb2NhbGVEYXRlU3RyaW5nIiwicGVuZGluZyIsImVycm9yIiwiY29uc29sZSIsInZhcmlhbnQiLCJoYW5kbGVBcHByb3ZlRW5yb2xsbWVudCIsImVucm9sbG1lbnRJZCIsInVzZXJFbWFpbCIsInVwZGF0ZSIsImRlc2NyaXB0aW9uIiwibWVzc2FnZSIsImhhbmRsZVJlamVjdEVucm9sbG1lbnQiLCJkaXYiLCJjbGFzc05hbWUiLCJoMSIsInAiLCJzaXplIiwib25DbGljayIsImRpc2FibGVkIiwidG9TdHJpbmciLCJpY29uIiwid2lkdGgiLCJoZWlnaHQiLCJzdHJva2VEYXNoYXJyYXkiLCJkYXRhS2V5IiwiY29udGVudFN0eWxlIiwiYmFja2dyb3VuZENvbG9yIiwiYm9yZGVyIiwiYm9yZGVyUmFkaXVzIiwiZmlsbCIsInJhZGl1cyIsImN4IiwiY3kiLCJpbm5lclJhZGl1cyIsIm91dGVyUmFkaXVzIiwicGFkZGluZ0FuZ2xlIiwiZW50cnkiLCJpbmRleCIsInN0cm9rZSIsInN0cm9rZVdpZHRoIiwiZG90Iiwic3BhbiIsImVuciIsImg0IiwiZW1haWwiLCJ0cmFuc2FjdGlvbl9pZCIsInRvTG9jYWxlU3RyaW5nIiwiaWQiLCJjb3Vyc2UiLCJhY3Rpdml0eSJdLCJtYXBwaW5ncyI6Ijs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7O0FBQUEsU0FBU0EsUUFBUSxFQUFFQyxTQUFTLFFBQVEsUUFBUTtBQUM1QyxTQUFTQyxXQUFXLFFBQVEsa0NBQWtDO0FBQzlELFNBQVNDLFFBQVEsUUFBUSw0QkFBNEI7QUFDckQsU0FBU0MsSUFBSSxFQUFFQyxXQUFXLEVBQUVDLFVBQVUsRUFBRUMsU0FBUyxRQUFRLHVCQUF1QjtBQUNoRixTQUFTQyxRQUFRLFFBQVEsMkJBQTJCO0FB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

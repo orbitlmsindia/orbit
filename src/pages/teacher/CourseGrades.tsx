@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Download, Upload, FileUp, Save, ChevronLeft } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
+import { TeacherGradebookExporter } from "@/components/analytics/TeacherGradebookExporter";
 
 export default function CourseGrades() {
     const { id } = useParams(); // Course ID
@@ -318,6 +319,11 @@ export default function CourseGrades() {
                     </Table>
                 </CardContent>
             </Card>
+
+            {/* Comprehensive Class Performance Matrix & Excel Exporter */}
+            <div className="pt-6">
+                <TeacherGradebookExporter courseId={id} />
+            </div>
         </TeacherLayout>
     );
 }

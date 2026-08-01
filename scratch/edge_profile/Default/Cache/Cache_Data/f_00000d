@@ -1,0 +1,568 @@
+import { createHotContext as __vite__createHotContext } from "/@vite/client";import.meta.hot = __vite__createHotContext("/src/pages/Dashboard.tsx");import * as RefreshRuntime from "/@react-refresh";
+const inWebWorker = typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope;
+
+let prevRefreshReg;
+let prevRefreshSig;
+
+if (import.meta.hot && !inWebWorker) {
+  if (!window.$RefreshReg$) {
+    throw new Error(
+      "@vitejs/plugin-react-swc can't detect preamble. Something is wrong."
+    );
+  }
+
+  prevRefreshReg = window.$RefreshReg$;
+  prevRefreshSig = window.$RefreshSig$;
+  window.$RefreshReg$ = RefreshRuntime.getRefreshReg("D:/Orbitlms/src/pages/Dashboard.tsx");
+  window.$RefreshSig$ = RefreshRuntime.createSignatureFunctionForTransform;
+}
+
+import __vite__cjsImport2_react_jsxDevRuntime from "/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=88ed5bfa"; const _jsxDEV = __vite__cjsImport2_react_jsxDevRuntime["jsxDEV"];
+import { DashboardLayout } from "/src/components/layout/DashboardLayout.tsx";
+import { StatCard } from "/src/components/ui/stat-card.tsx";
+import { CourseCard } from "/src/components/ui/course-card.tsx";
+import { Progress } from "/src/components/ui/progress.tsx";
+import { Badge } from "/src/components/ui/badge.tsx";
+import { Button } from "/src/components/ui/button.tsx";
+import { Card, CardContent, CardHeader, CardTitle } from "/src/components/ui/card.tsx";
+import { BookOpen, Clock, Award, TrendingUp, Play, Calendar, ChevronRight } from "/node_modules/.vite/deps/lucide-react.js?v=88ed5bfa";
+const recentCourses = [];
+const upcomingDeadlines = [];
+const achievements = [];
+export default function Dashboard() {
+    return /*#__PURE__*/ _jsxDEV(DashboardLayout, {
+        children: /*#__PURE__*/ _jsxDEV("div", {
+            className: "space-y-8 animate-fade-in",
+            children: [
+                /*#__PURE__*/ _jsxDEV("div", {
+                    className: "flex flex-col gap-4 md:flex-row md:items-center md:justify-between",
+                    children: [
+                        /*#__PURE__*/ _jsxDEV("div", {
+                            children: [
+                                /*#__PURE__*/ _jsxDEV("h1", {
+                                    className: "text-3xl font-display font-bold text-foreground",
+                                    children: "Welcome back, John! 👋"
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                    lineNumber: 29,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV("p", {
+                                    className: "text-muted-foreground mt-1",
+                                    children: "Continue where you left off and keep learning."
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                    lineNumber: 32,
+                                    columnNumber: 13
+                                }, this)
+                            ]
+                        }, void 0, true, {
+                            fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                            lineNumber: 28,
+                            columnNumber: 11
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV(Button, {
+                            className: "gap-2",
+                            children: [
+                                /*#__PURE__*/ _jsxDEV(Play, {
+                                    className: "h-4 w-4"
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                    lineNumber: 37,
+                                    columnNumber: 13
+                                }, this),
+                                "Resume Learning"
+                            ]
+                        }, void 0, true, {
+                            fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                            lineNumber: 36,
+                            columnNumber: 11
+                        }, this)
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                    lineNumber: 27,
+                    columnNumber: 9
+                }, this),
+                /*#__PURE__*/ _jsxDEV("div", {
+                    className: "grid gap-4 md:grid-cols-2 lg:grid-cols-4",
+                    children: [
+                        /*#__PURE__*/ _jsxDEV(StatCard, {
+                            title: "Courses Enrolled",
+                            value: 0,
+                            icon: /*#__PURE__*/ _jsxDEV(BookOpen, {
+                                className: "h-5 w-5"
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                lineNumber: 47,
+                                columnNumber: 19
+                            }, void 0)
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                            lineNumber: 44,
+                            columnNumber: 11
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV(StatCard, {
+                            title: "Hours Learned",
+                            value: "0",
+                            icon: /*#__PURE__*/ _jsxDEV(Clock, {
+                                className: "h-5 w-5"
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                lineNumber: 52,
+                                columnNumber: 19
+                            }, void 0),
+                            variant: "primary"
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                            lineNumber: 49,
+                            columnNumber: 11
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV(StatCard, {
+                            title: "Certificates Earned",
+                            value: 0,
+                            icon: /*#__PURE__*/ _jsxDEV(Award, {
+                                className: "h-5 w-5"
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                lineNumber: 58,
+                                columnNumber: 19
+                            }, void 0),
+                            variant: "accent"
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                            lineNumber: 55,
+                            columnNumber: 11
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV(StatCard, {
+                            title: "Current Streak",
+                            value: "0 days",
+                            icon: /*#__PURE__*/ _jsxDEV(TrendingUp, {
+                                className: "h-5 w-5"
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                lineNumber: 64,
+                                columnNumber: 19
+                            }, void 0),
+                            description: "Start learning!",
+                            variant: "success"
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                            lineNumber: 61,
+                            columnNumber: 11
+                        }, this)
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                    lineNumber: 43,
+                    columnNumber: 9
+                }, this),
+                /*#__PURE__*/ _jsxDEV("div", {
+                    className: "grid gap-6 lg:grid-cols-3",
+                    children: [
+                        /*#__PURE__*/ _jsxDEV("div", {
+                            className: "lg:col-span-2 space-y-4",
+                            children: [
+                                /*#__PURE__*/ _jsxDEV("div", {
+                                    className: "flex items-center justify-between",
+                                    children: [
+                                        /*#__PURE__*/ _jsxDEV("h2", {
+                                            className: "text-xl font-semibold font-display",
+                                            children: "My Courses"
+                                        }, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                            lineNumber: 75,
+                                            columnNumber: 15
+                                        }, this),
+                                        /*#__PURE__*/ _jsxDEV(Button, {
+                                            variant: "ghost",
+                                            className: "gap-1 text-sm",
+                                            children: [
+                                                "View all ",
+                                                /*#__PURE__*/ _jsxDEV(ChevronRight, {
+                                                    className: "h-4 w-4"
+                                                }, void 0, false, {
+                                                    fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                                    lineNumber: 77,
+                                                    columnNumber: 26
+                                                }, this)
+                                            ]
+                                        }, void 0, true, {
+                                            fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                            lineNumber: 76,
+                                            columnNumber: 15
+                                        }, this)
+                                    ]
+                                }, void 0, true, {
+                                    fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                    lineNumber: 74,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV("div", {
+                                    className: "grid gap-4 sm:grid-cols-2 lg:grid-cols-3",
+                                    children: recentCourses.map((course)=>/*#__PURE__*/ _jsxDEV(CourseCard, {
+                                            ...course
+                                        }, course.id, false, {
+                                            fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                            lineNumber: 82,
+                                            columnNumber: 17
+                                        }, this))
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                    lineNumber: 80,
+                                    columnNumber: 13
+                                }, this)
+                            ]
+                        }, void 0, true, {
+                            fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                            lineNumber: 73,
+                            columnNumber: 11
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV("div", {
+                            className: "space-y-6",
+                            children: [
+                                /*#__PURE__*/ _jsxDEV(Card, {
+                                    children: [
+                                        /*#__PURE__*/ _jsxDEV(CardHeader, {
+                                            className: "pb-2",
+                                            children: /*#__PURE__*/ _jsxDEV(CardTitle, {
+                                                className: "text-lg font-display",
+                                                children: "Weekly Progress"
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                                lineNumber: 92,
+                                                columnNumber: 17
+                                            }, this)
+                                        }, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                            lineNumber: 91,
+                                            columnNumber: 15
+                                        }, this),
+                                        /*#__PURE__*/ _jsxDEV(CardContent, {
+                                            className: "space-y-4",
+                                            children: [
+                                                /*#__PURE__*/ _jsxDEV("div", {
+                                                    className: "space-y-2",
+                                                    children: [
+                                                        /*#__PURE__*/ _jsxDEV("div", {
+                                                            className: "flex justify-between text-sm",
+                                                            children: [
+                                                                /*#__PURE__*/ _jsxDEV("span", {
+                                                                    className: "text-muted-foreground",
+                                                                    children: "Learning Goal"
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                                                    lineNumber: 97,
+                                                                    columnNumber: 21
+                                                                }, this),
+                                                                /*#__PURE__*/ _jsxDEV("span", {
+                                                                    className: "font-medium",
+                                                                    children: "5h / 8h"
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                                                    lineNumber: 98,
+                                                                    columnNumber: 21
+                                                                }, this)
+                                                            ]
+                                                        }, void 0, true, {
+                                                            fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                                            lineNumber: 96,
+                                                            columnNumber: 19
+                                                        }, this),
+                                                        /*#__PURE__*/ _jsxDEV(Progress, {
+                                                            value: 62.5,
+                                                            variant: "accent",
+                                                            showLabel: true
+                                                        }, void 0, false, {
+                                                            fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                                            lineNumber: 100,
+                                                            columnNumber: 19
+                                                        }, this)
+                                                    ]
+                                                }, void 0, true, {
+                                                    fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                                    lineNumber: 95,
+                                                    columnNumber: 17
+                                                }, this),
+                                                /*#__PURE__*/ _jsxDEV("div", {
+                                                    className: "grid grid-cols-7 gap-1",
+                                                    children: [
+                                                        "M",
+                                                        "T",
+                                                        "W",
+                                                        "T",
+                                                        "F",
+                                                        "S",
+                                                        "S"
+                                                    ].map((day, i)=>/*#__PURE__*/ _jsxDEV("div", {
+                                                            className: "text-center",
+                                                            children: [
+                                                                /*#__PURE__*/ _jsxDEV("div", {
+                                                                    className: `h-8 w-8 rounded-lg mx-auto flex items-center justify-center text-xs font-medium ${i < 5 ? "bg-success text-success-foreground" : i === 5 ? "bg-muted text-muted-foreground" : "bg-muted/50 text-muted-foreground"}`,
+                                                                    children: i < 5 ? "✓" : ""
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                                                    lineNumber: 105,
+                                                                    columnNumber: 23
+                                                                }, this),
+                                                                /*#__PURE__*/ _jsxDEV("span", {
+                                                                    className: "text-xs text-muted-foreground mt-1",
+                                                                    children: day
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                                                    lineNumber: 115,
+                                                                    columnNumber: 23
+                                                                }, this)
+                                                            ]
+                                                        }, i, true, {
+                                                            fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                                            lineNumber: 104,
+                                                            columnNumber: 21
+                                                        }, this))
+                                                }, void 0, false, {
+                                                    fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                                    lineNumber: 102,
+                                                    columnNumber: 17
+                                                }, this)
+                                            ]
+                                        }, void 0, true, {
+                                            fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                            lineNumber: 94,
+                                            columnNumber: 15
+                                        }, this)
+                                    ]
+                                }, void 0, true, {
+                                    fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                    lineNumber: 90,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Card, {
+                                    children: [
+                                        /*#__PURE__*/ _jsxDEV(CardHeader, {
+                                            className: "pb-2",
+                                            children: /*#__PURE__*/ _jsxDEV(CardTitle, {
+                                                className: "text-lg font-display flex items-center gap-2",
+                                                children: [
+                                                    /*#__PURE__*/ _jsxDEV(Calendar, {
+                                                        className: "h-4 w-4"
+                                                    }, void 0, false, {
+                                                        fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                                        lineNumber: 126,
+                                                        columnNumber: 19
+                                                    }, this),
+                                                    "Upcoming Deadlines"
+                                                ]
+                                            }, void 0, true, {
+                                                fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                                lineNumber: 125,
+                                                columnNumber: 17
+                                            }, this)
+                                        }, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                            lineNumber: 124,
+                                            columnNumber: 15
+                                        }, this),
+                                        /*#__PURE__*/ _jsxDEV(CardContent, {
+                                            className: "space-y-3",
+                                            children: upcomingDeadlines.map((item, i)=>/*#__PURE__*/ _jsxDEV("div", {
+                                                    className: "flex items-start gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors",
+                                                    children: [
+                                                        /*#__PURE__*/ _jsxDEV("div", {
+                                                            className: "mt-0.5",
+                                                            children: [
+                                                                item.type === "quiz" && /*#__PURE__*/ _jsxDEV("span", {
+                                                                    children: "📝"
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                                                    lineNumber: 137,
+                                                                    columnNumber: 48
+                                                                }, this),
+                                                                item.type === "assignment" && /*#__PURE__*/ _jsxDEV("span", {
+                                                                    children: "📋"
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                                                    lineNumber: 138,
+                                                                    columnNumber: 54
+                                                                }, this),
+                                                                item.type === "review" && /*#__PURE__*/ _jsxDEV("span", {
+                                                                    children: "📖"
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                                                    lineNumber: 139,
+                                                                    columnNumber: 50
+                                                                }, this)
+                                                            ]
+                                                        }, void 0, true, {
+                                                            fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                                            lineNumber: 136,
+                                                            columnNumber: 21
+                                                        }, this),
+                                                        /*#__PURE__*/ _jsxDEV("div", {
+                                                            className: "flex-1 min-w-0",
+                                                            children: [
+                                                                /*#__PURE__*/ _jsxDEV("p", {
+                                                                    className: "font-medium text-sm truncate",
+                                                                    children: item.title
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                                                    lineNumber: 142,
+                                                                    columnNumber: 23
+                                                                }, this),
+                                                                /*#__PURE__*/ _jsxDEV("p", {
+                                                                    className: "text-xs text-muted-foreground",
+                                                                    children: item.course
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                                                    lineNumber: 143,
+                                                                    columnNumber: 23
+                                                                }, this)
+                                                            ]
+                                                        }, void 0, true, {
+                                                            fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                                            lineNumber: 141,
+                                                            columnNumber: 21
+                                                        }, this),
+                                                        /*#__PURE__*/ _jsxDEV(Badge, {
+                                                            variant: i === 0 ? "warning" : "secondary",
+                                                            className: "text-xs shrink-0",
+                                                            children: item.dueDate
+                                                        }, void 0, false, {
+                                                            fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                                            lineNumber: 145,
+                                                            columnNumber: 21
+                                                        }, this)
+                                                    ]
+                                                }, i, true, {
+                                                    fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                                    lineNumber: 132,
+                                                    columnNumber: 19
+                                                }, this))
+                                        }, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                            lineNumber: 130,
+                                            columnNumber: 15
+                                        }, this)
+                                    ]
+                                }, void 0, true, {
+                                    fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                    lineNumber: 123,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Card, {
+                                    children: [
+                                        /*#__PURE__*/ _jsxDEV(CardHeader, {
+                                            className: "pb-2",
+                                            children: /*#__PURE__*/ _jsxDEV(CardTitle, {
+                                                className: "text-lg font-display",
+                                                children: "Recent Achievements"
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                                lineNumber: 156,
+                                                columnNumber: 17
+                                            }, this)
+                                        }, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                            lineNumber: 155,
+                                            columnNumber: 15
+                                        }, this),
+                                        /*#__PURE__*/ _jsxDEV(CardContent, {
+                                            className: "space-y-3",
+                                            children: achievements.map((item, i)=>/*#__PURE__*/ _jsxDEV("div", {
+                                                    className: "flex items-center gap-3 p-3 rounded-lg border border-border hover:border-primary/20 transition-colors",
+                                                    children: [
+                                                        /*#__PURE__*/ _jsxDEV("span", {
+                                                            className: "text-2xl",
+                                                            children: item.icon
+                                                        }, void 0, false, {
+                                                            fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                                            lineNumber: 164,
+                                                            columnNumber: 21
+                                                        }, this),
+                                                        /*#__PURE__*/ _jsxDEV("div", {
+                                                            children: [
+                                                                /*#__PURE__*/ _jsxDEV("p", {
+                                                                    className: "font-medium text-sm",
+                                                                    children: item.title
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                                                    lineNumber: 166,
+                                                                    columnNumber: 23
+                                                                }, this),
+                                                                /*#__PURE__*/ _jsxDEV("p", {
+                                                                    className: "text-xs text-muted-foreground",
+                                                                    children: item.description
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                                                    lineNumber: 167,
+                                                                    columnNumber: 23
+                                                                }, this)
+                                                            ]
+                                                        }, void 0, true, {
+                                                            fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                                            lineNumber: 165,
+                                                            columnNumber: 21
+                                                        }, this)
+                                                    ]
+                                                }, i, true, {
+                                                    fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                                    lineNumber: 160,
+                                                    columnNumber: 19
+                                                }, this))
+                                        }, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                            lineNumber: 158,
+                                            columnNumber: 15
+                                        }, this)
+                                    ]
+                                }, void 0, true, {
+                                    fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                                    lineNumber: 154,
+                                    columnNumber: 13
+                                }, this)
+                            ]
+                        }, void 0, true, {
+                            fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                            lineNumber: 88,
+                            columnNumber: 11
+                        }, this)
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+                    lineNumber: 71,
+                    columnNumber: 9
+                }, this)
+            ]
+        }, void 0, true, {
+            fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+            lineNumber: 25,
+            columnNumber: 7
+        }, this)
+    }, void 0, false, {
+        fileName: "D:/Orbitlms/src/pages/Dashboard.tsx",
+        lineNumber: 24,
+        columnNumber: 5
+    }, this);
+}
+_c = Dashboard;
+var _c;
+$RefreshReg$(_c, "Dashboard");
+
+
+if (import.meta.hot && !inWebWorker) {
+  window.$RefreshReg$ = prevRefreshReg;
+  window.$RefreshSig$ = prevRefreshSig;
+}
+
+
+if (import.meta.hot && !inWebWorker) {
+  RefreshRuntime.__hmr_import(import.meta.url).then((currentExports) => {
+    RefreshRuntime.registerExportsForReactRefresh("D:/Orbitlms/src/pages/Dashboard.tsx", currentExports);
+    import.meta.hot.accept((nextExports) => {
+      if (!nextExports) return;
+      const invalidateMessage = RefreshRuntime.validateRefreshBoundaryAndEnqueueUpdate("D:/Orbitlms/src/pages/Dashboard.tsx", currentExports, nextExports);
+      if (invalidateMessage) import.meta.hot.invalidate(invalidateMessage);
+    });
+  });
+}
+
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbIkRhc2hib2FyZC50c3giXSwic291cmNlc0NvbnRlbnQiOlsiaW1wb3J0IHsgRGFzaGJvYXJkTGF5b3V0IH0gZnJvbSBcIkAvY29tcG9uZW50cy9sYXlvdXQvRGFzaGJvYXJkTGF5b3V0XCI7XHJcbmltcG9ydCB7IFN0YXRDYXJkIH0gZnJvbSBcIkAvY29tcG9uZW50cy91aS9zdGF0LWNhcmRcIjtcclxuaW1wb3J0IHsgQ291cnNlQ2FyZCB9IGZyb20gXCJAL2NvbXBvbmVudHMvdWkvY291cnNlLWNhcmRcIjtcclxuaW1wb3J0IHsgUHJvZ3Jlc3MgfSBmcm9tIFwiQC9jb21wb25lbnRzL3VpL3Byb2dyZXNzXCI7XHJcbmltcG9ydCB7IEJhZGdlIH0gZnJvbSBcIkAvY29tcG9uZW50cy91aS9iYWRnZVwiO1xyXG5pbXBvcnQgeyBCdXR0b24gfSBmcm9tIFwiQC9jb21wb25lbnRzL3VpL2J1dHRvblwiO1xyXG5pbXBvcnQgeyBDYXJkLCBDYXJkQ29udGVudCwgQ2FyZEhlYWRlciwgQ2FyZFRpdGxlIH0gZnJvbSBcIkAvY29tcG9uZW50cy91aS9jYXJkXCI7XHJcbmltcG9ydCB7XHJcbiAgQm9va09wZW4sXHJcbiAgQ2xvY2ssXHJcbiAgQXdhcmQsXHJcbiAgVHJlbmRpbmdVcCxcclxuICBQbGF5LFxyXG4gIENhbGVuZGFyLFxyXG4gIENoZXZyb25SaWdodCxcclxufSBmcm9tIFwibHVjaWRlLXJlYWN0XCI7XHJcblxyXG5jb25zdCByZWNlbnRDb3Vyc2VzOiBhbnlbXSA9IFtdO1xyXG5jb25zdCB1cGNvbWluZ0RlYWRsaW5lczogYW55W10gPSBbXTtcclxuY29uc3QgYWNoaWV2ZW1lbnRzOiBhbnlbXSA9IFtdO1xyXG5cclxuZXhwb3J0IGRlZmF1bHQgZnVuY3Rpb24gRGFzaGJvYXJkKCkge1xyXG4gIHJldHVybiAoXHJcbiAgICA8RGFzaGJvYXJkTGF5b3V0PlxyXG4gICAgICA8ZGl2IGNsYXNzTmFtZT1cInNwYWNlLXktOCBhbmltYXRlLWZhZGUtaW5cIj5cclxuICAgICAgICB7LyogSGVhZGVyICovfVxyXG4gICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZmxleCBmbGV4LWNvbCBnYXAtNCBtZDpmbGV4LXJvdyBtZDppdGVtcy1jZW50ZXIgbWQ6anVzdGlmeS1iZXR3ZWVuXCI+XHJcbiAgICAgICAgICA8ZGl2PlxyXG4gICAgICAgICAgICA8aDEgY2xhc3NOYW1lPVwidGV4dC0zeGwgZm9udC1kaXNwbGF5IGZvbnQtYm9sZCB0ZXh0LWZvcmVncm91bmRcIj5cclxuICAgICAgICAgICAgICBXZWxjb21lIGJhY2ssIEpvaG4hIPCfkYtcclxuICAgICAgICAgICAgPC9oMT5cclxuICAgICAgICAgICAgPHAgY2xhc3NOYW1lPVwidGV4dC1tdXRlZC1mb3JlZ3JvdW5kIG10LTFcIj5cclxuICAgICAgICAgICAgICBDb250aW51ZSB3aGVyZSB5b3UgbGVmdCBvZmYgYW5kIGtlZXAgbGVhcm5pbmcuXHJcbiAgICAgICAgICAgIDwvcD5cclxuICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgPEJ1dHRvbiBjbGFzc05hbWU9XCJnYXAtMlwiPlxyXG4gICAgICAgICAgICA8UGxheSBjbGFzc05hbWU9XCJoLTQgdy00XCIgLz5cclxuICAgICAgICAgICAgUmVzdW1lIExlYXJuaW5nXHJcbiAgICAgICAgICA8L0J1dHRvbj5cclxuICAgICAgICA8L2Rpdj5cclxuXHJcbiAgICAgICAgey8qIFN0YXRzIEdyaWQgKi99XHJcbiAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJncmlkIGdhcC00IG1kOmdyaWQtY29scy0yIGxnOmdyaWQtY29scy00XCI+XHJcbiAgICAgICAgICA8U3RhdENhcmRcclxuICAgICAgICAgICAgdGl0bGU9XCJDb3Vyc2VzIEVucm9sbGVkXCJcclxuICAgICAgICAgICAgdmFsdWU9ezB9XHJcbiAgICAgICAgICAgIGljb249ezxCb29rT3BlbiBjbGFzc05hbWU9XCJoLTUgdy01XCIgLz59XHJcbiAgICAgICAgICAvPlxyXG4gICAgICAgICAgPFN0YXRDYXJkXHJcbiAgICAgICAgICAgIHRpdGxlPVwiSG91cnMgTGVhcm5lZFwiXHJcbiAgICAgICAgICAgIHZhbHVlPVwiMFwiXHJcbiAgICAgICAgICAgIGljb249ezxDbG9jayBjbGFzc05hbWU9XCJoLTUgdy01XCIgLz59XHJcbiAgICAgICAgICAgIHZhcmlhbnQ9XCJwcmltYXJ5XCJcclxuICAgICAgICAgIC8+XHJcbiAgICAgICAgICA8U3RhdENhcmRcclxuICAgICAgICAgICAgdGl0bGU9XCJDZXJ0aWZpY2F0ZXMgRWFybmVkXCJcclxuICAgICAgICAgICAgdmFsdWU9ezB9XHJcbiAgICAgICAgICAgIGljb249ezxBd2FyZCBjbGFzc05hbWU9XCJoLTUgdy01XCIgLz59XHJcbiAgICAgICAgICAgIHZhcmlhbnQ9XCJhY2NlbnRcIlxyXG4gICAgICAgICAgLz5cclxuICAgICAgICAgIDxTdGF0Q2FyZFxyXG4gICAgICAgICAgICB0aXRsZT1cIkN1cnJlbnQgU3RyZWFrXCJcclxuICAgICAgICAgICAgdmFsdWU9XCIwIGRheXNcIlxyXG4gICAgICAgICAgICBpY29uPXs8VHJlbmRpbmdVcCBjbGFzc05hbWU9XCJoLTUgdy01XCIgLz59XHJcbiAgICAgICAgICAgIGRlc2NyaXB0aW9uPVwiU3RhcnQgbGVhcm5pbmchXCJcclxuICAgICAgICAgICAgdmFyaWFudD1cInN1Y2Nlc3NcIlxyXG4gICAgICAgICAgLz5cclxuICAgICAgICA8L2Rpdj5cclxuXHJcbiAgICAgICAgey8qIE1haW4gQ29udGVudCBHcmlkICovfVxyXG4gICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZ3JpZCBnYXAtNiBsZzpncmlkLWNvbHMtM1wiPlxyXG4gICAgICAgICAgey8qIFJlY2VudCBDb3Vyc2VzICovfVxyXG4gICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJsZzpjb2wtc3Bhbi0yIHNwYWNlLXktNFwiPlxyXG4gICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImZsZXggaXRlbXMtY2VudGVyIGp1c3RpZnktYmV0d2VlblwiPlxyXG4gICAgICAgICAgICAgIDxoMiBjbGFzc05hbWU9XCJ0ZXh0LXhsIGZvbnQtc2VtaWJvbGQgZm9udC1kaXNwbGF5XCI+TXkgQ291cnNlczwvaDI+XHJcbiAgICAgICAgICAgICAgPEJ1dHRvbiB2YXJpYW50PVwiZ2hvc3RcIiBjbGFzc05hbWU9XCJnYXAtMSB0ZXh0LXNtXCI+XHJcbiAgICAgICAgICAgICAgICBWaWV3IGFsbCA8Q2hldnJvblJpZ2h0IGNsYXNzTmFtZT1cImgtNCB3LTRcIiAvPlxyXG4gICAgICAgICAgICAgIDwvQnV0dG9uPlxyXG4gICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJncmlkIGdhcC00IHNtOmdyaWQtY29scy0yIGxnOmdyaWQtY29scy0zXCI+XHJcbiAgICAgICAgICAgICAge3JlY2VudENvdXJzZXMubWFwKChjb3Vyc2UpID0+IChcclxuICAgICAgICAgICAgICAgIDxDb3Vyc2VDYXJkIGtleT17Y291cnNlLmlkfSB7Li4uY291cnNlfSAvPlxyXG4gICAgICAgICAgICAgICkpfVxyXG4gICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgIDwvZGl2PlxyXG5cclxuICAgICAgICAgIHsvKiBTaWRlYmFyICovfVxyXG4gICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJzcGFjZS15LTZcIj5cclxuICAgICAgICAgICAgey8qIFdlZWtseSBQcm9ncmVzcyAqL31cclxuICAgICAgICAgICAgPENhcmQ+XHJcbiAgICAgICAgICAgICAgPENhcmRIZWFkZXIgY2xhc3NOYW1lPVwicGItMlwiPlxyXG4gICAgICAgICAgICAgICAgPENhcmRUaXRsZSBjbGFzc05hbWU9XCJ0ZXh0LWxnIGZvbnQtZGlzcGxheVwiPldlZWtseSBQcm9ncmVzczwvQ2FyZFRpdGxlPlxyXG4gICAgICAgICAgICAgIDwvQ2FyZEhlYWRlcj5cclxuICAgICAgICAgICAgICA8Q2FyZENvbnRlbnQgY2xhc3NOYW1lPVwic3BhY2UteS00XCI+XHJcbiAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInNwYWNlLXktMlwiPlxyXG4gICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImZsZXgganVzdGlmeS1iZXR3ZWVuIHRleHQtc21cIj5cclxuICAgICAgICAgICAgICAgICAgICA8c3BhbiBjbGFzc05hbWU9XCJ0ZXh0LW11dGVkLWZvcmVncm91bmRcIj5MZWFybmluZyBHb2FsPC9zcGFuPlxyXG4gICAgICAgICAgICAgICAgICAgIDxzcGFuIGNsYXNzTmFtZT1cImZvbnQtbWVkaXVtXCI+NWggLyA4aDwvc3Bhbj5cclxuICAgICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgICAgIDxQcm9ncmVzcyB2YWx1ZT17NjIuNX0gdmFyaWFudD1cImFjY2VudFwiIHNob3dMYWJlbCAvPlxyXG4gICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImdyaWQgZ3JpZC1jb2xzLTcgZ2FwLTFcIj5cclxuICAgICAgICAgICAgICAgICAge1tcIk1cIiwgXCJUXCIsIFwiV1wiLCBcIlRcIiwgXCJGXCIsIFwiU1wiLCBcIlNcIl0ubWFwKChkYXksIGkpID0+IChcclxuICAgICAgICAgICAgICAgICAgICA8ZGl2IGtleT17aX0gY2xhc3NOYW1lPVwidGV4dC1jZW50ZXJcIj5cclxuICAgICAgICAgICAgICAgICAgICAgIDxkaXZcclxuICAgICAgICAgICAgICAgICAgICAgICAgY2xhc3NOYW1lPXtgaC04IHctOCByb3VuZGVkLWxnIG14LWF1dG8gZmxleCBpdGVtcy1jZW50ZXIganVzdGlmeS1jZW50ZXIgdGV4dC14cyBmb250LW1lZGl1bSAke2kgPCA1XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgPyBcImJnLXN1Y2Nlc3MgdGV4dC1zdWNjZXNzLWZvcmVncm91bmRcIlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgIDogaSA9PT0gNVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgPyBcImJnLW11dGVkIHRleHQtbXV0ZWQtZm9yZWdyb3VuZFwiXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICA6IFwiYmctbXV0ZWQvNTAgdGV4dC1tdXRlZC1mb3JlZ3JvdW5kXCJcclxuICAgICAgICAgICAgICAgICAgICAgICAgICB9YH1cclxuICAgICAgICAgICAgICAgICAgICAgID5cclxuICAgICAgICAgICAgICAgICAgICAgICAge2kgPCA1ID8gXCLinJNcIiA6IFwiXCJ9XHJcbiAgICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgICAgICAgIDxzcGFuIGNsYXNzTmFtZT1cInRleHQteHMgdGV4dC1tdXRlZC1mb3JlZ3JvdW5kIG10LTFcIj57ZGF5fTwvc3Bhbj5cclxuICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgICAgKSl9XHJcbiAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICA8L0NhcmRDb250ZW50PlxyXG4gICAgICAgICAgICA8L0NhcmQ+XHJcblxyXG4gICAgICAgICAgICB7LyogVXBjb21pbmcgRGVhZGxpbmVzICovfVxyXG4gICAgICAgICAgICA8Q2FyZD5cclxuICAgICAgICAgICAgICA8Q2FyZEhlYWRlciBjbGFzc05hbWU9XCJwYi0yXCI+XHJcbiAgICAgICAgICAgICAgICA8Q2FyZFRpdGxlIGNsYXNzTmFtZT1cInRleHQtbGcgZm9udC1kaXNwbGF5IGZsZXggaXRlbXMtY2VudGVyIGdhcC0yXCI+XHJcbiAgICAgICAgICAgICAgICAgIDxDYWxlbmRhciBjbGFzc05hbWU9XCJoLTQgdy00XCIgLz5cclxuICAgICAgICAgICAgICAgICAgVXBjb21pbmcgRGVhZGxpbmVzXHJcbiAgICAgICAgICAgICAgICA8L0NhcmRUaXRsZT5cclxuICAgICAgICAgICAgICA8L0NhcmRIZWFkZXI+XHJcbiAgICAgICAgICAgICAgPENhcmRDb250ZW50IGNsYXNzTmFtZT1cInNwYWNlLXktM1wiPlxyXG4gICAgICAgICAgICAgICAge3VwY29taW5nRGVhZGxpbmVzLm1hcCgoaXRlbSwgaSkgPT4gKFxyXG4gICAgICAgICAgICAgICAgICA8ZGl2XHJcbiAgICAgICAgICAgICAgICAgICAga2V5PXtpfVxyXG4gICAgICAgICAgICAgICAgICAgIGNsYXNzTmFtZT1cImZsZXggaXRlbXMtc3RhcnQgZ2FwLTMgcC0zIHJvdW5kZWQtbGcgYmctbXV0ZWQvNTAgaG92ZXI6YmctbXV0ZWQgdHJhbnNpdGlvbi1jb2xvcnNcIlxyXG4gICAgICAgICAgICAgICAgICA+XHJcbiAgICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJtdC0wLjVcIj5cclxuICAgICAgICAgICAgICAgICAgICAgIHtpdGVtLnR5cGUgPT09IFwicXVpelwiICYmIDxzcGFuPvCfk508L3NwYW4+fVxyXG4gICAgICAgICAgICAgICAgICAgICAge2l0ZW0udHlwZSA9PT0gXCJhc3NpZ25tZW50XCIgJiYgPHNwYW4+8J+Tizwvc3Bhbj59XHJcbiAgICAgICAgICAgICAgICAgICAgICB7aXRlbS50eXBlID09PSBcInJldmlld1wiICYmIDxzcGFuPvCfk5Y8L3NwYW4+fVxyXG4gICAgICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZmxleC0xIG1pbi13LTBcIj5cclxuICAgICAgICAgICAgICAgICAgICAgIDxwIGNsYXNzTmFtZT1cImZvbnQtbWVkaXVtIHRleHQtc20gdHJ1bmNhdGVcIj57aXRlbS50aXRsZX08L3A+XHJcbiAgICAgICAgICAgICAgICAgICAgICA8cCBjbGFzc05hbWU9XCJ0ZXh0LXhzIHRleHQtbXV0ZWQtZm9yZWdyb3VuZFwiPntpdGVtLmNvdXJzZX08L3A+XHJcbiAgICAgICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgICAgICAgPEJhZGdlIHZhcmlhbnQ9e2kgPT09IDAgPyBcIndhcm5pbmdcIiA6IFwic2Vjb25kYXJ5XCJ9IGNsYXNzTmFtZT1cInRleHQteHMgc2hyaW5rLTBcIj5cclxuICAgICAgICAgICAgICAgICAgICAgIHtpdGVtLmR1ZURhdGV9XHJcbiAgICAgICAgICAgICAgICAgICAgPC9CYWRnZT5cclxuICAgICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgICApKX1cclxuICAgICAgICAgICAgICA8L0NhcmRDb250ZW50PlxyXG4gICAgICAgICAgICA8L0NhcmQ+XHJcblxyXG4gICAgICAgICAgICB7LyogQWNoaWV2ZW1lbnRzICovfVxyXG4gICAgICAgICAgICA8Q2FyZD5cclxuICAgICAgICAgICAgICA8Q2FyZEhlYWRlciBjbGFzc05hbWU9XCJwYi0yXCI+XHJcbiAgICAgICAgICAgICAgICA8Q2FyZFRpdGxlIGNsYXNzTmFtZT1cInRleHQtbGcgZm9udC1kaXNwbGF5XCI+UmVjZW50IEFjaGlldmVtZW50czwvQ2FyZFRpdGxlPlxyXG4gICAgICAgICAgICAgIDwvQ2FyZEhlYWRlcj5cclxuICAgICAgICAgICAgICA8Q2FyZENvbnRlbnQgY2xhc3NOYW1lPVwic3BhY2UteS0zXCI+XHJcbiAgICAgICAgICAgICAgICB7YWNoaWV2ZW1lbnRzLm1hcCgoaXRlbSwgaSkgPT4gKFxyXG4gICAgICAgICAgICAgICAgICA8ZGl2XHJcbiAgICAgICAgICAgICAgICAgICAga2V5PXtpfVxyXG4gICAgICAgICAgICAgICAgICAgIGNsYXNzTmFtZT1cImZsZXggaXRlbXMtY2VudGVyIGdhcC0zIHAtMyByb3VuZGVkLWxnIGJvcmRlciBib3JkZXItYm9yZGVyIGhvdmVyOmJvcmRlci1wcmltYXJ5LzIwIHRyYW5zaXRpb24tY29sb3JzXCJcclxuICAgICAgICAgICAgICAgICAgPlxyXG4gICAgICAgICAgICAgICAgICAgIDxzcGFuIGNsYXNzTmFtZT1cInRleHQtMnhsXCI+e2l0ZW0uaWNvbn08L3NwYW4+XHJcbiAgICAgICAgICAgICAgICAgICAgPGRpdj5cclxuICAgICAgICAgICAgICAgICAgICAgIDxwIGNsYXNzTmFtZT1cImZvbnQtbWVkaXVtIHRleHQtc21cIj57aXRlbS50aXRsZX08L3A+XHJcbiAgICAgICAgICAgICAgICAgICAgICA8cCBjbGFzc05hbWU9XCJ0ZXh0LXhzIHRleHQtbXV0ZWQtZm9yZWdyb3VuZFwiPntpdGVtLmRlc2NyaXB0aW9ufTwvcD5cclxuICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgICApKX1cclxuICAgICAgICAgICAgICA8L0NhcmRDb250ZW50PlxyXG4gICAgICAgICAgICA8L0NhcmQ+XHJcbiAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICA8L2Rpdj5cclxuICAgICAgPC9kaXY+XHJcbiAgICA8L0Rhc2hib2FyZExheW91dD5cclxuICApO1xyXG59XHJcbiJdLCJuYW1lcyI6WyJEYXNoYm9hcmRMYXlvdXQiLCJTdGF0Q2FyZCIsIkNvdXJzZUNhcmQiLCJQcm9ncmVzcyIsIkJhZGdlIiwiQnV0dG9uIiwiQ2FyZCIsIkNhcmRDb250ZW50IiwiQ2FyZEhlYWRlciIsIkNhcmRUaXRsZSIsIkJvb2tPcGVuIiwiQ2xvY2siLCJBd2FyZCIsIlRyZW5kaW5nVXAiLCJQbGF5IiwiQ2FsZW5kYXIiLCJDaGV2cm9uUmlnaHQiLCJyZWNlbnRDb3Vyc2VzIiwidXBjb21pbmdEZWFkbGluZXMiLCJhY2hpZXZlbWVudHMiLCJEYXNoYm9hcmQiLCJkaXYiLCJjbGFzc05hbWUiLCJoMSIsInAiLCJ0aXRsZSIsInZhbHVlIiwiaWNvbiIsInZhcmlhbnQiLCJkZXNjcmlwdGlvbiIsImgyIiwibWFwIiwiY291cnNlIiwiaWQiLCJzcGFuIiwic2hvd0xhYmVsIiwiZGF5IiwiaSIsIml0ZW0iLCJ0eXBlIiwiZHVlRGF0ZSJdLCJtYXBwaW5ncyI6Ijs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7QUFBQSxTQUFTQSxlQUFlLFFBQVEsc0NBQXNDO0FBQ3RFLFNBQVNDLFFBQVEsUUFBUSw0QkFBNEI7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

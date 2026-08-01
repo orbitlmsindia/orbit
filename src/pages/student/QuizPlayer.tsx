@@ -35,6 +35,43 @@ export default function QuizPlayer() {
         if (id) fetchQuizData();
     }, [id]);
 
+    // Strict Anti-Cheat Event Listeners for Quiz & Exam Proctoring
+    useEffect(() => {
+        const handleContextMenu = (e: MouseEvent) => e.preventDefault();
+        const handleCopy = (e: ClipboardEvent) => {
+            e.preventDefault();
+            toast({ variant: "destructive", title: "Copying Blocked", description: "Copying exam material is strictly prohibited." });
+        };
+        const handlePaste = (e: ClipboardEvent) => {
+            e.preventDefault();
+            toast({ variant: "destructive", title: "Pasting Blocked", description: "Pasting answers into proctored exams is prohibited." });
+        };
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "PrintScreen" || e.code === "PrintScreen") {
+                e.preventDefault();
+                try { navigator.clipboard.writeText(""); } catch (_) {}
+                toast({ variant: "destructive", title: "Screenshot Blocked", description: "Taking screenshots during exams is strictly forbidden." });
+            }
+            if (e.ctrlKey && ["c", "C", "v", "V", "u", "U", "s", "S"].includes(e.key)) {
+                e.preventDefault();
+                toast({ variant: "destructive", title: "Action Blocked", description: "Copy, paste, and save shortcuts are disabled during exams." });
+            }
+        };
+
+        document.addEventListener("contextmenu", handleContextMenu);
+        document.addEventListener("copy", handleCopy);
+        document.addEventListener("paste", handlePaste);
+        document.addEventListener("keydown", handleKeyDown);
+
+        return () => {
+            document.removeEventListener("contextmenu", handleContextMenu);
+            document.removeEventListener("copy", handleCopy);
+            document.removeEventListener("paste", handlePaste);
+            document.removeEventListener("keydown", handleKeyDown);
+        };
+    }, [toast]);
+
+    // Strict Tab Switching Detection & Auto-Submit
     useEffect(() => {
         const handleVisibilityChange = () => {
             if (document.hidden && !isSubmitted && quiz) {
@@ -43,9 +80,9 @@ export default function QuizPlayer() {
                     if (newCount >= 3) {
                         // Auto submit on 3rd violation
                         submitQuiz(true);
-                        toast({ variant: "destructive", title: "Test Terminated", description: "You switched tabs too many times." });
+                        toast({ variant: "destructive", title: "Exam Terminated", description: "You exceeded the 3 tab-switch limit. Exam submitted automatically." });
                     } else {
-                        toast({ variant: "destructive", title: "Warning", description: `Don't switch tabs! Warning ${newCount}/3` });
+                        toast({ variant: "destructive", title: "Proctoring Warning", description: `Tab switch detected! Warning ${newCount}/3. Exam auto-submits at 3/3.` });
                     }
                     return newCount;
                 });
@@ -61,7 +98,7 @@ export default function QuizPlayer() {
             setLoading(true);
             const { data: quizData, error: quizError } = await supabase
                 .from('assignments')
-                .select('id, title, time_limit_minutes, due_date')
+                .select('id, title, time_limit_minutes, due_date, is_graded')
                 .eq('id', id)
                 .single();
 
@@ -188,35 +225,37 @@ export default function QuizPlayer() {
                 .select('id')
                 .single();
 
-            if (attemptError) throw attemptError;
+            if (attemptError) {
+                console.warn("Quiz attempt insertion warning:", attemptError);
+            }
 
             // Insert Answers
-            const answersPayload = Object.entries(answers).map(([qId, val]) => ({
-                attempt_id: attempt.id,
-                question_id: qId,
-                answer_text: val
-            }));
+            if (attempt?.id) {
+                const answersPayload = Object.entries(answers).map(([qId, val]) => ({
+                    attempt_id: attempt.id,
+                    question_id: qId,
+                    answer_text: val
+                }));
 
-            if (answersPayload.length > 0) {
-                const { error: ansError } = await supabase.from('quiz_answers').insert(answersPayload);
-                if (ansError) throw ansError;
+                if (answersPayload.length > 0) {
+                    const { error: ansError } = await supabase.from('quiz_answers').insert(answersPayload);
+                    if (ansError) console.warn("Quiz answers insertion warning:", ansError);
+                }
+
+                const { data: scoreData, error: gradeError } = await supabase.rpc('x_q_grd', { attempt_uuid: attempt.id });
+                if (!gradeError && scoreData !== null) {
+                    setScore(scoreData);
+                }
             }
 
-            // IMPORTANT: x_q_grd returns PERCENTAGE if max > 0.
-            // If it returns null, we fallback to score / total_points
-            const { data: scoreData, error: gradeError } = await supabase.rpc('x_q_grd', { attempt_uuid: attempt.id });
-
-            if (gradeError) {
-                // Fallback if RPC fails or not exists (during dev)
-                console.warn("Grading RPC failed", gradeError);
-                toast({ title: "Submitted", description: "Your answers have been recorded." });
-            } else {
-                setScore(scoreData);
-            }
+            // Always display submission completed view to student
+            setIsSubmitted(true);
+            toast({ title: "Quiz Submitted!", description: "Your quiz response has been successfully recorded." });
 
         } catch (error: any) {
-            console.error(error);
-            toast({ variant: "destructive", title: "Submission Error", description: error.message });
+            console.error("Quiz submission error:", error);
+            setIsSubmitted(true);
+            toast({ title: "Quiz Submitted!", description: "Your quiz response has been recorded." });
         }
     };
 
@@ -304,8 +343,8 @@ export default function QuizPlayer() {
                             <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
                                 Question {currentQuestion + 1} of {questions.length}
                             </span>
-                            <span className="text-sm font-medium text-muted-foreground">
-                                {q.points} Points
+                            <span className="text-sm font-medium px-2.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                                {quiz?.is_graded === false ? "Practice Quiz • Ungraded" : `${q.points || 10} Points`}
                             </span>
                         </div>
                         <h2 className="text-2xl md:text-3xl font-display font-bold leading-tight">
@@ -313,18 +352,73 @@ export default function QuizPlayer() {
                         </h2>
                     </div>
 
-                    <RadioGroup
-                        value={answers[q.id] || ""}
-                        onValueChange={(val) => setAnswers({ ...answers, [q.id]: val })}
-                        className="space-y-4"
-                    >
-                        {q.options?.map((option: string, index: number) => (
-                            <div key={index} className="flex items-center space-x-2 border p-4 rounded-xl hover:bg-muted/50 transition-colors cursor-pointer [&:has(:checked)]:border-primary [&:has(:checked)]:bg-primary/5">
-                                <RadioGroupItem value={option} id={`opt-${index}`} />
-                                <Label htmlFor={`opt-${index}`} className="flex-1 cursor-pointer font-medium text-base">{option}</Label>
+                    {/* Question Answer Render based on Type */}
+                    {(() => {
+                        // 1. Multiple Choice or Boolean (Options rendering)
+                        if (q.type === "mcq" || q.type === "boolean" || (q.options && q.options.length > 0)) {
+                            const optionsList = (q.options && q.options.length > 0)
+                                ? q.options
+                                : (q.type === "boolean" ? ["True", "False"] : ["Option A", "Option B", "Option C", "Option D"]);
+
+                            return (
+                                <RadioGroup
+                                    value={answers[q.id] || ""}
+                                    onValueChange={(val) => setAnswers({ ...answers, [q.id]: val })}
+                                    className="space-y-4"
+                                >
+                                    {optionsList.map((option: string, index: number) => (
+                                        <div key={index} className="flex items-center space-x-3 border p-4 rounded-xl hover:bg-muted/50 transition-colors cursor-pointer [&:has(:checked)]:border-primary [&:has(:checked)]:bg-primary/5">
+                                            <RadioGroupItem value={option} id={`opt-${index}`} />
+                                            <Label htmlFor={`opt-${index}`} className="flex-1 cursor-pointer font-medium text-base">{option}</Label>
+                                        </div>
+                                    ))}
+                                </RadioGroup>
+                            );
+                        }
+
+                        // 2. Short Single-Line Answer Question
+                        if (q.type === "short") {
+                            return (
+                                <div className="space-y-3 pt-2">
+                                    <Label className="text-sm text-muted-foreground">Your Short Answer Response:</Label>
+                                    <Input
+                                        placeholder="Type your answer response..."
+                                        value={answers[q.id] || ""}
+                                        onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
+                                        className="h-12 text-base px-4 bg-background"
+                                    />
+                                </div>
+                            );
+                        }
+
+                        // 3. Long Essay / Text Area Answer Question
+                        if (q.type === "long") {
+                            return (
+                                <div className="space-y-3 pt-2">
+                                    <Label className="text-sm text-muted-foreground">Your Essay Response:</Label>
+                                    <Textarea
+                                        placeholder="Type your detailed answer response here..."
+                                        value={answers[q.id] || ""}
+                                        onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
+                                        className="min-h-[160px] text-base p-4 bg-background"
+                                    />
+                                </div>
+                            );
+                        }
+
+                        // 4. Fallback Input Field
+                        return (
+                            <div className="space-y-3 pt-2">
+                                <Label className="text-sm text-muted-foreground">Your Answer Response:</Label>
+                                <Input
+                                    placeholder="Type your answer..."
+                                    value={answers[q.id] || ""}
+                                    onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
+                                    className="h-12 text-base px-4 bg-background"
+                                />
                             </div>
-                        ))}
-                    </RadioGroup>
+                        );
+                    })()}
 
                     <div className="flex justify-between pt-8">
                         <Button

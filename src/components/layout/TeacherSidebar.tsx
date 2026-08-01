@@ -10,7 +10,10 @@ import {
   UserCheck,
   CheckSquare,
   Bell,
-  LogOut
+  LogOut,
+  Sparkles,
+  Award,
+  Trophy
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -36,6 +39,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 const teacherNavItems = [
   { title: "Dashboard", url: "/teacher", icon: Home },
   { title: "Courses", url: "/teacher/courses", icon: BookOpen },
+  { title: "Programs", url: "/teacher/certificate-programs", icon: Award },
+  { title: "Leaderboard", url: "/teacher/leaderboard", icon: Trophy },
+  { title: "JSON Builder", url: "/teacher/courses/json-builder", icon: Sparkles },
   { title: "Assignments", url: "/teacher/assignments", icon: FileText },
   { title: "Review", url: "/teacher/reviews", icon: CheckSquare },
   { title: "Attendance", url: "/teacher/attendance", icon: UserCheck },

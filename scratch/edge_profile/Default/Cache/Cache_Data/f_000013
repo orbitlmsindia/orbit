@@ -1,0 +1,810 @@
+import { createHotContext as __vite__createHotContext } from "/@vite/client";import.meta.hot = __vite__createHotContext("/src/pages/admin/AdminCalendar.tsx");import * as RefreshRuntime from "/@react-refresh";
+const inWebWorker = typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope;
+
+let prevRefreshReg;
+let prevRefreshSig;
+
+if (import.meta.hot && !inWebWorker) {
+  if (!window.$RefreshReg$) {
+    throw new Error(
+      "@vitejs/plugin-react-swc can't detect preamble. Something is wrong."
+    );
+  }
+
+  prevRefreshReg = window.$RefreshReg$;
+  prevRefreshSig = window.$RefreshSig$;
+  window.$RefreshReg$ = RefreshRuntime.getRefreshReg("D:/Orbitlms/src/pages/admin/AdminCalendar.tsx");
+  window.$RefreshSig$ = RefreshRuntime.createSignatureFunctionForTransform;
+}
+
+import __vite__cjsImport2_react_jsxDevRuntime from "/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=88ed5bfa"; const _jsxDEV = __vite__cjsImport2_react_jsxDevRuntime["jsxDEV"]; const _Fragment = __vite__cjsImport2_react_jsxDevRuntime["Fragment"];
+var _s = $RefreshSig$();
+import __vite__cjsImport3_react from "/node_modules/.vite/deps/react.js?v=88ed5bfa"; const useState = __vite__cjsImport3_react["useState"]; const useEffect = __vite__cjsImport3_react["useEffect"];
+import { AdminLayout } from "/src/components/layout/AdminLayout.tsx";
+import { Calendar } from "/src/components/ui/calendar.tsx";
+import { Card, CardContent, CardHeader, CardTitle } from "/src/components/ui/card.tsx";
+import { Button } from "/src/components/ui/button.tsx";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "/src/components/ui/dialog.tsx";
+import { Input } from "/src/components/ui/input.tsx";
+import { Label } from "/src/components/ui/label.tsx";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "/src/components/ui/select.tsx";
+import { Textarea } from "/src/components/ui/textarea.tsx";
+import { useToast } from "/src/hooks/use-toast.ts";
+import { supabase } from "/src/lib/supabase.ts";
+import { Loader2, Plus, Trash2, FileJson } from "/node_modules/.vite/deps/lucide-react.js?v=88ed5bfa";
+import { format } from "/node_modules/.vite/deps/date-fns.js?v=88ed5bfa";
+import { Badge } from "/src/components/ui/badge.tsx";
+import { JsonCalendarUpdaterModal } from "/src/components/calendar/JsonCalendarUpdaterModal.tsx";
+export default function AdminCalendar() {
+    _s();
+    const { toast } = useToast();
+    const [date, setDate] = useState(new Date());
+    const [events, setEvents] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [open, setOpen] = useState(false);
+    const [jsonModalOpen, setJsonModalOpen] = useState(false);
+    // Form State
+    const [title, setTitle] = useState("");
+    const [description, setDescription] = useState("");
+    const [type, setType] = useState("event");
+    const [visibility, setVisibility] = useState("all");
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    useEffect(()=>{
+        fetchEvents();
+    }, []);
+    const fetchEvents = async ()=>{
+        try {
+            setLoading(true);
+            const { data, error } = await supabase.from('calendar_events').select('id, title, description, event_date, type, visibility') // explicitly select to avoid unintended joins
+            .order('event_date', {
+                ascending: true
+            });
+            if (error) {
+                // Check for 403 explicitly
+                if (error.code === '42501' || error.message.includes('permission denied')) {
+                    console.warn("Calendar access denied by RLS");
+                    setEvents([]); // Show empty calendar instead of crash
+                    // Optional: toast warning once
+                    return;
+                }
+                throw error;
+            }
+            // Parse dates
+            const parsedEvents = (data || []).map((e)=>({
+                    ...e,
+                    date: new Date(e.event_date)
+                }));
+            setEvents(parsedEvents);
+        } catch (error) {
+            console.error("Error fetching events:", error);
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "Failed to load events."
+            });
+        } finally{
+            setLoading(false);
+        }
+    };
+    const handleAddEvent = async ()=>{
+        if (!title || !date) {
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "Title and Date are required."
+            });
+            return;
+        }
+        try {
+            setIsSubmitting(true);
+            const { data: { user } } = await supabase.auth.getUser();
+            const payload = {
+                title,
+                description,
+                event_date: date.toISOString(),
+                type,
+                visibility
+            };
+            const { error } = await supabase.from('calendar_events').insert([
+                payload
+            ]);
+            if (error) throw error;
+            toast({
+                title: "Event Added",
+                description: "The event has been added to the calendar."
+            });
+            setOpen(false);
+            // Reset form
+            setTitle("");
+            setDescription("");
+            setType("event");
+            setVisibility("all");
+            fetchEvents();
+        } catch (error) {
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: error.message
+            });
+        } finally{
+            setIsSubmitting(false);
+        }
+    };
+    const handleDeleteEvent = async (id)=>{
+        if (!confirm("Are you sure you want to delete this event?")) return;
+        try {
+            const { error } = await supabase.from('calendar_events').delete().eq('id', id);
+            if (error) throw error;
+            toast({
+                title: "Deleted",
+                description: "Event removed."
+            });
+            fetchEvents();
+        } catch (error) {
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: error.message
+            });
+        }
+    };
+    // Filter events for selected date
+    const selectedDateEvents = date ? events.filter((e)=>e.date.getDate() === date.getDate() && e.date.getMonth() === date.getMonth() && e.date.getFullYear() === date.getFullYear()) : [];
+    return /*#__PURE__*/ _jsxDEV(AdminLayout, {
+        children: /*#__PURE__*/ _jsxDEV("div", {
+            className: "space-y-6",
+            children: [
+                /*#__PURE__*/ _jsxDEV("div", {
+                    className: "flex justify-between items-center",
+                    children: [
+                        /*#__PURE__*/ _jsxDEV("div", {
+                            children: [
+                                /*#__PURE__*/ _jsxDEV("h1", {
+                                    className: "text-3xl font-display font-bold",
+                                    children: "Calendar Management"
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                    lineNumber: 145,
+                                    columnNumber: 25
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV("p", {
+                                    className: "text-muted-foreground mt-1",
+                                    children: "Manage events, holidays, and announcements."
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                    lineNumber: 146,
+                                    columnNumber: 25
+                                }, this)
+                            ]
+                        }, void 0, true, {
+                            fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                            lineNumber: 144,
+                            columnNumber: 21
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV("div", {
+                            className: "flex items-center gap-2",
+                            children: [
+                                /*#__PURE__*/ _jsxDEV(Button, {
+                                    variant: "outline",
+                                    onClick: ()=>setJsonModalOpen(true),
+                                    className: "gap-2 border-primary/30 hover:bg-primary/5 text-primary",
+                                    children: [
+                                        /*#__PURE__*/ _jsxDEV(FileJson, {
+                                            className: "h-4 w-4"
+                                        }, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                            lineNumber: 150,
+                                            columnNumber: 29
+                                        }, this),
+                                        " JSON Schedule Updater (⌘K / Ctrl+K)"
+                                    ]
+                                }, void 0, true, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                    lineNumber: 149,
+                                    columnNumber: 25
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Dialog, {
+                                    open: open,
+                                    onOpenChange: setOpen,
+                                    children: [
+                                        /*#__PURE__*/ _jsxDEV(DialogTrigger, {
+                                            asChild: true,
+                                            children: /*#__PURE__*/ _jsxDEV(Button, {
+                                                className: "gap-2",
+                                                children: [
+                                                    /*#__PURE__*/ _jsxDEV(Plus, {
+                                                        className: "h-4 w-4"
+                                                    }, void 0, false, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                        lineNumber: 155,
+                                                        columnNumber: 37
+                                                    }, this),
+                                                    " Add Event"
+                                                ]
+                                            }, void 0, true, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                lineNumber: 154,
+                                                columnNumber: 33
+                                            }, this)
+                                        }, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                            lineNumber: 153,
+                                            columnNumber: 29
+                                        }, this),
+                                        /*#__PURE__*/ _jsxDEV(DialogContent, {
+                                            children: [
+                                                /*#__PURE__*/ _jsxDEV(DialogHeader, {
+                                                    children: /*#__PURE__*/ _jsxDEV(DialogTitle, {
+                                                        children: "Add New Event"
+                                                    }, void 0, false, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                        lineNumber: 160,
+                                                        columnNumber: 33
+                                                    }, this)
+                                                }, void 0, false, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                    lineNumber: 159,
+                                                    columnNumber: 29
+                                                }, this),
+                                                /*#__PURE__*/ _jsxDEV("div", {
+                                                    className: "space-y-4 py-4",
+                                                    children: [
+                                                        /*#__PURE__*/ _jsxDEV("div", {
+                                                            className: "space-y-2",
+                                                            children: [
+                                                                /*#__PURE__*/ _jsxDEV(Label, {
+                                                                    children: "Event Title"
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                    lineNumber: 164,
+                                                                    columnNumber: 37
+                                                                }, this),
+                                                                /*#__PURE__*/ _jsxDEV(Input, {
+                                                                    value: title,
+                                                                    onChange: (e)=>setTitle(e.target.value),
+                                                                    placeholder: "e.g., Annual Sports Day"
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                    lineNumber: 165,
+                                                                    columnNumber: 37
+                                                                }, this)
+                                                            ]
+                                                        }, void 0, true, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                            lineNumber: 163,
+                                                            columnNumber: 33
+                                                        }, this),
+                                                        /*#__PURE__*/ _jsxDEV("div", {
+                                                            className: "space-y-2",
+                                                            children: [
+                                                                /*#__PURE__*/ _jsxDEV(Label, {
+                                                                    children: "Date"
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                    lineNumber: 168,
+                                                                    columnNumber: 37
+                                                                }, this),
+                                                                /*#__PURE__*/ _jsxDEV("div", {
+                                                                    className: "p-2 border rounded-md bg-muted/20 text-sm",
+                                                                    children: date ? format(date, 'PPP') : "Select a date on the calendar first"
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                    lineNumber: 169,
+                                                                    columnNumber: 37
+                                                                }, this),
+                                                                /*#__PURE__*/ _jsxDEV("p", {
+                                                                    className: "text-xs text-muted-foreground",
+                                                                    children: "Select a date on the main calendar to change this."
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                    lineNumber: 172,
+                                                                    columnNumber: 37
+                                                                }, this)
+                                                            ]
+                                                        }, void 0, true, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                            lineNumber: 167,
+                                                            columnNumber: 33
+                                                        }, this),
+                                                        /*#__PURE__*/ _jsxDEV("div", {
+                                                            className: "grid grid-cols-2 gap-4",
+                                                            children: [
+                                                                /*#__PURE__*/ _jsxDEV("div", {
+                                                                    className: "space-y-2",
+                                                                    children: [
+                                                                        /*#__PURE__*/ _jsxDEV(Label, {
+                                                                            children: "Type"
+                                                                        }, void 0, false, {
+                                                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                            lineNumber: 176,
+                                                                            columnNumber: 41
+                                                                        }, this),
+                                                                        /*#__PURE__*/ _jsxDEV(Select, {
+                                                                            value: type,
+                                                                            onValueChange: setType,
+                                                                            children: [
+                                                                                /*#__PURE__*/ _jsxDEV(SelectTrigger, {
+                                                                                    children: /*#__PURE__*/ _jsxDEV(SelectValue, {}, void 0, false, {
+                                                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                                        lineNumber: 179,
+                                                                                        columnNumber: 49
+                                                                                    }, this)
+                                                                                }, void 0, false, {
+                                                                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                                    lineNumber: 178,
+                                                                                    columnNumber: 45
+                                                                                }, this),
+                                                                                /*#__PURE__*/ _jsxDEV(SelectContent, {
+                                                                                    children: [
+                                                                                        /*#__PURE__*/ _jsxDEV(SelectItem, {
+                                                                                            value: "event",
+                                                                                            children: "General Event"
+                                                                                        }, void 0, false, {
+                                                                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                                            lineNumber: 182,
+                                                                                            columnNumber: 49
+                                                                                        }, this),
+                                                                                        /*#__PURE__*/ _jsxDEV(SelectItem, {
+                                                                                            value: "holiday",
+                                                                                            children: "Holiday"
+                                                                                        }, void 0, false, {
+                                                                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                                            lineNumber: 183,
+                                                                                            columnNumber: 49
+                                                                                        }, this),
+                                                                                        /*#__PURE__*/ _jsxDEV(SelectItem, {
+                                                                                            value: "deadline",
+                                                                                            children: "Deadline"
+                                                                                        }, void 0, false, {
+                                                                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                                            lineNumber: 184,
+                                                                                            columnNumber: 49
+                                                                                        }, this),
+                                                                                        /*#__PURE__*/ _jsxDEV(SelectItem, {
+                                                                                            value: "announcement",
+                                                                                            children: "Announcement"
+                                                                                        }, void 0, false, {
+                                                                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                                            lineNumber: 185,
+                                                                                            columnNumber: 49
+                                                                                        }, this)
+                                                                                    ]
+                                                                                }, void 0, true, {
+                                                                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                                    lineNumber: 181,
+                                                                                    columnNumber: 45
+                                                                                }, this)
+                                                                            ]
+                                                                        }, void 0, true, {
+                                                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                            lineNumber: 177,
+                                                                            columnNumber: 41
+                                                                        }, this)
+                                                                    ]
+                                                                }, void 0, true, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                    lineNumber: 175,
+                                                                    columnNumber: 37
+                                                                }, this),
+                                                                /*#__PURE__*/ _jsxDEV("div", {
+                                                                    className: "space-y-2",
+                                                                    children: [
+                                                                        /*#__PURE__*/ _jsxDEV(Label, {
+                                                                            children: "Visibility"
+                                                                        }, void 0, false, {
+                                                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                            lineNumber: 190,
+                                                                            columnNumber: 41
+                                                                        }, this),
+                                                                        /*#__PURE__*/ _jsxDEV(Select, {
+                                                                            value: visibility,
+                                                                            onValueChange: setVisibility,
+                                                                            children: [
+                                                                                /*#__PURE__*/ _jsxDEV(SelectTrigger, {
+                                                                                    children: /*#__PURE__*/ _jsxDEV(SelectValue, {}, void 0, false, {
+                                                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                                        lineNumber: 193,
+                                                                                        columnNumber: 49
+                                                                                    }, this)
+                                                                                }, void 0, false, {
+                                                                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                                    lineNumber: 192,
+                                                                                    columnNumber: 45
+                                                                                }, this),
+                                                                                /*#__PURE__*/ _jsxDEV(SelectContent, {
+                                                                                    children: [
+                                                                                        /*#__PURE__*/ _jsxDEV(SelectItem, {
+                                                                                            value: "all",
+                                                                                            children: "Everyone"
+                                                                                        }, void 0, false, {
+                                                                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                                            lineNumber: 196,
+                                                                                            columnNumber: 49
+                                                                                        }, this),
+                                                                                        /*#__PURE__*/ _jsxDEV(SelectItem, {
+                                                                                            value: "students",
+                                                                                            children: "Students Only"
+                                                                                        }, void 0, false, {
+                                                                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                                            lineNumber: 197,
+                                                                                            columnNumber: 49
+                                                                                        }, this),
+                                                                                        /*#__PURE__*/ _jsxDEV(SelectItem, {
+                                                                                            value: "teachers",
+                                                                                            children: "Teachers Only"
+                                                                                        }, void 0, false, {
+                                                                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                                            lineNumber: 198,
+                                                                                            columnNumber: 49
+                                                                                        }, this)
+                                                                                    ]
+                                                                                }, void 0, true, {
+                                                                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                                    lineNumber: 195,
+                                                                                    columnNumber: 45
+                                                                                }, this)
+                                                                            ]
+                                                                        }, void 0, true, {
+                                                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                            lineNumber: 191,
+                                                                            columnNumber: 41
+                                                                        }, this)
+                                                                    ]
+                                                                }, void 0, true, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                    lineNumber: 189,
+                                                                    columnNumber: 37
+                                                                }, this)
+                                                            ]
+                                                        }, void 0, true, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                            lineNumber: 174,
+                                                            columnNumber: 33
+                                                        }, this),
+                                                        /*#__PURE__*/ _jsxDEV("div", {
+                                                            className: "space-y-2",
+                                                            children: [
+                                                                /*#__PURE__*/ _jsxDEV(Label, {
+                                                                    children: "Description"
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                    lineNumber: 204,
+                                                                    columnNumber: 37
+                                                                }, this),
+                                                                /*#__PURE__*/ _jsxDEV(Textarea, {
+                                                                    value: description,
+                                                                    onChange: (e)=>setDescription(e.target.value),
+                                                                    placeholder: "Optional description..."
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                    lineNumber: 205,
+                                                                    columnNumber: 37
+                                                                }, this)
+                                                            ]
+                                                        }, void 0, true, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                            lineNumber: 203,
+                                                            columnNumber: 33
+                                                        }, this)
+                                                    ]
+                                                }, void 0, true, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                    lineNumber: 162,
+                                                    columnNumber: 29
+                                                }, this),
+                                                /*#__PURE__*/ _jsxDEV(DialogFooter, {
+                                                    children: [
+                                                        /*#__PURE__*/ _jsxDEV(Button, {
+                                                            variant: "outline",
+                                                            onClick: ()=>setOpen(false),
+                                                            children: "Cancel"
+                                                        }, void 0, false, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                            lineNumber: 213,
+                                                            columnNumber: 33
+                                                        }, this),
+                                                        /*#__PURE__*/ _jsxDEV(Button, {
+                                                            onClick: handleAddEvent,
+                                                            disabled: isSubmitting,
+                                                            children: isSubmitting ? "Adding..." : "Add Event"
+                                                        }, void 0, false, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                            lineNumber: 214,
+                                                            columnNumber: 33
+                                                        }, this)
+                                                    ]
+                                                }, void 0, true, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                    lineNumber: 212,
+                                                    columnNumber: 29
+                                                }, this)
+                                            ]
+                                        }, void 0, true, {
+                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                            lineNumber: 158,
+                                            columnNumber: 29
+                                        }, this)
+                                    ]
+                                }, void 0, true, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                    lineNumber: 152,
+                                    columnNumber: 25
+                                }, this)
+                            ]
+                        }, void 0, true, {
+                            fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                            lineNumber: 148,
+                            columnNumber: 21
+                        }, this)
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                    lineNumber: 143,
+                    columnNumber: 17
+                }, this),
+                /*#__PURE__*/ _jsxDEV("div", {
+                    className: "grid md:grid-cols-2 gap-8",
+                    children: [
+                        /*#__PURE__*/ _jsxDEV(Card, {
+                            children: [
+                                /*#__PURE__*/ _jsxDEV(CardHeader, {
+                                    children: /*#__PURE__*/ _jsxDEV(CardTitle, {
+                                        children: "Calendar"
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                        lineNumber: 226,
+                                        columnNumber: 29
+                                    }, this)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                    lineNumber: 225,
+                                    columnNumber: 25
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(CardContent, {
+                                    className: "flex justify-center",
+                                    children: /*#__PURE__*/ _jsxDEV(Calendar, {
+                                        mode: "single",
+                                        selected: date,
+                                        onSelect: setDate,
+                                        className: "rounded-md border",
+                                        modifiers: {
+                                            hasEvent: (date)=>events.some((e)=>e.date.getDate() === date.getDate() && e.date.getMonth() === date.getMonth() && e.date.getFullYear() === date.getFullYear())
+                                        },
+                                        modifiersStyles: {
+                                            hasEvent: {
+                                                fontWeight: 'bold',
+                                                textDecoration: 'underline',
+                                                color: 'var(--primary)'
+                                            }
+                                        }
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                        lineNumber: 229,
+                                        columnNumber: 29
+                                    }, this)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                    lineNumber: 228,
+                                    columnNumber: 25
+                                }, this)
+                            ]
+                        }, void 0, true, {
+                            fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                            lineNumber: 224,
+                            columnNumber: 21
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV(Card, {
+                            children: [
+                                /*#__PURE__*/ _jsxDEV(CardHeader, {
+                                    children: /*#__PURE__*/ _jsxDEV(CardTitle, {
+                                        children: date ? `Events for ${format(date, 'MMMM d, yyyy')}` : "All Events"
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                        lineNumber: 250,
+                                        columnNumber: 29
+                                    }, this)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                    lineNumber: 249,
+                                    columnNumber: 25
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(CardContent, {
+                                    className: "space-y-4 max-h-[500px] overflow-y-auto",
+                                    children: loading ? /*#__PURE__*/ _jsxDEV("div", {
+                                        className: "flex justify-center py-8",
+                                        children: /*#__PURE__*/ _jsxDEV(Loader2, {
+                                            className: "h-6 w-6 animate-spin text-muted-foreground"
+                                        }, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                            lineNumber: 257,
+                                            columnNumber: 37
+                                        }, this)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                        lineNumber: 256,
+                                        columnNumber: 33
+                                    }, this) : /*#__PURE__*/ _jsxDEV(_Fragment, {
+                                        children: (date ? selectedDateEvents : events).length === 0 ? /*#__PURE__*/ _jsxDEV("p", {
+                                            className: "text-muted-foreground text-center py-8",
+                                            children: "No events on this date."
+                                        }, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                            lineNumber: 262,
+                                            columnNumber: 41
+                                        }, this) : (date ? selectedDateEvents : events).map((event)=>/*#__PURE__*/ _jsxDEV("div", {
+                                                className: "flex items-start justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors group",
+                                                children: [
+                                                    /*#__PURE__*/ _jsxDEV("div", {
+                                                        className: "flex gap-4",
+                                                        children: [
+                                                            /*#__PURE__*/ _jsxDEV("div", {
+                                                                className: "text-center min-w-[3rem]",
+                                                                children: [
+                                                                    /*#__PURE__*/ _jsxDEV("span", {
+                                                                        className: "block text-xl font-bold font-display text-primary",
+                                                                        children: event.date.getDate()
+                                                                    }, void 0, false, {
+                                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                        lineNumber: 268,
+                                                                        columnNumber: 57
+                                                                    }, this),
+                                                                    /*#__PURE__*/ _jsxDEV("span", {
+                                                                        className: "text-xs uppercase text-muted-foreground font-semibold",
+                                                                        children: format(event.date, 'MMM')
+                                                                    }, void 0, false, {
+                                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                        lineNumber: 271,
+                                                                        columnNumber: 57
+                                                                    }, this)
+                                                                ]
+                                                            }, void 0, true, {
+                                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                lineNumber: 267,
+                                                                columnNumber: 53
+                                                            }, this),
+                                                            /*#__PURE__*/ _jsxDEV("div", {
+                                                                children: [
+                                                                    /*#__PURE__*/ _jsxDEV("h4", {
+                                                                        className: "font-semibold",
+                                                                        children: event.title
+                                                                    }, void 0, false, {
+                                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                        lineNumber: 276,
+                                                                        columnNumber: 57
+                                                                    }, this),
+                                                                    /*#__PURE__*/ _jsxDEV("p", {
+                                                                        className: "text-sm text-muted-foreground line-clamp-2",
+                                                                        children: event.description
+                                                                    }, void 0, false, {
+                                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                        lineNumber: 277,
+                                                                        columnNumber: 57
+                                                                    }, this),
+                                                                    /*#__PURE__*/ _jsxDEV("div", {
+                                                                        className: "flex gap-2 mt-2",
+                                                                        children: [
+                                                                            /*#__PURE__*/ _jsxDEV(Badge, {
+                                                                                variant: "outline",
+                                                                                children: event.type
+                                                                            }, void 0, false, {
+                                                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                                lineNumber: 279,
+                                                                                columnNumber: 61
+                                                                            }, this),
+                                                                            /*#__PURE__*/ _jsxDEV(Badge, {
+                                                                                variant: "secondary",
+                                                                                className: "capitalize",
+                                                                                children: event.visibility
+                                                                            }, void 0, false, {
+                                                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                                lineNumber: 280,
+                                                                                columnNumber: 61
+                                                                            }, this)
+                                                                        ]
+                                                                    }, void 0, true, {
+                                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                        lineNumber: 278,
+                                                                        columnNumber: 57
+                                                                    }, this)
+                                                                ]
+                                                            }, void 0, true, {
+                                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                                lineNumber: 275,
+                                                                columnNumber: 53
+                                                            }, this)
+                                                        ]
+                                                    }, void 0, true, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                        lineNumber: 266,
+                                                        columnNumber: 49
+                                                    }, this),
+                                                    /*#__PURE__*/ _jsxDEV(Button, {
+                                                        variant: "ghost",
+                                                        size: "icon",
+                                                        className: "opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10",
+                                                        onClick: ()=>handleDeleteEvent(event.id),
+                                                        children: /*#__PURE__*/ _jsxDEV(Trash2, {
+                                                            className: "h-4 w-4"
+                                                        }, void 0, false, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                            lineNumber: 290,
+                                                            columnNumber: 53
+                                                        }, this)
+                                                    }, void 0, false, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                        lineNumber: 284,
+                                                        columnNumber: 49
+                                                    }, this)
+                                                ]
+                                            }, event.id, true, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                                lineNumber: 265,
+                                                columnNumber: 45
+                                            }, this))
+                                    }, void 0, false)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                                    lineNumber: 254,
+                                    columnNumber: 25
+                                }, this)
+                            ]
+                        }, void 0, true, {
+                            fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                            lineNumber: 248,
+                            columnNumber: 21
+                        }, this)
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                    lineNumber: 223,
+                    columnNumber: 17
+                }, this),
+                /*#__PURE__*/ _jsxDEV(JsonCalendarUpdaterModal, {
+                    open: jsonModalOpen,
+                    onOpenChange: setJsonModalOpen,
+                    onSuccess: fetchEvents
+                }, void 0, false, {
+                    fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+                    lineNumber: 300,
+                    columnNumber: 17
+                }, this)
+            ]
+        }, void 0, true, {
+            fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+            lineNumber: 142,
+            columnNumber: 13
+        }, this)
+    }, void 0, false, {
+        fileName: "D:/Orbitlms/src/pages/admin/AdminCalendar.tsx",
+        lineNumber: 141,
+        columnNumber: 9
+    }, this);
+}
+_s(AdminCalendar, "nvJnQcY+73877Kn9t7cnCw1hsP4=", false, function() {
+    return [
+        useToast
+    ];
+});
+_c = AdminCalendar;
+var _c;
+$RefreshReg$(_c, "AdminCalendar");
+
+
+if (import.meta.hot && !inWebWorker) {
+  window.$RefreshReg$ = prevRefreshReg;
+  window.$RefreshSig$ = prevRefreshSig;
+}
+
+
+if (import.meta.hot && !inWebWorker) {
+  RefreshRuntime.__hmr_import(import.meta.url).then((currentExports) => {
+    RefreshRuntime.registerExportsForReactRefresh("D:/Orbitlms/src/pages/admin/AdminCalendar.tsx", currentExports);
+    import.meta.hot.accept((nextExports) => {
+      if (!nextExports) return;
+      const invalidateMessage = RefreshRuntime.validateRefreshBoundaryAndEnqueueUpdate("D:/Orbitlms/src/pages/admin/AdminCalendar.tsx", currentExports, nextExports);
+      if (invalidateMessage) import.meta.hot.invalidate(invalidateMessage);
+    });
+  });
+}
+
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbIkFkbWluQ2FsZW5kYXIudHN4Il0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7IHVzZVN0YXRlLCB1c2VFZmZlY3QgfSBmcm9tIFwicmVhY3RcIjtcclxuaW1wb3J0IHsgQWRtaW5MYXlvdXQgfSBmcm9tIFwiQC9jb21wb25lbnRzL2xheW91dC9BZG1pbkxheW91dFwiO1xyXG5pbXBvcnQgeyBDYWxlbmRhciB9IGZyb20gXCJAL2NvbXBvbmVudHMvdWkvY2FsZW5kYXJcIjtcclxuaW1wb3J0IHsgQ2FyZCwgQ2FyZENvbnRlbnQsIENhcmRIZWFkZXIsIENhcmRUaXRsZSB9IGZyb20gXCJAL2NvbXBvbmVudHMvdWkvY2FyZFwiO1xyXG5pbXBvcnQgeyBCdXR0b24gfSBmcm9tIFwiQC9jb21wb25lbnRzL3VpL2J1dHRvblwiO1xyXG5pbXBvcnQgeyBEaWFsb2csIERpYWxvZ0NvbnRlbnQsIERpYWxvZ0hlYWRlciwgRGlhbG9nVGl0bGUsIERpYWxvZ1RyaWdnZXIsIERpYWxvZ0Zvb3RlciB9IGZyb20gXCJAL2NvbXBvbmVudHMvdWkvZGlhbG9nXCI7XHJcbmltcG9ydCB7IElucHV0IH0gZnJvbSBcIkAvY29tcG9uZW50cy91aS9pbnB1dFwiO1xyXG5pbXBvcnQgeyBMYWJlbCB9IGZyb20gXCJAL2NvbXBvbmVudHMvdWkvbGFiZWxcIjtcclxuaW1wb3J0IHsgU2VsZWN0LCBTZWxlY3RDb250ZW50LCBTZWxlY3RJdGVtLCBTZWxlY3RUcmlnZ2VyLCBTZWxlY3RWYWx1ZSB9IGZyb20gXCJAL2NvbXBvbmVudHMvdWkvc2VsZWN0XCI7XHJcbmltcG9ydCB7IFRleHRhcmVhIH0gZnJvbSBcIkAvY29tcG9uZW50cy91aS90ZXh0YXJlYVwiO1xyXG5pbXBvcnQgeyB1c2VUb2FzdCB9IGZyb20gXCJAL2hvb2tzL3VzZS10b2FzdFwiO1xyXG5pbXBvcnQgeyBzdXBhYmFzZSB9IGZyb20gXCJAL2xpYi9zdXBhYmFzZVwiO1xyXG5pbXBvcnQgeyBMb2FkZXIyLCBQbHVzLCBUcmFzaDIsIENhbGVuZGFyIGFzIENhbGVuZGFySWNvbiwgRmlsZUpzb24gfSBmcm9tIFwibHVjaWRlLXJlYWN0XCI7XHJcbmltcG9ydCB7IGZvcm1hdCB9IGZyb20gXCJkYXRlLWZuc1wiO1xyXG5pbXBvcnQgeyBCYWRnZSB9IGZyb20gXCJAL2NvbXBvbmVudHMvdWkvYmFkZ2VcIjtcclxuaW1wb3J0IHsgSnNvbkNhbGVuZGFyVXBkYXRlck1vZGFsIH0gZnJvbSBcIkAvY29tcG9uZW50cy9jYWxlbmRhci9Kc29uQ2FsZW5kYXJVcGRhdGVyTW9kYWxcIjtcclxuXHJcbmV4cG9ydCBkZWZhdWx0IGZ1bmN0aW9uIEFkbWluQ2FsZW5kYXIoKSB7XHJcbiAgICBjb25zdCB7IHRvYXN0IH0gPSB1c2VUb2FzdCgpO1xyXG4gICAgY29uc3QgW2RhdGUsIHNldERhdGVdID0gdXNlU3RhdGU8RGF0ZSB8IHVuZGVmaW5lZD4obmV3IERhdGUoKSk7XHJcbiAgICBjb25zdCBbZXZlbnRzLCBzZXRFdmVudHNdID0gdXNlU3RhdGU8YW55W10+KFtdKTtcclxuICAgIGNvbnN0IFtsb2FkaW5nLCBzZXRMb2FkaW5nXSA9IHVzZVN0YXRlKHRydWUpO1xyXG4gICAgY29uc3QgW29wZW4sIHNldE9wZW5dID0gdXNlU3RhdGUoZmFsc2UpO1xyXG4gICAgY29uc3QgW2pzb25Nb2RhbE9wZW4sIHNldEpzb25Nb2RhbE9wZW5dID0gdXNlU3RhdGUoZmFsc2UpO1xyXG5cclxuICAgIC8vIEZvcm0gU3RhdGVcclxuICAgIGNvbnN0IFt0aXRsZSwgc2V0VGl0bGVdID0gdXNlU3RhdGUoXCJcIik7XHJcbiAgICBjb25zdCBbZGVzY3JpcHRpb24sIHNldERlc2NyaXB0aW9uXSA9IHVzZVN0YXRlKFwiXCIpO1xyXG4gICAgY29uc3QgW3R5cGUsIHNldFR5cGVdID0gdXNlU3RhdGUoXCJldmVudFwiKTtcclxuICAgIGNvbnN0IFt2aXNpYmlsaXR5LCBzZXRWaXNpYmlsaXR5XSA9IHVzZVN0YXRlKFwiYWxsXCIpO1xyXG4gICAgY29uc3QgW2lzU3VibWl0dGluZywgc2V0SXNTdWJtaXR0aW5nXSA9IHVzZVN0YXRlKGZhbHNlKTtcclxuXHJcbiAgICB1c2VFZmZlY3QoKCkgPT4ge1xyXG4gICAgICAgIGZldGNoRXZlbnRzKCk7XHJcbiAgICB9LCBbXSk7XHJcblxyXG4gICAgY29uc3QgZmV0Y2hFdmVudHMgPSBhc3luYyAoKSA9PiB7XHJcbiAgICAgICAgdHJ5IHtcclxuICAgICAgICAgICAgc2V0TG9hZGluZyh0cnVlKTtcclxuICAgICAgICAgICAgY29uc3QgeyBkYXRhLCBlcnJvciB9ID0gYXdhaXQgc3VwYWJhc2VcclxuICAgICAgICAgICAgICAgIC5mcm9tKCdjYWxlbmRhcl9ldmVudHMnKVxyXG4gICAgICAgICAgICAgICAgLnNlbGVjdCgnaWQsIHRpdGxlLCBkZXNjcmlwdGlvbiwgZXZlbnRfZGF0ZSwgdHlwZSwgdmlzaWJpbGl0eScpIC8vIGV4cGxpY2l0bHkgc2VsZWN0IHRvIGF2b2lkIHVuaW50ZW5kZWQgam9pbnNcclxuICAgICAgICAgICAgICAgIC5vcmRlcignZXZlbnRfZGF0ZScsIHsgYXNjZW5kaW5nOiB0cnVlIH0pO1xyXG5cclxuICAgICAgICAgICAgaWYgKGVycm9yKSB7XHJcbiAgICAgICAgICAgICAgICAvLyBDaGVjayBmb3IgNDAzIGV4cGxpY2l0bHlcclxuICAgICAgICAgICAgICAgIGlmIChlcnJvci5jb2RlID09PSAnNDI1MDEnIHx8IGVycm9yLm1lc3NhZ2UuaW5jbHVkZXMoJ3Blcm1pc3Npb24gZGVuaWVkJykpIHtcclxuICAgICAgICAgICAgICAgICAgICBjb25zb2xlLndhcm4oXCJDYWxlbmRhciBhY2Nlc3MgZGVuaWVkIGJ5IFJMU1wiKTtcclxuICAgICAgICAgICAgICAgICAgICBzZXRFdmVudHMoW10pOyAvLyBTaG93IGVtcHR5IGNhbGVuZGFyIGluc3RlYWQgb2YgY3Jhc2hcclxuICAgICAgICAgICAgICAgICAgICAvLyBPcHRpb25hbDogdG9hc3Qgd2FybmluZyBvbmNlXHJcbiAgICAgICAgICAgICAgICAgICAgcmV0dXJuO1xyXG4gICAgICAgICAgICAgICAgfVxyXG4gICAgICAgICAgICAgICAgdGhyb3cgZXJyb3I7XHJcbiAgICAgICAgICAgIH1cclxuXHJcbiAgICAgICAgICAgIC8vIFBhcnNlIGRhdGVzXHJcbiAgICAgICAgICAgIGNvbnN0IHBhcnNlZEV2ZW50cyA9IChkYXRhIHx8IFtdKS5tYXAoZSA9PiAoe1xyXG4gICAgICAgICAgICAgICAgLi4uZSxcclxuICAgICAgICAgICAgICAgIGRhdGU6IG5ldyBEYXRlKGUuZXZlbnRfZGF0ZSlcclxuICAgICAgICAgICAgfSkpO1xyXG5cclxuICAgICAgICAgICAgc2V0RXZlbnRzKHBhcnNlZEV2ZW50cyk7XHJcbiAgICAgICAgfSBjYXRjaCAoZXJyb3I6IGFueSkge1xyXG4gICAgICAgICAgICBjb25zb2xlLmVycm9yKFwiRXJyb3IgZmV0Y2hpbmcgZXZlbnRzOlwiLCBlcnJvcik7XHJcbiAgICAgICAgICAgIHRvYXN0KHsgdmFyaWFudDogXCJkZXN0cnVjdGl2ZVwiLCB0aXRsZTogXCJFcnJvclwiLCBkZXNjcmlwdGlvbjogXCJGYWlsZWQgdG8gbG9hZCBldmVudHMuXCIgfSk7XHJcbiAgICAgICAgfSBmaW5hbGx5IHtcclxuICAgICAgICAgICAgc2V0TG9hZGluZyhmYWxzZSk7XHJcbiAgICAgICAgfVxyXG4gICAgfTtcclxuXHJcbiAgICBjb25zdCBoYW5kbGVBZGRFdmVudCA9IGFzeW5jICgpID0+IHtcclxuICAgICAgICBpZiAoIXRpdGxlIHx8ICFkYXRlKSB7XHJcbiAgICAgICAgICAgIHRvYXN0KHsgdmFyaWFudDogXCJkZXN0cnVjdGl2ZVwiLCB0aXRsZTogXCJFcnJvclwiLCBkZXNjcmlwdGlvbjogXCJUaXRsZSBhbmQgRGF0ZSBhcmUgcmVxdWlyZWQuXCIgfSk7XHJcbiAgICAgICAgICAgIHJldHVybjtcclxuICAgICAgICB9XHJcblxyXG4gICAgICAgIHRyeSB7XHJcbiAgICAgICAgICAgIHNldElzU3VibWl0dGluZyh0cnVlKTtcclxuICAgICAgICAgICAgY29uc3QgeyBkYXRhOiB7IHVzZXIgfSB9ID0gYXdhaXQgc3VwYWJhc2UuYXV0aC5nZXRVc2VyKCk7XHJcblxyXG4gICAgICAgICAgICBjb25zdCBwYXlsb2FkID0ge1xyXG4gICAgICAgICAgICAgICAgdGl0bGUsXHJcbiAgICAgICAgICAgICAgICBkZXNjcmlwdGlvbixcclxuICAgICAgICAgICAgICAgIGV2ZW50X2RhdGU6IGRhdGUudG9JU09TdHJpbmcoKSxcclxuICAgICAgICAgICAgICAgIHR5cGUsXHJcbiAgICAgICAgICAgICAgICB2aXNpYmlsaXR5LFxyXG4gICAgICAgICAgICAgICAgLy8gY3JlYXRlZF9ieSByZW1vdmVkIHRvIGF2b2lkIFJMUyBzdHJpY3QgY2hlY2tzIG9uIHVzZXJzIHRhYmxlIGZvciBub3dcclxuICAgICAgICAgICAgfTtcclxuXHJcbiAgICAgICAgICAgIGNvbnN0IHsgZXJyb3IgfSA9IGF3YWl0IHN1cGFiYXNlXHJcbiAgICAgICAgICAgICAgICAuZnJvbSgnY2FsZW5kYXJfZXZlbnRzJylcclxuICAgICAgICAgICAgICAgIC5pbnNlcnQoW3BheWxvYWRdKTtcclxuXHJcbiAgICAgICAgICAgIGlmIChlcnJvcikgdGhyb3cgZXJyb3I7XHJcblxyXG4gICAgICAgICAgICB0b2FzdCh7IHRpdGxlOiBcIkV2ZW50IEFkZGVkXCIsIGRlc2NyaXB0aW9uOiBcIlRoZSBldmVudCBoYXMgYmVlbiBhZGRlZCB0byB0aGUgY2FsZW5kYXIuXCIgfSk7XHJcbiAgICAgICAgICAgIHNldE9wZW4oZmFsc2UpO1xyXG5cclxuICAgICAgICAgICAgLy8gUmVzZXQgZm9ybVxyXG4gICAgICAgICAgICBzZXRUaXRsZShcIlwiKTtcclxuICAgICAgICAgICAgc2V0RGVzY3JpcHRpb24oXCJcIik7XHJcbiAgICAgICAgICAgIHNldFR5cGUoXCJldmVudFwiKTtcclxuICAgICAgICAgICAgc2V0VmlzaWJpbGl0eShcImFsbFwiKTtcclxuXHJcbiAgICAgICAgICAgIGZldGNoRXZlbnRzKCk7XHJcbiAgICAgICAgfSBjYXRjaCAoZXJyb3I6IGFueSkge1xyXG4gICAgICAgICAgICB0b2FzdCh7IHZhcmlhbnQ6IFwiZGVzdHJ1Y3RpdmVcIiwgdGl0bGU6IFwiRXJyb3JcIiwgZGVzY3JpcHRpb246IGVycm9yLm1lc3NhZ2UgfSk7XHJcbiAgICAgICAgfSBmaW5hbGx5IHtcclxuICAgICAgICAgICAgc2V0SXNTdWJtaXR0aW5nKGZhbHNlKTtcclxuICAgICAgICB9XHJcbiAgICB9O1xyXG5cclxuICAgIGNvbnN0IGhhbmRsZURlbGV0ZUV2ZW50ID0gYXN5bmMgKGlkOiBzdHJpbmcpID0+IHtcclxuICAgICAgICBpZiAoIWNvbmZpcm0oXCJBcmUgeW91IHN1cmUgeW91IHdhbnQgdG8gZGVsZXRlIHRoaXMgZXZlbnQ/XCIpKSByZXR1cm47XHJcblxyXG4gICAgICAgIHRyeSB7XHJcbiAgICAgICAgICAgIGNvbnN0IHsgZXJyb3IgfSA9IGF3YWl0IHN1cGFiYXNlXHJcbiAgICAgICAgICAgICAgICAuZnJvbSgnY2FsZW5kYXJfZXZlbnRzJylcclxuICAgICAgICAgICAgICAgIC5kZWxldGUoKVxyXG4gICAgICAgICAgICAgICAgLmVxKCdpZCcsIGlkKTtcclxuXHJcbiAgICAgICAgICAgIGlmIChlcnJvcikgdGhyb3cgZXJyb3I7XHJcblxyXG4gICAgICAgICAgICB0b2FzdCh7IHRpdGxlOiBcIkRlbGV0ZWRcIiwgZGVzY3JpcHRpb246IFwiRXZlbnQgcmVtb3ZlZC5cIiB9KTtcclxuICAgICAgICAgICAgZmV0Y2hFdmVudHMoKTtcclxuICAgICAgICB9IGNhdGNoIChlcnJvcjogYW55KSB7XHJcbiAgICAgICAgICAgIHRvYXN0KHsgdmFyaWFudDogXCJkZXN0cnVjdGl2ZVwiLCB0aXRsZTogXCJFcnJvclwiLCBkZXNjcmlwdGlvbjogZXJyb3IubWVzc2FnZSB9KTtcclxuICAgICAgICB9XHJcbiAgICB9O1xyXG5cclxuICAgIC8vIEZpbHRlciBldmVudHMgZm9yIHNlbGVjdGVkIGRhdGVcclxuICAgIGNvbnN0IHNlbGVjdGVkRGF0ZUV2ZW50cyA9IGRhdGVcclxuICAgICAgICA/IGV2ZW50cy5maWx0ZXIoZSA9PlxyXG4gICAgICAgICAgICBlLmRhdGUuZ2V0RGF0ZSgpID09PSBkYXRlLmdldERhdGUoKSAmJlxyXG4gICAgICAgICAgICBlLmRhdGUuZ2V0TW9udGgoKSA9PT0gZGF0ZS5nZXRNb250aCgpICYmXHJcbiAgICAgICAgICAgIGUuZGF0ZS5nZXRGdWxsWWVhcigpID09PSBkYXRlLmdldEZ1bGxZZWFyKClcclxuICAgICAgICApXHJcbiAgICAgICAgOiBbXTtcclxuXHJcbiAgICByZXR1cm4gKFxyXG4gICAgICAgIDxBZG1pbkxheW91dD5cclxuICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJzcGFjZS15LTZcIj5cclxuICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZmxleCBqdXN0aWZ5LWJldHdlZW4gaXRlbXMtY2VudGVyXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgPGRpdj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgPGgxIGNsYXNzTmFtZT1cInRleHQtM3hsIGZvbnQtZGlzcGxheSBmb250LWJvbGRcIj5DYWxlbmRhciBNYW5hZ2VtZW50PC9oMT5cclxuICAgICAgICAgICAgICAgICAgICAgICAgPHAgY2xhc3NOYW1lPVwidGV4dC1tdXRlZC1mb3JlZ3JvdW5kIG10LTFcIj5NYW5hZ2UgZXZlbnRzLCBob2xpZGF5cywgYW5kIGFubm91bmNlbWVudHMuPC9wPlxyXG4gICAgICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZmxleCBpdGVtcy1jZW50ZXIgZ2FwLTJcIj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgPEJ1dHRvbiB2YXJpYW50PVwib3V0bGluZVwiIG9uQ2xpY2s9eygpID0+IHNldEpzb25Nb2RhbE9wZW4odHJ1ZSl9IGNsYXNzTmFtZT1cImdhcC0yIGJvcmRlci1wcmltYXJ5LzMwIGhvdmVyOmJnLXByaW1hcnkvNSB0ZXh0LXByaW1hcnlcIj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxGaWxlSnNvbiBjbGFzc05hbWU9XCJoLTQgdy00XCIgLz4gSlNPTiBTY2hlZHVsZSBVcGRhdGVyICjijJhLIC8gQ3RybCtLKVxyXG4gICAgICAgICAgICAgICAgICAgICAgICA8L0J1dHRvbj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgPERpYWxvZyBvcGVuPXtvcGVufSBvbk9wZW5DaGFuZ2U9e3NldE9wZW59PlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgPERpYWxvZ1RyaWdnZXIgYXNDaGlsZD5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8QnV0dG9uIGNsYXNzTmFtZT1cImdhcC0yXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxQbHVzIGNsYXNzTmFtZT1cImgtNCB3LTRcIiAvPiBBZGQgRXZlbnRcclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8L0J1dHRvbj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvRGlhbG9nVHJpZ2dlcj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxEaWFsb2dDb250ZW50PlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgPERpYWxvZ0hlYWRlcj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8RGlhbG9nVGl0bGU+QWRkIE5ldyBFdmVudDwvRGlhbG9nVGl0bGU+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICA8L0RpYWxvZ0hlYWRlcj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwic3BhY2UteS00IHB5LTRcIj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInNwYWNlLXktMlwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8TGFiZWw+RXZlbnQgVGl0bGU8L0xhYmVsPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8SW5wdXQgdmFsdWU9e3RpdGxlfSBvbkNoYW5nZT17KGUpID0+IHNldFRpdGxlKGUudGFyZ2V0LnZhbHVlKX0gcGxhY2Vob2xkZXI9XCJlLmcuLCBBbm51YWwgU3BvcnRzIERheVwiIC8+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJzcGFjZS15LTJcIj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPExhYmVsPkRhdGU8L0xhYmVsPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInAtMiBib3JkZXIgcm91bmRlZC1tZCBiZy1tdXRlZC8yMCB0ZXh0LXNtXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB7ZGF0ZSA/IGZvcm1hdChkYXRlLCAnUFBQJykgOiBcIlNlbGVjdCBhIGRhdGUgb24gdGhlIGNhbGVuZGFyIGZpcnN0XCJ9XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8cCBjbGFzc05hbWU9XCJ0ZXh0LXhzIHRleHQtbXV0ZWQtZm9yZWdyb3VuZFwiPlNlbGVjdCBhIGRhdGUgb24gdGhlIG1haW4gY2FsZW5kYXIgdG8gY2hhbmdlIHRoaXMuPC9wPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZ3JpZCBncmlkLWNvbHMtMiBnYXAtNFwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInNwYWNlLXktMlwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPExhYmVsPlR5cGU8L0xhYmVsPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPFNlbGVjdCB2YWx1ZT17dHlwZX0gb25WYWx1ZUNoYW5nZT17c2V0VHlwZX0+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPFNlbGVjdFRyaWdnZXI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxTZWxlY3RWYWx1ZSAvPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvU2VsZWN0VHJpZ2dlcj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8U2VsZWN0Q29udGVudD5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPFNlbGVjdEl0ZW0gdmFsdWU9XCJldmVudFwiPkdlbmVyYWwgRXZlbnQ8L1NlbGVjdEl0ZW0+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxTZWxlY3RJdGVtIHZhbHVlPVwiaG9saWRheVwiPkhvbGlkYXk8L1NlbGVjdEl0ZW0+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxTZWxlY3RJdGVtIHZhbHVlPVwiZGVhZGxpbmVcIj5EZWFkbGluZTwvU2VsZWN0SXRlbT5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPFNlbGVjdEl0ZW0gdmFsdWU9XCJhbm5vdW5jZW1lbnRcIj5Bbm5vdW5jZW1lbnQ8L1NlbGVjdEl0ZW0+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPC9TZWxlY3RDb250ZW50PlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPC9TZWxlY3Q+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInNwYWNlLXktMlwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPExhYmVsPlZpc2liaWxpdHk8L0xhYmVsPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPFNlbGVjdCB2YWx1ZT17dmlzaWJpbGl0eX0gb25WYWx1ZUNoYW5nZT17c2V0VmlzaWJpbGl0eX0+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPFNlbGVjdFRyaWdnZXI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxTZWxlY3RWYWx1ZSAvPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvU2VsZWN0VHJpZ2dlcj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8U2VsZWN0Q29udGVudD5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPFNlbGVjdEl0ZW0gdmFsdWU9XCJhbGxcIj5FdmVyeW9uZTwvU2VsZWN0SXRlbT5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPFNlbGVjdEl0ZW0gdmFsdWU9XCJzdHVkZW50c1wiPlN0dWRlbnRzIE9ubHk8L1NlbGVjdEl0ZW0+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxTZWxlY3RJdGVtIHZhbHVlPVwidGVhY2hlcnNcIj5UZWFjaGVycyBPbmx5PC9TZWxlY3RJdGVtPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvU2VsZWN0Q29udGVudD5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvU2VsZWN0PlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInNwYWNlLXktMlwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8TGFiZWw+RGVzY3JpcHRpb248L0xhYmVsPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8VGV4dGFyZWFcclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHZhbHVlPXtkZXNjcmlwdGlvbn1cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIG9uQ2hhbmdlPXsoZSkgPT4gc2V0RGVzY3JpcHRpb24oZS50YXJnZXQudmFsdWUpfVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgcGxhY2Vob2xkZXI9XCJPcHRpb25hbCBkZXNjcmlwdGlvbi4uLlwiXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIC8+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxEaWFsb2dGb290ZXI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPEJ1dHRvbiB2YXJpYW50PVwib3V0bGluZVwiIG9uQ2xpY2s9eygpID0+IHNldE9wZW4oZmFsc2UpfT5DYW5jZWw8L0J1dHRvbj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8QnV0dG9uIG9uQ2xpY2s9e2hhbmRsZUFkZEV2ZW50fSBkaXNhYmxlZD17aXNTdWJtaXR0aW5nfT5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAge2lzU3VibWl0dGluZyA/IFwiQWRkaW5nLi4uXCIgOiBcIkFkZCBFdmVudFwifVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvQnV0dG9uPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgPC9EaWFsb2dGb290ZXI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgIDwvRGlhbG9nQ29udGVudD5cclxuICAgICAgICAgICAgICAgICAgICA8L0RpYWxvZz5cclxuICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICA8L2Rpdj5cclxuXHJcbiAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImdyaWQgbWQ6Z3JpZC1jb2xzLTIgZ2FwLThcIj5cclxuICAgICAgICAgICAgICAgICAgICA8Q2FyZD5cclxuICAgICAgICAgICAgICAgICAgICAgICAgPENhcmRIZWFkZXI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICA8Q2FyZFRpdGxlPkNhbGVuZGFyPC9DYXJkVGl0bGU+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgIDwvQ2FyZEhlYWRlcj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgPENhcmRDb250ZW50IGNsYXNzTmFtZT1cImZsZXgganVzdGlmeS1jZW50ZXJcIj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxDYWxlbmRhclxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIG1vZGU9XCJzaW5nbGVcIlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHNlbGVjdGVkPXtkYXRlfVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIG9uU2VsZWN0PXtzZXREYXRlfVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGNsYXNzTmFtZT1cInJvdW5kZWQtbWQgYm9yZGVyXCJcclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBtb2RpZmllcnM9e3tcclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgaGFzRXZlbnQ6IChkYXRlKSA9PiBldmVudHMuc29tZShlID0+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBlLmRhdGUuZ2V0RGF0ZSgpID09PSBkYXRlLmdldERhdGUoKSAmJlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgZS5kYXRlLmdldE1vbnRoKCkgPT09IGRhdGUuZ2V0TW9udGgoKSAmJlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgZS5kYXRlLmdldEZ1bGxZZWFyKCkgPT09IGRhdGUuZ2V0RnVsbFllYXIoKVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICApXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfX1cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBtb2RpZmllcnNTdHlsZXM9e3tcclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgaGFzRXZlbnQ6IHsgZm9udFdlaWdodDogJ2JvbGQnLCB0ZXh0RGVjb3JhdGlvbjogJ3VuZGVybGluZScsIGNvbG9yOiAndmFyKC0tcHJpbWFyeSknIH1cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB9fVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgLz5cclxuICAgICAgICAgICAgICAgICAgICAgICAgPC9DYXJkQ29udGVudD5cclxuICAgICAgICAgICAgICAgICAgICA8L0NhcmQ+XHJcblxyXG4gICAgICAgICAgICAgICAgICAgIDxDYXJkPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICA8Q2FyZEhlYWRlcj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxDYXJkVGl0bGU+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAge2RhdGUgPyBgRXZlbnRzIGZvciAke2Zvcm1hdChkYXRlLCAnTU1NTSBkLCB5eXl5Jyl9YCA6IFwiQWxsIEV2ZW50c1wifVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgPC9DYXJkVGl0bGU+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgIDwvQ2FyZEhlYWRlcj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgPENhcmRDb250ZW50IGNsYXNzTmFtZT1cInNwYWNlLXktNCBtYXgtaC1bNTAwcHhdIG92ZXJmbG93LXktYXV0b1wiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAge2xvYWRpbmcgPyAoXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJmbGV4IGp1c3RpZnktY2VudGVyIHB5LThcIj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPExvYWRlcjIgY2xhc3NOYW1lPVwiaC02IHctNiBhbmltYXRlLXNwaW4gdGV4dC1tdXRlZC1mb3JlZ3JvdW5kXCIgLz5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICkgOiAoXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPD5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgeyhkYXRlID8gc2VsZWN0ZWREYXRlRXZlbnRzIDogZXZlbnRzKS5sZW5ndGggPT09IDAgPyAoXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8cCBjbGFzc05hbWU9XCJ0ZXh0LW11dGVkLWZvcmVncm91bmQgdGV4dC1jZW50ZXIgcHktOFwiPk5vIGV2ZW50cyBvbiB0aGlzIGRhdGUuPC9wPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICApIDogKFxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgKGRhdGUgPyBzZWxlY3RlZERhdGVFdmVudHMgOiBldmVudHMpLm1hcCgoZXZlbnQpID0+IChcclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8ZGl2IGtleT17ZXZlbnQuaWR9IGNsYXNzTmFtZT1cImZsZXggaXRlbXMtc3RhcnQganVzdGlmeS1iZXR3ZWVuIHAtNCBib3JkZXIgcm91bmRlZC1sZyBob3ZlcjpiZy1tdXRlZC81MCB0cmFuc2l0aW9uLWNvbG9ycyBncm91cFwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImZsZXggZ2FwLTRcIj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwidGV4dC1jZW50ZXIgbWluLXctWzNyZW1dXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPHNwYW4gY2xhc3NOYW1lPVwiYmxvY2sgdGV4dC14bCBmb250LWJvbGQgZm9udC1kaXNwbGF5IHRleHQtcHJpbWFyeVwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB7ZXZlbnQuZGF0ZS5nZXREYXRlKCl9XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPC9zcGFuPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxzcGFuIGNsYXNzTmFtZT1cInRleHQteHMgdXBwZXJjYXNlIHRleHQtbXV0ZWQtZm9yZWdyb3VuZCBmb250LXNlbWlib2xkXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHtmb3JtYXQoZXZlbnQuZGF0ZSwgJ01NTScpfVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvc3Bhbj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPGRpdj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8aDQgY2xhc3NOYW1lPVwiZm9udC1zZW1pYm9sZFwiPntldmVudC50aXRsZX08L2g0PlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxwIGNsYXNzTmFtZT1cInRleHQtc20gdGV4dC1tdXRlZC1mb3JlZ3JvdW5kIGxpbmUtY2xhbXAtMlwiPntldmVudC5kZXNjcmlwdGlvbn08L3A+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJmbGV4IGdhcC0yIG10LTJcIj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPEJhZGdlIHZhcmlhbnQ9XCJvdXRsaW5lXCI+e2V2ZW50LnR5cGV9PC9CYWRnZT5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPEJhZGdlIHZhcmlhbnQ9XCJzZWNvbmRhcnlcIiBjbGFzc05hbWU9XCJjYXBpdGFsaXplXCI+e2V2ZW50LnZpc2liaWxpdHl9PC9CYWRnZT5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPEJ1dHRvblxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgdmFyaWFudD1cImdob3N0XCJcclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHNpemU9XCJpY29uXCJcclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGNsYXNzTmFtZT1cIm9wYWNpdHktMCBncm91cC1ob3ZlcjpvcGFjaXR5LTEwMCB0cmFuc2l0aW9uLW9wYWNpdHkgdGV4dC1kZXN0cnVjdGl2ZSBob3Zlcjp0ZXh0LWRlc3RydWN0aXZlIGhvdmVyOmJnLWRlc3RydWN0aXZlLzEwXCJcclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIG9uQ2xpY2s9eygpID0+IGhhbmRsZURlbGV0ZUV2ZW50KGV2ZW50LmlkKX1cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPFRyYXNoMiBjbGFzc05hbWU9XCJoLTQgdy00XCIgLz5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPC9CdXR0b24+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICApKVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICApfVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgKX1cclxuICAgICAgICAgICAgICAgICAgICAgICAgPC9DYXJkQ29udGVudD5cclxuICAgICAgICAgICAgICAgICAgICA8L0NhcmQ+XHJcbiAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgIDxKc29uQ2FsZW5kYXJVcGRhdGVyTW9kYWxcclxuICAgICAgICAgICAgICAgICAgICBvcGVuPXtqc29uTW9kYWxPcGVufVxyXG4gICAgICAgICAgICAgICAgICAgIG9uT3BlbkNoYW5nZT17c2V0SnNvbk1vZGFsT3Blbn1cclxuICAgICAgICAgICAgICAgICAgICBvblN1Y2Nlc3M9e2ZldGNoRXZlbnRzfVxyXG4gICAgICAgICAgICAgICAgLz5cclxuICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgPC9BZG1pbkxheW91dD5cclxuICAgICk7XHJcbn1cclxuIl0sIm5hbWVzIjpbInVzZVN0YXRlIiwidXNlRWZmZWN0IiwiQWRtaW5MYXlvdXQiLCJDYWxlbmRhciIsIkNhcmQiLCJDYXJkQ29udGVudCIsIkNhcmRIZWFkZXIiLCJDYXJkVGl0bGUiLCJCdXR0b24iLCJEaWFsb2ciLCJEaWFsb2dDb250ZW50IiwiRGlhbG9nSGVhZGVyIiwiRGlhbG9nVGl0bGUiLCJEaWFsb2dUcmlnZ2VyIiwiRGlhbG9nRm9vdGVyIiwiSW5wdXQiLCJMYWJlbCIsIlNlbGVjdCIsIlNlbGVjdENvbnRlbnQiLCJTZWxlY3RJdGVtIiwiU2VsZWN0VHJpZ2dlciIsIlNlbGVjdFZhbHVlIiwiVGV4dGFyZWEiLCJ1c2VUb2FzdCIsInN1cGFiYXNlIiwiTG9hZGVyMiIsIlBsdXMiLCJUcmFzaDIiLCJGaWxlSnNvbiIsImZvcm1hdCIsIkJhZGdlIiwiSnNvbkNhbGVuZGFyVXBkYXRlck1vZGFsIiwiQWRtaW5DYWxlbmRhciIsInRvYXN0IiwiZGF0ZSIsInNldERhdGUiLCJEYXRlIiwiZXZlbnRzIiwic2V0RXZlbnRzIiwibG9hZGluZyIsInNldExvYWRpbmciLCJvcGVuIiwic2V0T3BlbiIsImpzb25Nb2RhbE9wZW4iLCJzZXRKc29uTW9kYWxPcGVuIiwidGl0bGUiLCJzZXRUaXRsZSIsImRlc2NyaXB0aW9uIiwic2V0RGVzY3JpcHRpb24iLCJ0eXBlIiwic2V0VHlwZSIsInZpc2liaWxpdHkiLCJzZXRWaXNpYmlsaXR5IiwiaXNTdWJtaXR0aW5nIiwic2V0SXNTdWJtaXR0aW5nIiwiZmV0Y2hFdmVudHMiLCJkYXRhIiwiZXJyb3IiLCJmcm9tIiwic2VsZWN0Iiwib3JkZXIiLCJhc2NlbmRpbmciLCJjb2RlIiwibWVzc2FnZSIsImluY2x1ZGVzIiwiY29uc29sZSIsIndhcm4iLCJwYXJzZWRFdmVudHMiLCJtYXAiLCJlIiwiZXZlbnRfZGF0ZSIsInZhcmlhbnQiLCJoYW5kbGVBZGRFdmVudCIsInVzZXIiLCJhdXRoIiwiZ2V0VXNlciIsInBheWxvYWQiLCJ0b0lTT1N0cmluZyIsImluc2VydCIsImhhbmRsZURlbGV0ZUV2ZW50IiwiaWQiLCJjb25maXJtIiwiZGVsZXRlIiwiZXEiLCJzZWxlY3RlZERhdGVFdmVudHMiLCJmaWx0ZXIiLCJnZXREYXRlIiwiZ2V0TW9udGgiLCJnZXRGdWxsWWVhciIsImRpdiIsImNsYXNzTmFtZSIsImgxIiwicCIsIm9uQ2xpY2siLCJvbk9wZW5DaGFuZ2UiLCJhc0NoaWxkIiwidmFsdWUiLCJvbkNoYW5nZSIsInRhcmdldCIsInBsYWNlaG9sZGVyIiwib25WYWx1ZUNoYW5nZSIsImRpc2FibGVkIiwibW9kZSIsInNlbGVjdGVkIiwib25TZWxlY3QiLCJtb2RpZmllcnMiLCJoYXNFdmVudCIsInNvbWUiLCJtb2RpZmllcnNTdHlsZXMiLCJmb250V2VpZ2h0IiwidGV4dERlY29yYXRpb24iLCJjb2xvciIsImxlbmd0aCIsImV2ZW50Iiwic3BhbiIsImg0Iiwic2l6ZSIsIm9uU3VjY2VzcyJdLCJtYXBwaW5ncyI6Ijs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7O0FBQUEsU0FBU0EsUUFBUSxFQUFFQyxTQUFTLFFBQVEsUUFBUTtBQUM1QyxTQUFTQyxXQUFXLFFBQVEsa0NBQWtDO0FBQzlELFNBQVNDLFFBQVEsUUFBUSwyQkFBMkI7QUFDcEQsU0FBU0MsSUFBSSxFQUFFQyxXQUFXLEVBQUVDLFVBQVUsRUFBRUMsU0FBUyxRQUFRLHVCQUF1QjtBQUNoRixTQUFTQyxNQUFNLFFBQVEseUJBQXlCO0FBQ2hELFNBQVNDLE1BQU0sRUFBRUMsYUFBYSxFQUFFQyxZQUFZLEVBQUVDLFdBQVcsRUFBRUMsYUFBYSxFQUFFQyxZQUFZLFFBQVEseUJBQXlCO0FBQ3ZILFNBQVNDLEtBQUssUUFBUSx3QkFBd0I7QUFDOUMsU0FBU0MsS0FBSyxRQUFRLHdCQUF3QjtBQUM5QyxTQUFTQyxNQUFNLEVBQUVDLGFBQWEsRUFBRUMsVUFBVSxFQUFFQyxhQUFhLEVBQUVDLFdBQVcsUUFBUSx5QkFBeUI7QUFDdkcsU0FBU0MsUUFBUSxRQUFRLDJCQUEyQjtBQUNwRCxTQUFTQyxRQUFRLFFBQVEsb0JBQW9CO0FBQzdDLFNBQVNDLFFBQVEsUUFBUSxpQkFBaUI7QUFDMUMsU0FBU0MsT0FBTyxFQUFFQyxJQUFJLEVBQUVDLE1BQU0sRUFBNEJDLFFBQVEsUUFBUSxlQUFlO0FBQ3pGLFNBQVNDLE1BQU0sUUFBUSxXQUFXO0FBQ2xDLFNBQVNDLEtBQUssUUFBUSx3QkFBd0I7QUFDOUMsU0FBU0Msd0JBQXdCLFFBQVEsaURBQWlEO0FBRTFGLGVBQWUsU0FBU0M7O0lBQ3BCLE1BQU0sRUFB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

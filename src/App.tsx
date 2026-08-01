@@ -10,6 +10,7 @@ import Signup from "./pages/Signup";
 import Setup from "./pages/Setup";
 import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminInquiries from "./pages/admin/AdminInquiries";
 import UserManagement from "./pages/admin/UserManagement";
 import CourseManagement from "./pages/admin/CourseManagement";
 import AdminCourseDetail from "./pages/admin/AdminCourseDetail";
@@ -30,6 +31,9 @@ import TeacherNotifications from "./pages/teacher/Notifications";
 import TeacherSettings from "./pages/teacher/Settings";
 import TeacherHelpCenter from "./pages/teacher/HelpCenter";
 import TeacherCalendar from "./pages/teacher/Calendar";
+import JsonCourseBuilder from "./pages/teacher/JsonCourseBuilder";
+import CertificatePrograms from "./pages/teacher/CertificatePrograms";
+import Leaderboard from "./pages/Leaderboard";
 import StudentDashboard from "./pages/student/Dashboard";
 import CoursePlayer from "./pages/student/CoursePlayer";
 import StudentCourses from "./pages/student/Courses";
@@ -81,10 +85,12 @@ const App = () => (
 
             {/* Admin Routes */}
             <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+            <Route path="/admin/inquiries" element={<ProtectedRoute><AdminInquiries /></ProtectedRoute>} />
             <Route path="/admin/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
             <Route path="/admin/courses" element={<ProtectedRoute><CourseManagement /></ProtectedRoute>} />
             <Route path="/admin/courses/:id/edit" element={<ProtectedRoute><AdminCourseDetail /></ProtectedRoute>} />
             <Route path="/admin/monitoring" element={<ProtectedRoute><Monitoring /></ProtectedRoute>} />
+            <Route path="/admin/leaderboard" element={<ProtectedRoute><Leaderboard userRole="admin" /></ProtectedRoute>} />
             <Route path="/admin/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
             <Route path="/admin/calendar" element={<ProtectedRoute><AdminCalendar /></ProtectedRoute>} />
             <Route path="/admin/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
@@ -93,6 +99,9 @@ const App = () => (
             {/* Teacher Routes */}
             <Route path="/teacher" element={<ProtectedRoute><TeacherDashboard /></ProtectedRoute>} />
             <Route path="/teacher/courses" element={<ProtectedRoute><TeacherCourses /></ProtectedRoute>} />
+            <Route path="/teacher/certificate-programs" element={<ProtectedRoute><CertificatePrograms /></ProtectedRoute>} />
+            <Route path="/teacher/leaderboard" element={<ProtectedRoute><Leaderboard userRole="teacher" /></ProtectedRoute>} />
+            <Route path="/teacher/courses/json-builder" element={<ProtectedRoute><JsonCourseBuilder /></ProtectedRoute>} />
             <Route path="/teacher/courses/:id" element={<ProtectedRoute><CourseDetail /></ProtectedRoute>} />
             <Route path="/teacher/assignments" element={<ProtectedRoute><AssignmentCreate /></ProtectedRoute>} />
             <Route path="/teacher/reviews" element={<ProtectedRoute><AssignmentReview /></ProtectedRoute>} />
@@ -107,6 +116,7 @@ const App = () => (
             {/* Student Routes */}
             <Route path="/student" element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />
             <Route path="/student/courses" element={<ProtectedRoute><StudentCourses /></ProtectedRoute>} />
+            <Route path="/student/leaderboard" element={<ProtectedRoute><Leaderboard userRole="student" /></ProtectedRoute>} />
             <Route path="/student/courses/:id/learn" element={<ProtectedRoute><CoursePlayer /></ProtectedRoute>} />
             <Route path="/student/assignments" element={<ProtectedRoute><StudentAssignments /></ProtectedRoute>} />
             <Route path="/student/assignments/:id" element={<ProtectedRoute><AssignmentSubmit /></ProtectedRoute>} />

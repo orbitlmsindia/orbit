@@ -1,0 +1,542 @@
+import { createHotContext as __vite__createHotContext } from "/@vite/client";import.meta.hot = __vite__createHotContext("/src/pages/ForgotPassword.tsx");import * as RefreshRuntime from "/@react-refresh";
+const inWebWorker = typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope;
+
+let prevRefreshReg;
+let prevRefreshSig;
+
+if (import.meta.hot && !inWebWorker) {
+  if (!window.$RefreshReg$) {
+    throw new Error(
+      "@vitejs/plugin-react-swc can't detect preamble. Something is wrong."
+    );
+  }
+
+  prevRefreshReg = window.$RefreshReg$;
+  prevRefreshSig = window.$RefreshSig$;
+  window.$RefreshReg$ = RefreshRuntime.getRefreshReg("D:/Orbitlms/src/pages/ForgotPassword.tsx");
+  window.$RefreshSig$ = RefreshRuntime.createSignatureFunctionForTransform;
+}
+
+import __vite__cjsImport2_react_jsxDevRuntime from "/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=88ed5bfa"; const _jsxDEV = __vite__cjsImport2_react_jsxDevRuntime["jsxDEV"]; const _Fragment = __vite__cjsImport2_react_jsxDevRuntime["Fragment"];
+var _s = $RefreshSig$();
+import __vite__cjsImport3_react from "/node_modules/.vite/deps/react.js?v=88ed5bfa"; const useState = __vite__cjsImport3_react["useState"]; const useEffect = __vite__cjsImport3_react["useEffect"];
+import { Link } from "/node_modules/.vite/deps/react-router-dom.js?v=88ed5bfa";
+import { AuthLayout } from "/src/components/layout/AuthLayout.tsx";
+import { Button } from "/src/components/ui/button.tsx";
+import { Input } from "/src/components/ui/input.tsx";
+import { Label } from "/src/components/ui/label.tsx";
+import { Loader2, AlertCircle } from "/node_modules/.vite/deps/lucide-react.js?v=88ed5bfa";
+import { supabase } from "/src/lib/supabase.ts";
+import { Alert, AlertDescription, AlertTitle } from "/src/components/ui/alert.tsx";
+export default function ForgotPassword() {
+    _s();
+    const [step, setStep] = useState("request");
+    const [name, setName] = useState("");
+    const [email, setEmail] = useState("");
+    const [mobile, setMobile] = useState("");
+    const [otp, setOtp] = useState("");
+    const [newPassword, setNewPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    // Check for session on mount (in case they clicked the Magic Link)
+    useEffect(()=>{
+        const checkSession = async ()=>{
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                // User is already logged in (likely via Magic Link)
+                setEmail(session.user.email || "");
+                setStep("reset");
+            }
+        };
+        checkSession();
+    }, []);
+    // Step 1: Request OTP
+    const handleRequestOtp = async (e)=>{
+        e.preventDefault();
+        setError(null);
+        setLoading(true);
+        try {
+            // 1. Verify User Details against DB
+            const { data: users, error: userError } = await supabase.from('users').select('id, full_name, email').eq('email', email).ilike('full_name', name);
+            if (userError) throw userError;
+            if (!users || users.length === 0) {
+                setError("No account found with these details.");
+                setLoading(false);
+                return;
+            }
+            // 2. Send OTP (Sign In with OTP)
+            // We set redirect URL to this page, so if they click the link, they come back here logged in.
+            const { error: otpError } = await supabase.auth.signInWithOtp({
+                email,
+                options: {
+                    shouldCreateUser: false,
+                    emailRedirectTo: window.location.href
+                }
+            });
+            if (otpError) throw otpError;
+            setStep("verify");
+            // Create a notification for record keeping
+            await supabase.from('notifications').insert([
+                {
+                    title: "OTP Requested",
+                    message: `Password reset OTP requested for ${email}`,
+                    user_id: users[0].id,
+                    type: 'system'
+                }
+            ]);
+        } catch (err) {
+            console.error(err);
+            setError(err.message || "Failed to send OTP.");
+        } finally{
+            setLoading(false);
+        }
+    };
+    // Step 2: Verify OTP
+    const handleVerifyOtp = async (e)=>{
+        e.preventDefault();
+        setError(null);
+        setLoading(true);
+        try {
+            const { data: { session }, error: verifyError } = await supabase.auth.verifyOtp({
+                email,
+                token: otp,
+                type: 'email'
+            });
+            if (verifyError) throw verifyError;
+            if (!session) {
+                throw new Error("Invalid OTP or session not created.");
+            }
+            setStep("reset");
+        } catch (err) {
+            console.error(err);
+            setError(err.message || "Invalid OTP. Please try again.");
+        } finally{
+            setLoading(false);
+        }
+    };
+    // Step 3: Reset Password
+    const handleResetPassword = async (e)=>{
+        e.preventDefault();
+        setError(null);
+        setLoading(true);
+        if (newPassword.length < 6) {
+            setError("Password must be at least 6 characters.");
+            setLoading(false);
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            setError("Passwords do not match.");
+            setLoading(false);
+            return;
+        }
+        try {
+            const { error: updateError } = await supabase.auth.updateUser({
+                password: newPassword
+            });
+            if (updateError) throw updateError;
+            // Success! 
+            await supabase.auth.signOut();
+            window.location.href = '/login?message=Password updated successfully';
+        } catch (err) {
+            console.error(err);
+            setError(err.message || "Failed to update password.");
+        } finally{
+            setLoading(false);
+        }
+    };
+    return /*#__PURE__*/ _jsxDEV(AuthLayout, {
+        title: step === "request" ? "Reset Password" : step === "verify" ? "Enter OTP" : "Set New Password",
+        subtitle: step === "request" ? "Verify your details to receive an OTP" : step === "verify" ? `Sent to ${email}` : "Create a secure password",
+        children: /*#__PURE__*/ _jsxDEV("div", {
+            className: "space-y-4",
+            children: [
+                error && /*#__PURE__*/ _jsxDEV(Alert, {
+                    variant: "destructive",
+                    children: [
+                        /*#__PURE__*/ _jsxDEV(AlertCircle, {
+                            className: "h-4 w-4"
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                            lineNumber: 158,
+                            columnNumber: 25
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV(AlertTitle, {
+                            children: "Error"
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                            lineNumber: 159,
+                            columnNumber: 25
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV(AlertDescription, {
+                            children: error
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                            lineNumber: 160,
+                            columnNumber: 25
+                        }, this)
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                    lineNumber: 157,
+                    columnNumber: 21
+                }, this),
+                step === "request" && /*#__PURE__*/ _jsxDEV("form", {
+                    onSubmit: handleRequestOtp,
+                    className: "space-y-4",
+                    children: [
+                        /*#__PURE__*/ _jsxDEV("div", {
+                            className: "space-y-2",
+                            children: [
+                                /*#__PURE__*/ _jsxDEV(Label, {
+                                    htmlFor: "name",
+                                    children: "Full Name"
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                                    lineNumber: 167,
+                                    columnNumber: 29
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Input, {
+                                    id: "name",
+                                    placeholder: "John Doe",
+                                    value: name,
+                                    onChange: (e)=>setName(e.target.value),
+                                    required: true
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                                    lineNumber: 168,
+                                    columnNumber: 29
+                                }, this)
+                            ]
+                        }, void 0, true, {
+                            fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                            lineNumber: 166,
+                            columnNumber: 25
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV("div", {
+                            className: "space-y-2",
+                            children: [
+                                /*#__PURE__*/ _jsxDEV(Label, {
+                                    htmlFor: "email",
+                                    children: "Email Address"
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                                    lineNumber: 177,
+                                    columnNumber: 29
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Input, {
+                                    id: "email",
+                                    type: "email",
+                                    placeholder: "john@example.com",
+                                    value: email,
+                                    onChange: (e)=>setEmail(e.target.value),
+                                    required: true
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                                    lineNumber: 178,
+                                    columnNumber: 29
+                                }, this)
+                            ]
+                        }, void 0, true, {
+                            fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                            lineNumber: 176,
+                            columnNumber: 25
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV("div", {
+                            className: "space-y-2",
+                            children: [
+                                /*#__PURE__*/ _jsxDEV(Label, {
+                                    htmlFor: "mobile",
+                                    children: "Mobile Number (Optional)"
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                                    lineNumber: 188,
+                                    columnNumber: 29
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Input, {
+                                    id: "mobile",
+                                    placeholder: "+91 XXXXXXXXXX",
+                                    value: mobile,
+                                    onChange: (e)=>setMobile(e.target.value)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                                    lineNumber: 189,
+                                    columnNumber: 29
+                                }, this)
+                            ]
+                        }, void 0, true, {
+                            fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                            lineNumber: 187,
+                            columnNumber: 25
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV(Button, {
+                            type: "submit",
+                            className: "w-full",
+                            size: "lg",
+                            disabled: loading,
+                            children: loading ? /*#__PURE__*/ _jsxDEV(_Fragment, {
+                                children: [
+                                    /*#__PURE__*/ _jsxDEV(Loader2, {
+                                        className: "mr-2 h-4 w-4 animate-spin"
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                                        lineNumber: 199,
+                                        columnNumber: 37
+                                    }, this),
+                                    "Sending OTP..."
+                                ]
+                            }, void 0, true) : "Send OTP"
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                            lineNumber: 196,
+                            columnNumber: 25
+                        }, this)
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                    lineNumber: 165,
+                    columnNumber: 21
+                }, this),
+                step === "verify" && /*#__PURE__*/ _jsxDEV("form", {
+                    onSubmit: handleVerifyOtp,
+                    className: "space-y-4",
+                    children: [
+                        /*#__PURE__*/ _jsxDEV("div", {
+                            className: "space-y-2",
+                            children: [
+                                /*#__PURE__*/ _jsxDEV(Label, {
+                                    htmlFor: "otp",
+                                    children: "One-Time Password (OTP)"
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                                    lineNumber: 212,
+                                    columnNumber: 29
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Input, {
+                                    id: "otp",
+                                    type: "text",
+                                    placeholder: "Enter OTP code",
+                                    value: otp,
+                                    onChange: (e)=>setOtp(e.target.value.replace(/\D/g, '')),
+                                    required: true,
+                                    maxLength: 8,
+                                    className: "text-center text-lg tracking-widest"
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                                    lineNumber: 213,
+                                    columnNumber: 29
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV("p", {
+                                    className: "text-xs text-muted-foreground text-center",
+                                    children: "Check your email inbox and spam folder."
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                                    lineNumber: 223,
+                                    columnNumber: 29
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV("p", {
+                                    className: "text-[10px] text-muted-foreground text-center mt-2 px-4 border-t pt-2",
+                                    children: [
+                                        /*#__PURE__*/ _jsxDEV("strong", {
+                                            children: "Tip:"
+                                        }, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                                            lineNumber: 227,
+                                            columnNumber: 33
+                                        }, this),
+                                        " If you received a login link instead of a code, use the link to log in, and you will be redirected here to set your password."
+                                    ]
+                                }, void 0, true, {
+                                    fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                                    lineNumber: 226,
+                                    columnNumber: 29
+                                }, this)
+                            ]
+                        }, void 0, true, {
+                            fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                            lineNumber: 211,
+                            columnNumber: 25
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV(Button, {
+                            type: "submit",
+                            className: "w-full",
+                            size: "lg",
+                            disabled: loading,
+                            children: loading ? /*#__PURE__*/ _jsxDEV(_Fragment, {
+                                children: [
+                                    /*#__PURE__*/ _jsxDEV(Loader2, {
+                                        className: "mr-2 h-4 w-4 animate-spin"
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                                        lineNumber: 233,
+                                        columnNumber: 37
+                                    }, this),
+                                    "Verifying..."
+                                ]
+                            }, void 0, true) : "Verify OTP"
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                            lineNumber: 230,
+                            columnNumber: 25
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV(Button, {
+                            type: "button",
+                            variant: "ghost",
+                            className: "w-full",
+                            onClick: ()=>setStep("request"),
+                            disabled: loading,
+                            children: "Back to Details"
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                            lineNumber: 240,
+                            columnNumber: 25
+                        }, this)
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                    lineNumber: 210,
+                    columnNumber: 21
+                }, this),
+                step === "reset" && /*#__PURE__*/ _jsxDEV("form", {
+                    onSubmit: handleResetPassword,
+                    className: "space-y-4",
+                    children: [
+                        /*#__PURE__*/ _jsxDEV("div", {
+                            className: "space-y-2",
+                            children: [
+                                /*#__PURE__*/ _jsxDEV(Label, {
+                                    htmlFor: "newPassword",
+                                    children: "New Password"
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                                    lineNumber: 255,
+                                    columnNumber: 29
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Input, {
+                                    id: "newPassword",
+                                    type: "password",
+                                    placeholder: "Enter new password",
+                                    value: newPassword,
+                                    onChange: (e)=>setNewPassword(e.target.value),
+                                    required: true,
+                                    minLength: 6
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                                    lineNumber: 256,
+                                    columnNumber: 29
+                                }, this)
+                            ]
+                        }, void 0, true, {
+                            fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                            lineNumber: 254,
+                            columnNumber: 25
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV("div", {
+                            className: "space-y-2",
+                            children: [
+                                /*#__PURE__*/ _jsxDEV(Label, {
+                                    htmlFor: "confirmPassword",
+                                    children: "Confirm Password"
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                                    lineNumber: 267,
+                                    columnNumber: 29
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Input, {
+                                    id: "confirmPassword",
+                                    type: "password",
+                                    placeholder: "Confirm new password",
+                                    value: confirmPassword,
+                                    onChange: (e)=>setConfirmPassword(e.target.value),
+                                    required: true
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                                    lineNumber: 268,
+                                    columnNumber: 29
+                                }, this)
+                            ]
+                        }, void 0, true, {
+                            fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                            lineNumber: 266,
+                            columnNumber: 25
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV(Button, {
+                            type: "submit",
+                            className: "w-full",
+                            size: "lg",
+                            disabled: loading,
+                            children: loading ? /*#__PURE__*/ _jsxDEV(_Fragment, {
+                                children: [
+                                    /*#__PURE__*/ _jsxDEV(Loader2, {
+                                        className: "mr-2 h-4 w-4 animate-spin"
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                                        lineNumber: 280,
+                                        columnNumber: 37
+                                    }, this),
+                                    "Updating..."
+                                ]
+                            }, void 0, true) : "Update Password"
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                            lineNumber: 277,
+                            columnNumber: 25
+                        }, this)
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                    lineNumber: 253,
+                    columnNumber: 21
+                }, this),
+                /*#__PURE__*/ _jsxDEV("div", {
+                    className: "text-center mt-4",
+                    children: /*#__PURE__*/ _jsxDEV(Link, {
+                        to: "/login",
+                        className: "text-sm text-primary hover:underline",
+                        children: "Back to Login"
+                    }, void 0, false, {
+                        fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                        lineNumber: 291,
+                        columnNumber: 21
+                    }, this)
+                }, void 0, false, {
+                    fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+                    lineNumber: 290,
+                    columnNumber: 17
+                }, this)
+            ]
+        }, void 0, true, {
+            fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+            lineNumber: 155,
+            columnNumber: 13
+        }, this)
+    }, void 0, false, {
+        fileName: "D:/Orbitlms/src/pages/ForgotPassword.tsx",
+        lineNumber: 151,
+        columnNumber: 9
+    }, this);
+}
+_s(ForgotPassword, "o8rI+gGvsfu1tQFAVb83C3EHc/Y=");
+_c = ForgotPassword;
+var _c;
+$RefreshReg$(_c, "ForgotPassword");
+
+
+if (import.meta.hot && !inWebWorker) {
+  window.$RefreshReg$ = prevRefreshReg;
+  window.$RefreshSig$ = prevRefreshSig;
+}
+
+
+if (import.meta.hot && !inWebWorker) {
+  RefreshRuntime.__hmr_import(import.meta.url).then((currentExports) => {
+    RefreshRuntime.registerExportsForReactRefresh("D:/Orbitlms/src/pages/ForgotPassword.tsx", currentExports);
+    import.meta.hot.accept((nextExports) => {
+      if (!nextExports) return;
+      const invalidateMessage = RefreshRuntime.validateRefreshBoundaryAndEnqueueUpdate("D:/Orbitlms/src/pages/ForgotPassword.tsx", currentExports, nextExports);
+      if (invalidateMessage) import.meta.hot.invalidate(invalidateMessage);
+    });
+  });
+}
+
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbIkZvcmdvdFBhc3N3b3JkLnRzeCJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgeyB1c2VTdGF0ZSwgdXNlRWZmZWN0IH0gZnJvbSBcInJlYWN0XCI7XHJcbmltcG9ydCB7IExpbmsgfSBmcm9tIFwicmVhY3Qtcm91dGVyLWRvbVwiO1xyXG5pbXBvcnQgeyBBdXRoTGF5b3V0IH0gZnJvbSBcIkAvY29tcG9uZW50cy9sYXlvdXQvQXV0aExheW91dFwiO1xyXG5pbXBvcnQgeyBCdXR0b24gfSBmcm9tIFwiQC9jb21wb25lbnRzL3VpL2J1dHRvblwiO1xyXG5pbXBvcnQgeyBJbnB1dCB9IGZyb20gXCJAL2NvbXBvbmVudHMvdWkvaW5wdXRcIjtcclxuaW1wb3J0IHsgTGFiZWwgfSBmcm9tIFwiQC9jb21wb25lbnRzL3VpL2xhYmVsXCI7XHJcbmltcG9ydCB7IExvYWRlcjIsIEFsZXJ0Q2lyY2xlIH0gZnJvbSBcImx1Y2lkZS1yZWFjdFwiO1xyXG5pbXBvcnQgeyBzdXBhYmFzZSB9IGZyb20gXCJAL2xpYi9zdXBhYmFzZVwiO1xyXG5pbXBvcnQgeyBBbGVydCwgQWxlcnREZXNjcmlwdGlvbiwgQWxlcnRUaXRsZSB9IGZyb20gXCJAL2NvbXBvbmVudHMvdWkvYWxlcnRcIjtcclxuXHJcbmV4cG9ydCBkZWZhdWx0IGZ1bmN0aW9uIEZvcmdvdFBhc3N3b3JkKCkge1xyXG4gICAgY29uc3QgW3N0ZXAsIHNldFN0ZXBdID0gdXNlU3RhdGU8XCJyZXF1ZXN0XCIgfCBcInZlcmlmeVwiIHwgXCJyZXNldFwiPihcInJlcXVlc3RcIik7XHJcbiAgICBjb25zdCBbbmFtZSwgc2V0TmFtZV0gPSB1c2VTdGF0ZShcIlwiKTtcclxuICAgIGNvbnN0IFtlbWFpbCwgc2V0RW1haWxdID0gdXNlU3RhdGUoXCJcIik7XHJcbiAgICBjb25zdCBbbW9iaWxlLCBzZXRNb2JpbGVdID0gdXNlU3RhdGUoXCJcIik7XHJcbiAgICBjb25zdCBbb3RwLCBzZXRPdHBdID0gdXNlU3RhdGUoXCJcIik7XHJcbiAgICBjb25zdCBbbmV3UGFzc3dvcmQsIHNldE5ld1Bhc3N3b3JkXSA9IHVzZVN0YXRlKFwiXCIpO1xyXG4gICAgY29uc3QgW2NvbmZpcm1QYXNzd29yZCwgc2V0Q29uZmlybVBhc3N3b3JkXSA9IHVzZVN0YXRlKFwiXCIpO1xyXG5cclxuICAgIGNvbnN0IFtsb2FkaW5nLCBzZXRMb2FkaW5nXSA9IHVzZVN0YXRlKGZhbHNlKTtcclxuICAgIGNvbnN0IFtlcnJvciwgc2V0RXJyb3JdID0gdXNlU3RhdGU8c3RyaW5nIHwgbnVsbD4obnVsbCk7XHJcblxyXG4gICAgLy8gQ2hlY2sgZm9yIHNlc3Npb24gb24gbW91bnQgKGluIGNhc2UgdGhleSBjbGlja2VkIHRoZSBNYWdpYyBMaW5rKVxyXG4gICAgdXNlRWZmZWN0KCgpID0+IHtcclxuICAgICAgICBjb25zdCBjaGVja1Nlc3Npb24gPSBhc3luYyAoKSA9PiB7XHJcbiAgICAgICAgICAgIGNvbnN0IHsgZGF0YTogeyBzZXNzaW9uIH0gfSA9IGF3YWl0IHN1cGFiYXNlLmF1dGguZ2V0U2Vzc2lvbigpO1xyXG4gICAgICAgICAgICBpZiAoc2Vzc2lvbikge1xyXG4gICAgICAgICAgICAgICAgLy8gVXNlciBpcyBhbHJlYWR5IGxvZ2dlZCBpbiAobGlrZWx5IHZpYSBNYWdpYyBMaW5rKVxyXG4gICAgICAgICAgICAgICAgc2V0RW1haWwoc2Vzc2lvbi51c2VyLmVtYWlsIHx8IFwiXCIpO1xyXG4gICAgICAgICAgICAgICAgc2V0U3RlcChcInJlc2V0XCIpO1xyXG4gICAgICAgICAgICB9XHJcbiAgICAgICAgfTtcclxuICAgICAgICBjaGVja1Nlc3Npb24oKTtcclxuICAgIH0sIFtdKTtcclxuXHJcbiAgICAvLyBTdGVwIDE6IFJlcXVlc3QgT1RQXHJcbiAgICBjb25zdCBoYW5kbGVSZXF1ZXN0T3RwID0gYXN5bmMgKGU6IFJlYWN0LkZvcm1FdmVudCkgPT4ge1xyXG4gICAgICAgIGUucHJldmVudERlZmF1bHQoKTtcclxuICAgICAgICBzZXRFcnJvcihudWxsKTtcclxuICAgICAgICBzZXRMb2FkaW5nKHRydWUpO1xyXG5cclxuICAgICAgICB0cnkge1xyXG4gICAgICAgICAgICAvLyAxLiBWZXJpZnkgVXNlciBEZXRhaWxzIGFnYWluc3QgREJcclxuICAgICAgICAgICAgY29uc3QgeyBkYXRhOiB1c2VycywgZXJyb3I6IHVzZXJFcnJvciB9ID0gYXdhaXQgc3VwYWJhc2VcclxuICAgICAgICAgICAgICAgIC5mcm9tKCd1c2VycycpXHJcbiAgICAgICAgICAgICAgICAuc2VsZWN0KCdpZCwgZnVsbF9uYW1lLCBlbWFpbCcpXHJcbiAgICAgICAgICAgICAgICAuZXEoJ2VtYWlsJywgZW1haWwpXHJcbiAgICAgICAgICAgICAgICAuaWxpa2UoJ2Z1bGxfbmFtZScsIG5hbWUpO1xyXG5cclxuICAgICAgICAgICAgaWYgKHVzZXJFcnJvcikgdGhyb3cgdXNlckVycm9yO1xyXG4gICAgICAgICAgICBpZiAoIXVzZXJzIHx8IHVzZXJzLmxlbmd0aCA9PT0gMCkge1xyXG4gICAgICAgICAgICAgICAgc2V0RXJyb3IoXCJObyBhY2NvdW50IGZvdW5kIHdpdGggdGhlc2UgZGV0YWlscy5cIik7XHJcbiAgICAgICAgICAgICAgICBzZXRMb2FkaW5nKGZhbHNlKTtcclxuICAgICAgICAgICAgICAgIHJldHVybjtcclxuICAgICAgICAgICAgfVxyXG5cclxuICAgICAgICAgICAgLy8gMi4gU2VuZCBPVFAgKFNpZ24gSW4gd2l0aCBPVFApXHJcbiAgICAgICAgICAgIC8vIFdlIHNldCByZWRpcmVjdCBVUkwgdG8gdGhpcyBwYWdlLCBzbyBpZiB0aGV5IGNsaWNrIHRoZSBsaW5rLCB0aGV5IGNvbWUgYmFjayBoZXJlIGxvZ2dlZCBpbi5cclxuICAgICAgICAgICAgY29uc3QgeyBlcnJvcjogb3RwRXJyb3IgfSA9IGF3YWl0IHN1cGFiYXNlLmF1dGguc2lnbkluV2l0aE90cCh7XHJcbiAgICAgICAgICAgICAgICBlbWFpbCxcclxuICAgICAgICAgICAgICAgIG9wdGlvbnM6IHtcclxuICAgICAgICAgICAgICAgICAgICBzaG91bGRDcmVhdGVVc2VyOiBmYWxzZSxcclxuICAgICAgICAgICAgICAgICAgICBlbWFpbFJlZGlyZWN0VG86IHdpbmRvdy5sb2NhdGlvbi5ocmVmXHJcbiAgICAgICAgICAgICAgICB9XHJcbiAgICAgICAgICAgIH0pO1xyXG5cclxuICAgICAgICAgICAgaWYgKG90cEVycm9yKSB0aHJvdyBvdHBFcnJvcjtcclxuXHJcbiAgICAgICAgICAgIHNldFN0ZXAoXCJ2ZXJpZnlcIik7XHJcbiAgICAgICAgICAgIC8vIENyZWF0ZSBhIG5vdGlmaWNhdGlvbiBmb3IgcmVjb3JkIGtlZXBpbmdcclxuICAgICAgICAgICAgYXdhaXQgc3VwYWJhc2UuZnJvbSgnbm90aWZpY2F0aW9ucycpLmluc2VydChbe1xyXG4gICAgICAgICAgICAgICAgdGl0bGU6IFwiT1RQIFJlcXVlc3RlZFwiLFxyXG4gICAgICAgICAgICAgICAgbWVzc2FnZTogYFBhc3N3b3JkIHJlc2V0IE9UUCByZXF1ZXN0ZWQgZm9yICR7ZW1haWx9YCxcclxuICAgICAgICAgICAgICAgIHVzZXJfaWQ6IHVzZXJzWzBdLmlkLFxyXG4gICAgICAgICAgICAgICAgdHlwZTogJ3N5c3RlbScsXHJcbiAgICAgICAgICAgIH1dKTtcclxuXHJcbiAgICAgICAgfSBjYXRjaCAoZXJyOiBhbnkpIHtcclxuICAgICAgICAgICAgY29uc29sZS5lcnJvcihlcnIpO1xyXG4gICAgICAgICAgICBzZXRFcnJvcihlcnIubWVzc2FnZSB8fCBcIkZhaWxlZCB0byBzZW5kIE9UUC5cIik7XHJcbiAgICAgICAgfSBmaW5hbGx5IHtcclxuICAgICAgICAgICAgc2V0TG9hZGluZyhmYWxzZSk7XHJcbiAgICAgICAgfVxyXG4gICAgfTtcclxuXHJcbiAgICAvLyBTdGVwIDI6IFZlcmlmeSBPVFBcclxuICAgIGNvbnN0IGhhbmRsZVZlcmlmeU90cCA9IGFzeW5jIChlOiBSZWFjdC5Gb3JtRXZlbnQpID0+IHtcclxuICAgICAgICBlLnByZXZlbnREZWZhdWx0KCk7XHJcbiAgICAgICAgc2V0RXJyb3IobnVsbCk7XHJcbiAgICAgICAgc2V0TG9hZGluZyh0cnVlKTtcclxuXHJcbiAgICAgICAgdHJ5IHtcclxuICAgICAgICAgICAgY29uc3QgeyBkYXRhOiB7IHNlc3Npb24gfSwgZXJyb3I6IHZlcmlmeUVycm9yIH0gPSBhd2FpdCBzdXBhYmFzZS5hdXRoLnZlcmlmeU90cCh7XHJcbiAgICAgICAgICAgICAgICBlbWFpbCxcclxuICAgICAgICAgICAgICAgIHRva2VuOiBvdHAsXHJcbiAgICAgICAgICAgICAgICB0eXBlOiAnZW1haWwnXHJcbiAgICAgICAgICAgIH0pO1xyXG5cclxuICAgICAgICAgICAgaWYgKHZlcmlmeUVycm9yKSB0aHJvdyB2ZXJpZnlFcnJvcjtcclxuICAgICAgICAgICAgaWYgKCFzZXNzaW9uKSB7XHJcbiAgICAgICAgICAgICAgICB0aHJvdyBuZXcgRXJyb3IoXCJJbnZhbGlkIE9UUCBvciBzZXNzaW9uIG5vdCBjcmVhdGVkLlwiKTtcclxuICAgICAgICAgICAgfVxyXG5cclxuICAgICAgICAgICAgc2V0U3RlcChcInJlc2V0XCIpO1xyXG4gICAgICAgIH0gY2F0Y2ggKGVycjogYW55KSB7XHJcbiAgICAgICAgICAgIGNvbnNvbGUuZXJyb3IoZXJyKTtcclxuICAgICAgICAgICAgc2V0RXJyb3IoZXJyLm1lc3NhZ2UgfHwgXCJJbnZhbGlkIE9UUC4gUGxlYXNlIHRyeSBhZ2Fpbi5cIik7XHJcbiAgICAgICAgfSBmaW5hbGx5IHtcclxuICAgICAgICAgICAgc2V0TG9hZGluZyhmYWxzZSk7XHJcbiAgICAgICAgfVxyXG4gICAgfTtcclxuXHJcbiAgICAvLyBTdGVwIDM6IFJlc2V0IFBhc3N3b3JkXHJcbiAgICBjb25zdCBoYW5kbGVSZXNldFBhc3N3b3JkID0gYXN5bmMgKGU6IFJlYWN0LkZvcm1FdmVudCkgPT4ge1xyXG4gICAgICAgIGUucHJldmVudERlZmF1bHQoKTtcclxuICAgICAgICBzZXRFcnJvcihudWxsKTtcclxuICAgICAgICBzZXRMb2FkaW5nKHRydWUpO1xyXG5cclxuICAgICAgICBpZiAobmV3UGFzc3dvcmQubGVuZ3RoIDwgNikge1xyXG4gICAgICAgICAgICBzZXRFcnJvcihcIlBhc3N3b3JkIG11c3QgYmUgYXQgbGVhc3QgNiBjaGFyYWN0ZXJzLlwiKTtcclxuICAgICAgICAgICAgc2V0TG9hZGluZyhmYWxzZSk7XHJcbiAgICAgICAgICAgIHJldHVybjtcclxuICAgICAgICB9XHJcblxyXG4gICAgICAgIGlmIChuZXdQYXNzd29yZCAhPT0gY29uZmlybVBhc3N3b3JkKSB7XHJcbiAgICAgICAgICAgIHNldEVycm9yKFwiUGFzc3dvcmRzIGRvIG5vdCBtYXRjaC5cIik7XHJcbiAgICAgICAgICAgIHNldExvYWRpbmcoZmFsc2UpO1xyXG4gICAgICAgICAgICByZXR1cm47XHJcbiAgICAgICAgfVxyXG5cclxuICAgICAgICB0cnkge1xyXG4gICAgICAgICAgICBjb25zdCB7IGVycm9yOiB1cGRhdGVFcnJvciB9ID0gYXdhaXQgc3VwYWJhc2UuYXV0aC51cGRhdGVVc2VyKHtcclxuICAgICAgICAgICAgICAgIHBhc3N3b3JkOiBuZXdQYXNzd29yZFxyXG4gICAgICAgICAgICB9KTtcclxuXHJcbiAgICAgICAgICAgIGlmICh1cGRhdGVFcnJvcikgdGhyb3cgdXBkYXRlRXJyb3I7XHJcblxyXG4gICAgICAgICAgICAvLyBTdWNjZXNzISBcclxuICAgICAgICAgICAgYXdhaXQgc3VwYWJhc2UuYXV0aC5zaWduT3V0KCk7XHJcbiAgICAgICAgICAgIHdpbmRvdy5sb2NhdGlvbi5ocmVmID0gJy9sb2dpbj9tZXNzYWdlPVBhc3N3b3JkIHVwZGF0ZWQgc3VjY2Vzc2Z1bGx5JztcclxuXHJcbiAgICAgICAgfSBjYXRjaCAoZXJyOiBhbnkpIHtcclxuICAgICAgICAgICAgY29uc29sZS5lcnJvcihlcnIpO1xyXG4gICAgICAgICAgICBzZXRFcnJvcihlcnIubWVzc2FnZSB8fCBcIkZhaWxlZCB0byB1cGRhdGUgcGFzc3dvcmQuXCIpO1xyXG4gICAgICAgIH0gZmluYWxseSB7XHJcbiAgICAgICAgICAgIHNldExvYWRpbmcoZmFsc2UpO1xyXG4gICAgICAgIH1cclxuICAgIH07XHJcblxyXG4gICAgcmV0dXJuIChcclxuICAgICAgICA8QXV0aExheW91dFxyXG4gICAgICAgICAgICB0aXRsZT17c3RlcCA9PT0gXCJyZXF1ZXN0XCIgPyBcIlJlc2V0IFBhc3N3b3JkXCIgOiBzdGVwID09PSBcInZlcmlmeVwiID8gXCJFbnRlciBPVFBcIiA6IFwiU2V0IE5ldyBQYXNzd29yZFwifVxyXG4gICAgICAgICAgICBzdWJ0aXRsZT17c3RlcCA9PT0gXCJyZXF1ZXN0XCIgPyBcIlZlcmlmeSB5b3VyIGRldGFpbHMgdG8gcmVjZWl2ZSBhbiBPVFBcIiA6IHN0ZXAgPT09IFwidmVyaWZ5XCIgPyBgU2VudCB0byAke2VtYWlsfWAgOiBcIkNyZWF0ZSBhIHNlY3VyZSBwYXNzd29yZFwifVxyXG4gICAgICAgID5cclxuICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJzcGFjZS15LTRcIj5cclxuICAgICAgICAgICAgICAgIHtlcnJvciAmJiAoXHJcbiAgICAgICAgICAgICAgICAgICAgPEFsZXJ0IHZhcmlhbnQ9XCJkZXN0cnVjdGl2ZVwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICA8QWxlcnRDaXJjbGUgY2xhc3NOYW1lPVwiaC00IHctNFwiIC8+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgIDxBbGVydFRpdGxlPkVycm9yPC9BbGVydFRpdGxlPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICA8QWxlcnREZXNjcmlwdGlvbj57ZXJyb3J9PC9BbGVydERlc2NyaXB0aW9uPlxyXG4gICAgICAgICAgICAgICAgICAgIDwvQWxlcnQ+XHJcbiAgICAgICAgICAgICAgICApfVxyXG5cclxuICAgICAgICAgICAgICAgIHtzdGVwID09PSBcInJlcXVlc3RcIiAmJiAoXHJcbiAgICAgICAgICAgICAgICAgICAgPGZvcm0gb25TdWJtaXQ9e2hhbmRsZVJlcXVlc3RPdHB9IGNsYXNzTmFtZT1cInNwYWNlLXktNFwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInNwYWNlLXktMlwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgPExhYmVsIGh0bWxGb3I9XCJuYW1lXCI+RnVsbCBOYW1lPC9MYWJlbD5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxJbnB1dFxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGlkPVwibmFtZVwiXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgcGxhY2Vob2xkZXI9XCJKb2huIERvZVwiXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgdmFsdWU9e25hbWV9XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgb25DaGFuZ2U9eyhlKSA9PiBzZXROYW1lKGUudGFyZ2V0LnZhbHVlKX1cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICByZXF1aXJlZFxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgLz5cclxuICAgICAgICAgICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwic3BhY2UteS0yXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICA8TGFiZWwgaHRtbEZvcj1cImVtYWlsXCI+RW1haWwgQWRkcmVzczwvTGFiZWw+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICA8SW5wdXRcclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBpZD1cImVtYWlsXCJcclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB0eXBlPVwiZW1haWxcIlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHBsYWNlaG9sZGVyPVwiam9obkBleGFtcGxlLmNvbVwiXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgdmFsdWU9e2VtYWlsfVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIG9uQ2hhbmdlPXsoZSkgPT4gc2V0RW1haWwoZS50YXJnZXQudmFsdWUpfVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHJlcXVpcmVkXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAvPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJzcGFjZS15LTJcIj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxMYWJlbCBodG1sRm9yPVwibW9iaWxlXCI+TW9iaWxlIE51bWJlciAoT3B0aW9uYWwpPC9MYWJlbD5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxJbnB1dFxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGlkPVwibW9iaWxlXCJcclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBwbGFjZWhvbGRlcj1cIis5MSBYWFhYWFhYWFhYXCJcclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB2YWx1ZT17bW9iaWxlfVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIG9uQ2hhbmdlPXsoZSkgPT4gc2V0TW9iaWxlKGUudGFyZ2V0LnZhbHVlKX1cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIC8+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgICAgICAgICA8QnV0dG9uIHR5cGU9XCJzdWJtaXRcIiBjbGFzc05hbWU9XCJ3LWZ1bGxcIiBzaXplPVwibGdcIiBkaXNhYmxlZD17bG9hZGluZ30+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICB7bG9hZGluZyA/IChcclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8PlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8TG9hZGVyMiBjbGFzc05hbWU9XCJtci0yIGgtNCB3LTQgYW5pbWF0ZS1zcGluXCIgLz5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgU2VuZGluZyBPVFAuLi5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8Lz5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICkgOiAoXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgXCJTZW5kIE9UUFwiXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICApfVxyXG4gICAgICAgICAgICAgICAgICAgICAgICA8L0J1dHRvbj5cclxuICAgICAgICAgICAgICAgICAgICA8L2Zvcm0+XHJcbiAgICAgICAgICAgICAgICApfVxyXG5cclxuICAgICAgICAgICAgICAgIHtzdGVwID09PSBcInZlcmlmeVwiICYmIChcclxuICAgICAgICAgICAgICAgICAgICA8Zm9ybSBvblN1Ym1pdD17aGFuZGxlVmVyaWZ5T3RwfSBjbGFzc05hbWU9XCJzcGFjZS15LTRcIj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJzcGFjZS15LTJcIj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxMYWJlbCBodG1sRm9yPVwib3RwXCI+T25lLVRpbWUgUGFzc3dvcmQgKE9UUCk8L0xhYmVsPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgPElucHV0XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgaWQ9XCJvdHBcIlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHR5cGU9XCJ0ZXh0XCJcclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBwbGFjZWhvbGRlcj1cIkVudGVyIE9UUCBjb2RlXCJcclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB2YWx1ZT17b3RwfVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIG9uQ2hhbmdlPXsoZSkgPT4gc2V0T3RwKGUudGFyZ2V0LnZhbHVlLnJlcGxhY2UoL1xcRC9nLCAnJykpfSAvLyBBbGxvdyBvbmx5IG51bWJlcnNcclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICByZXF1aXJlZFxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIG1heExlbmd0aD17OH1cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBjbGFzc05hbWU9XCJ0ZXh0LWNlbnRlciB0ZXh0LWxnIHRyYWNraW5nLXdpZGVzdFwiXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAvPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgPHAgY2xhc3NOYW1lPVwidGV4dC14cyB0ZXh0LW11dGVkLWZvcmVncm91bmQgdGV4dC1jZW50ZXJcIj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBDaGVjayB5b3VyIGVtYWlsIGluYm94IGFuZCBzcGFtIGZvbGRlci5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvcD5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxwIGNsYXNzTmFtZT1cInRleHQtWzEwcHhdIHRleHQtbXV0ZWQtZm9yZWdyb3VuZCB0ZXh0LWNlbnRlciBtdC0yIHB4LTQgYm9yZGVyLXQgcHQtMlwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxzdHJvbmc+VGlwOjwvc3Ryb25nPiBJZiB5b3UgcmVjZWl2ZWQgYSBsb2dpbiBsaW5rIGluc3RlYWQgb2YgYSBjb2RlLCB1c2UgdGhlIGxpbmsgdG8gbG9nIGluLCBhbmQgeW91IHdpbGwgYmUgcmVkaXJlY3RlZCBoZXJlIHRvIHNldCB5b3VyIHBhc3N3b3JkLlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgPC9wPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgPEJ1dHRvbiB0eXBlPVwic3VibWl0XCIgY2xhc3NOYW1lPVwidy1mdWxsXCIgc2l6ZT1cImxnXCIgZGlzYWJsZWQ9e2xvYWRpbmd9PlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAge2xvYWRpbmcgPyAoXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPD5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPExvYWRlcjIgY2xhc3NOYW1lPVwibXItMiBoLTQgdy00IGFuaW1hdGUtc3BpblwiIC8+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIFZlcmlmeWluZy4uLlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgKSA6IChcclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBcIlZlcmlmeSBPVFBcIlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgKX1cclxuICAgICAgICAgICAgICAgICAgICAgICAgPC9CdXR0b24+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgIDxCdXR0b25cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIHR5cGU9XCJidXR0b25cIlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgdmFyaWFudD1cImdob3N0XCJcclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIGNsYXNzTmFtZT1cInctZnVsbFwiXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICBvbkNsaWNrPXsoKSA9PiBzZXRTdGVwKFwicmVxdWVzdFwiKX1cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIGRpc2FibGVkPXtsb2FkaW5nfVxyXG4gICAgICAgICAgICAgICAgICAgICAgICA+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICBCYWNrIHRvIERldGFpbHNcclxuICAgICAgICAgICAgICAgICAgICAgICAgPC9CdXR0b24+XHJcbiAgICAgICAgICAgICAgICAgICAgPC9mb3JtPlxyXG4gICAgICAgICAgICAgICAgKX1cclxuXHJcbiAgICAgICAgICAgICAgICB7c3RlcCA9PT0gXCJyZXNldFwiICYmIChcclxuICAgICAgICAgICAgICAgICAgICA8Zm9ybSBvblN1Ym1pdD17aGFuZGxlUmVzZXRQYXNzd29yZH0gY2xhc3NOYW1lPVwic3BhY2UteS00XCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwic3BhY2UteS0yXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICA8TGFiZWwgaHRtbEZvcj1cIm5ld1Bhc3N3b3JkXCI+TmV3IFBhc3N3b3JkPC9MYWJlbD5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxJbnB1dFxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGlkPVwibmV3UGFzc3dvcmRcIlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHR5cGU9XCJwYXNzd29yZFwiXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgcGxhY2Vob2xkZXI9XCJFbnRlciBuZXcgcGFzc3dvcmRcIlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHZhbHVlPXtuZXdQYXNzd29yZH1cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBvbkNoYW5nZT17KGUpID0+IHNldE5ld1Bhc3N3b3JkKGUudGFyZ2V0LnZhbHVlKX1cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICByZXF1aXJlZFxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIG1pbkxlbmd0aD17Nn1cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIC8+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInNwYWNlLXktMlwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgPExhYmVsIGh0bWxGb3I9XCJjb25maXJtUGFzc3dvcmRcIj5Db25maXJtIFBhc3N3b3JkPC9MYWJlbD5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxJbnB1dFxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGlkPVwiY29uZmlybVBhc3N3b3JkXCJcclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB0eXBlPVwicGFzc3dvcmRcIlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHBsYWNlaG9sZGVyPVwiQ29uZmlybSBuZXcgcGFzc3dvcmRcIlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHZhbHVlPXtjb25maXJtUGFzc3dvcmR9XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgb25DaGFuZ2U9eyhlKSA9PiBzZXRDb25maXJtUGFzc3dvcmQoZS50YXJnZXQudmFsdWUpfVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHJlcXVpcmVkXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAvPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgPEJ1dHRvbiB0eXBlPVwic3VibWl0XCIgY2xhc3NOYW1lPVwidy1mdWxsXCIgc2l6ZT1cImxnXCIgZGlzYWJsZWQ9e2xvYWRpbmd9PlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAge2xvYWRpbmcgPyAoXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPD5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPExvYWRlcjIgY2xhc3NOYW1lPVwibXItMiBoLTQgdy00IGFuaW1hdGUtc3BpblwiIC8+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIFVwZGF0aW5nLi4uXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPC8+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICApIDogKFxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIFwiVXBkYXRlIFBhc3N3b3JkXCJcclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICl9XHJcbiAgICAgICAgICAgICAgICAgICAgICAgIDwvQnV0dG9uPlxyXG4gICAgICAgICAgICAgICAgICAgIDwvZm9ybT5cclxuICAgICAgICAgICAgICAgICl9XHJcblxyXG4gICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJ0ZXh0LWNlbnRlciBtdC00XCI+XHJcbiAgICAgICAgICAgICAgICAgICAgPExpbmsgdG89XCIvbG9naW5cIiBjbGFzc05hbWU9XCJ0ZXh0LXNtIHRleHQtcHJpbWFyeSBob3Zlcjp1bmRlcmxpbmVcIj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgQmFjayB0byBMb2dpblxyXG4gICAgICAgICAgICAgICAgICAgIDwvTGluaz5cclxuICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICA8L0F1dGhMYXlvdXQ+XHJcbiAgICApO1xyXG59XHJcbiJdLCJuYW1lcyI6WyJ1c2VTdGF0ZSIsInVzZUVmZmVjdCIsIkxpbmsiLCJBdXRoTGF5b3V0IiwiQnV0dG9uIiwiSW5wdXQiLCJMYWJlbCIsIkxvYWRlcjIiLCJBbGVydENpcmNsZSIsInN1cGFiYXNlIiwiQWxlcnQiLCJBbGVydERlc2NyaXB0aW9uIiwiQWxlcnRUaXRsZSIsIkZvcmdvdFBhc3N3b3JkIiwic3RlcCIsInNldFN0ZXAiLCJuYW1lIiwic2V0TmFtZSIsImVtYWlsIiwic2V0RW1haWwiLCJtb2JpbGUiLCJzZXRNb2JpbGUiLCJvdHAiLCJzZXRPdHAiLCJuZXdQYXNzd29yZCIsInNldE5ld1Bhc3N3b3JkIiwiY29uZmlybVBhc3N3b3JkIiwic2V0Q29uZmlybVBhc3N3b3JkIiwibG9hZGluZyIsInNldExvYWRpbmciLCJlcnJvciIsInNldEVycm9yIiwiY2hlY2tTZXNzaW9uIiwiZGF0YSIsInNlc3Npb24iLCJhdXRoIiwiZ2V0U2Vzc2lvbiIsInVzZXIiLCJoYW5kbGVSZXF1ZXN0T3RwIiwiZSIsInByZXZlbnREZWZhdWx0IiwidXNlcnMiLCJ1c2VyRXJyb3IiLCJmcm9tIiwic2VsZWN0IiwiZXEiLCJpbGlrZSIsImxlbmd0aCIsIm90cEVycm9yIiwic2lnbkluV2l0aE90cCIsIm9wdGlvbnMiLCJzaG91bGRDcmVhdGVVc2VyIiwiZW1haWxSZWRpcmVjdFRvIiwid2luZG93IiwibG9jYXRpb24iLCJocmVmIiwiaW5zZXJ0IiwidGl0bGUiLCJtZXNzYWdlIiwidXNlcl9pZCIsImlkIiwidHlwZSIsImVyciIsImNvbnNvbGUiLCJoYW5kbGVWZXJpZnlPdHAiLCJ2ZXJpZnlFcnJvciIsInZlcmlmeU90cCIsInRva2VuIiwiRXJyb3IiLCJoYW5kbGVSZXNldFBhc3N3b3JkIiwidXBkYXRlRXJyb3IiLCJ1cGRhdGVVc2VyIiwicGFzc3dvcmQiLCJzaWduT3V0Iiwic3VidGl0bGUiLCJkaXYiLCJjbGFzc05hbWUiLCJ2YXJpYW50IiwiZm9ybSIsIm9uU3VibWl0IiwiaHRtbEZvciIsInBsYWNlaG9sZGVyIiwidmFsdWUiLCJvbkNoYW5nZSIsInRhcmdldCIsInJlcXVpcmVkIiwic2l6ZSIsImRpc2FibGVkIiwicmVwbGFjZSIsIm1heExlbmd0aCIsInAiLCJzdHJvbmciLCJvbkNsaWNrIiwibWluTGVuZ3RoIiwidG8iXSwibWFwcGluZ3MiOiI7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7OztBQUFBLFNBQVNBLFFBQVEsRUFBRUMsU0FBUyxRQUFRLFFBQVE7QUFDNUMsU0FBU0MsSUFBSSxRQUFRLG1CQUFtQjtBQUN4QyxTQUFTQyxVQUFVLFFBQVEsaUNBQWlDO0FBQzVELFNBQVNDLE1BQU0sUUFBUSx5QkFBeUI7QUFDaEQsU0FBU0MsS0FBSyxRQUFRLHdCQUF3QjtBQUM5QyxTQUFTQyxLQUFLLFFBQVEsd0JBQXdCO0FBQzlDLFNBQVNDLE9BQU8sRUFBRUMsV0FBVyxRQUFRLGVBQWU7QUFDcEQsU0FBU0MsUUFBUSxRQUFRLGlCQUFpQjtBQUMxQyxTQUFTQyxLQUFLLEVBQUVDLGdCQUFnQixFQUFFQyxVQUFVLFFBQVEsd0JBQXdCO0FBRTVFLGVBQWUsU0FBU0M7O0lBQ3BCLE1BQU0sQ0FBQ0MsTUFBTUMsUUFBUSxHQUFHZixTQUF5QztJQUNqRSxNQUFNLENBQUNnQixNQUFNQyxRQUFRLEdBQUdqQixTQUFTO0lBQ2pDLE1BQU0sQ0FBQ2tCLE9BQU9DLFNBQVMsR0FBR25CLFNBQVM7SUFDbkMsTUFBTSxDQUFDb0IsUUFBUUMsVUFBVSxHQUFHckIsU0FBUztJQUNyQyxNQUFNLENBQUNzQixLQUFLQyxPQUFPLEdBQUd2QixTQUFTO0lBQy9CLE1BQU0sQ0FBQ3dCLGFBQWFDLGVBQWUsR0FBR3pCLFNBQVM7SUFDL0MsTUFBTSxDQUFDMEIsaUJBQWlCQyxtQkFBbUIsR0FBRzNCLFNBQVM7SUFFdkQsTUFBTSxDQUFDNEIsU0FBU0MsV0FBVyxHQUFHN0IsU0FBUztJQUN2QyxNQUFNLENBQUM4QixPQUFPQyxTQUFTLEdBQUcvQixTQUF3QjtJQUVsRCxtRUFBbUU7SUFDbkVDLFVBQVU7UUFDTixNQUFNK0IsZUFBZTtZQUNqQixNQUFNLEVBQUVDLE1BQU0sRUFBRUMsT0FBTyxFQUFFLEVBQUUsR0FBRyxNQUFNekIsU0FBUzBCLElBQUksQ0FBQ0MsVUFBVTtZQUM1RCxJQUFJRixTQUFTO2dCQUNULG9EQUFvRDtnQkFDcERmLFNBQVNlLFFBQVFHLElBQUksQ0FBQ25CLEtBQUssSUFBSTtnQkFDL0JILFFBQVE7WUFDWjtRQUNKO1FBQ0FpQjtJQUNKLEdBQUcsRUFBRTtJQUVMLHNCQUFzQjtJQUN0QixNQUFNTSxtQkFBbUIsT0FBT0M7UUFDNUJBLEVBQUVDLGNBQWM7UUFDaEJULFNBQVM7UUFDVEYsV0FBVztRQUVYLElBQUk7WUFDQSxvQ0FBb0M7WUFDcEMsTUFBTSxFQUFFSSxNQUFNUSxLQUFLLEVBQUVYLE9BQU9ZLFNBQVMsRUFBRSxHQUFHLE1BQU1qQyxTQUMzQ2tDLElBQUksQ0FBQyxTQUNMQyxNQUFNLENBQUMsd0JBQ1BDLEVBQUUsQ0FBQyxTQUFTM0IsT0FDWjRCLEtBQUssQ0FBQyxhQUFhOUI7WUFFeEIsSUFBSTBCLFdBQVcsTUFBTUE7WUFDckIsSUFBSSxDQUFDRCxTQUFTQSxNQUFNTSxNQUFNLEtBQUssR0FBRztnQkFDOUJoQixTQUFTO2dCQUNURixXQUFXO2dCQUNYO1lBQ0o7WUFFQSxpQ0FBaUM7WUFDakMsOEZBQThGO1lBQzlGLE1BQU0sRUFBRUMsT0FBT2tCLFFBQVEsRUFBRSxHQUFHLE1BQU12QyxTQUFTMEIsSUFBSSxDQUFDYyxhQUFhLENBQUM7Z0JBQzFEL0I7Z0JBQ0FnQyxTQUFTO29CQUNMQyxrQkFBa0I7b0JBQ2xCQyxpQkFBaUJDLE9BQU9DLFFBQVEsQ0FBQ0MsSUFBSTtnQkFDekM7WUFDSjtZQUVBLElBQUlQLFVBQVUsTUFBTUE7WUFFcEJqQyxRQUFRO1lBQ1IsMkNBQTJDO1lBQzNDLE1BQU1OLFNBQVNrQyxJQUFJLENBQUMsaUJBQWlCYSxNQUFNLENBQUM7Z0JBQUM7b0JBQ3pDQyxPQUFPO29CQUNQQyxTQUFTLENBQUMsaUNBQWlDLEVBQUV4QyxPQUFPO29CQUNwRHlDLFNBQVNsQixLQUFLLENBQUMsRUFBRSxDQUFDbUIsRUFBRTtvQkFDcEJDLE1BQU07Z0JBQ1Y7YUFBRTtRQUVOLEVBQUUsT0FBT0MsS0FBVTtZQUNmQyxRQUFRakMsS0FBSyxDQUFDZ0M7WUFDZC9CLFNBQVMrQixJQUFJSixPQUFPLElBQUk7UUFDNUIsU0FBVTtZQUNON0IsV0FBVztRQUNmO0lBQ0o7SUFFQSxxQkFBcUI7SUFDckIsTUFBTW1DLGtCQUFrQixPQUFPekI7UUFDM0JBLEVBQUVDLGNBQWM7UUFDaEJULFNBQVM7UUFDVEYsV0FBVztRQUVYLElBQUk7WUFDQSxNQUFNLEVBQUVJLE1BQU0sRUFBRUMsT0FBTyxFQUFFLEVBQUVKLE9BQU9tQyxXQUFXLEVBQUUsR0FBRyxNQUFNeEQsU0FBUzBCLElBQUksQ0FBQytCLFNBQVMsQ0FBQztnQkFDNUVoRDtnQkFDQWlELE9BQU83QztnQkFDUHVDLE1BQU07WUFDVjtZQUVBLElBQUlJLGFBQWEsTUFBTUE7WUFDdkIsSUFBSSxDQUFDL0IsU0FBUztnQkFDVixNQUFNLElBQUlrQyxNQUFNO1lBQ3BCO1lBRUFyRCxRQUFRO1FBQ1osRUFBRSxPQUFPK0MsS0FBVTtZQUNmQyxRQUFRakMsS0FBSyxDQUFDZ0M7WUFDZC9CLFNBQVMrQixJQUFJSixPQUFPLElBQUk7UUFDNUIsU0FBVTtZQUNON0IsV0FBVztRQUNmO0lBQ0o7SUFFQSx5QkFBeUI7SUFDekIsTUFBTXdDLHNCQUFzQixPQUFPOUI7UUFDL0JBLEVBQUVDLGNBQWM7UUFDaEJULFNBQVM7UUFDVEYsV0FBVztRQUVYLElBQUlMLFlBQVl1QixNQUFNLEdBQUcsR0FBRztZQUN4QmhCLFNBQVM7WUFDVEYsV0FBVztZQUNYO1FBQ0o7UUFFQSxJQUFJTCxnQkFBZ0JFLGlCQUFpQjtZQUNqQ0ssU0FBUztZQUNURixXQUFXO1lBQ1g7UUFDSjtRQUVBLElBQUk7WUFDQSxNQUFNLEVBQUVDLE9BQU93QyxXQUFXLEVBQUUsR0FBRyxNQUFNN0QsU0FBUzBCLElBQUksQ0FBQ29DLFVBQVUsQ0FBQztnQkFDMURDLFVBQVVoRDtZQUNkO1lBRUEsSUFBSThDLGFBQWEsTUFBTUE7WUFFdkIsWUFBWTtZQUNaLE1BQU03RCxTQUFTMEIsSUFBSSxDQUFDc0MsT0FBTztZQUMzQnBCLE9BQU9DLFFBQVEsQ0FBQ0MsSUFBSSxHQUFHO1FBRTNCLEVBQUUsT0FBT08sS0FBVTtZQUNmQyxRQUFRakMsS0FBSyxDQUFDZ0M7WUFDZC9CLFNBQVMrQixJQUFJSixPQUFPLElBQUk7UUFDNUIsU0FBVTtZQUNON0IsV0FBVztRQUNmO0lBQ0o7SUFFQSxxQkFDSSxRQUFDMUI7UUFDR3NELE9BQU8zQyxTQUFTLFlBQVksbUJBQW1CQSxTQUFTLFdBQVcsY0FBYztRQUNqRjRELFVBQVU1RCxTQUFTLFlBQVksMENBQTBDQSxTQUFTLFdBQVcsQ0FBQyxRQUFRLEVBQUVJLE9BQU8sR0FBRztrQkFFbEgsY0FBQSxRQUFDeUQ7WUFBSUMsV0FBVTs7Z0JBQ1Y5Qyx1QkFDRyxRQUFDcEI7b0JBQU1tRSxTQUFROztzQ0FDWCxRQUFDckU7NEJBQVlvRSxXQUFVOzs7Ozs7c0NBQ3ZCLFFBQUNoRTtzQ0FBVzs7Ozs7O3NDQUNaLFFBQUNEO3NDQUFrQm1COzs7Ozs7Ozs7Ozs7Z0JBSTFCaEIsU0FBUywyQkFDTixRQUFDZ0U7b0JBQUtDLFVBQVV6QztvQkFBa0JzQyxXQUFVOztzQ0FDeEMsUUFBQ0Q7NEJBQUlDLFdBQVU7OzhDQUNYLFFBQUN0RTtvQ0FBTTBFLFNBQVE7OENBQU87Ozs7Ozs4Q0FDdEIsUUFBQzNFO29DQUNHdUQsSUFBRztvQ0FDSHFCLGFBQVk7b0NBQ1pDLE9BQU9sRTtvQ0FDUG1FLFVBQVUsQ0FBQzVDLElBQU10QixRQUFRc0IsRUFBRTZDLE1BQU0sQ0FBQ0YsS0FBSztvQ0FDdkNHLFFBQVE7Ozs7Ozs7Ozs7OztzQ0FHaEIsUUFBQ1Y7NEJBQUlDLFdBQVU7OzhDQUNYLFFBQUN0RTtvQ0FBTTBFLFNBQVE7OENBQVE7Ozs7Ozs4Q0FDdkIsUUFBQzNFO29DQUNHdUQsSUFBRztvQ0FDSEMsTUFBSztvQ0FDTG9CLGFBQVk7b0NBQ1pDLE9BQU9oRTtvQ0FDUGlFLFVBQVUsQ0FBQzVDLElBQU1wQixTQUFTb0IsRUFBRTZDLE1BQU0sQ0FBQ0YsS0FBSztvQ0FDeENHLFFBQVE7Ozs7Ozs7Ozs7OztzQ0FHaEIsUUFBQ1Y7NEJBQUlDLFdBQVU7OzhDQUNYLFFBQUN0RTtvQ0FBTTBFLFNBQVE7OENBQVM7Ozs7Ozs4Q0FDeEIsUUFBQzNFO29DQUNHdUQsSUFBRztvQ0FDSHFCLGFBQVk7b0NBQ1pDLE9BQU85RDtvQ0FDUCtELFVBQVUsQ0FBQzVDLElBQU1sQixVQUFVa0IsRUFBRTZDLE1BQU0sQ0FBQ0YsS0FBSzs7Ozs7Ozs7Ozs7O3NDQUdqRCxRQUFDOUU7NEJBQU95RCxNQUFLOzRCQUFTZSxXQUFVOzRCQUFTVSxNQUFLOzRCQUFLQyxVQUFVM0Q7c0NBQ3hEQSx3QkFDRzs7a0RBQ0ksUUFBQ3JCO3dDQUFRcUUsV0FBVTs7Ozs7O29DQUE4Qjs7K0NBSXJEOzs7Ozs7Ozs7Ozs7Z0JBTWY5RCxTQUFTLDBCQUNOLFFBQUNnRTtvQkFBS0MsVUFBVWY7b0JBQWlCWSxXQUFVOztzQ0FDdkMsUUFBQ0Q7NEJBQUlDLFdBQVU7OzhDQUNYLFFBQUN0RTtvQ0FBTTBFLFNBQVE7OENBQU07Ozs7Ozs4Q0FDckIsUUFBQzNFO29DQUNHdUQsSUFBRztvQ0FDSEMsTUFBSztvQ0FDTG9CLGFBQVk7b0NBQ1pDLE9BQU81RDtvQ0FDUDZELFVBQVUsQ0FBQzVDLElBQU1oQixPQUFPZ0IsRUFBRTZDLE1BQU0sQ0FBQ0YsS0FBSyxDQUFDTSxPQUFPLENBQUMsT0FBTztvQ0FDdERILFFBQVE7b0NBQ1JJLFdBQVc7b0NBQ1hiLFdBQVU7Ozs7Ozs4Q0FFZCxRQUFDYztvQ0FBRWQsV0FBVTs4Q0FBNEM7Ozs7Ozs4Q0FHekQsUUFBQ2M7b0NBQUVkLFdBQVU7O3NEQUNULFFBQUNlO3NEQUFPOzs7Ozs7d0NBQWE7Ozs7Ozs7Ozs7Ozs7c0NBRzdCLFFBQUN2Rjs0QkFBT3lELE1BQUs7NEJBQVNlLFdBQVU7NEJBQVNVLE1BQUs7NEJBQUtDLFVBQVUzRDtzQ0FDeERBLHdCQUNHOztrREFDSSxRQUFDckI7d0NBQVFxRSxXQUFVOzs7Ozs7b0NBQThCOzsrQ0FJckQ7Ozs7OztzQ0FHUixRQUFDeEU7NEJBQ0d5RCxNQUFLOzRCQUNMZ0IsU0FBUTs0QkFDUkQsV0FBVTs0QkFDVmdCLFNBQVMsSUFBTTdFLFFBQVE7NEJBQ3ZCd0UsVUFBVTNEO3NDQUNiOzs7Ozs7Ozs7Ozs7Z0JBTVJkLFNBQVMseUJBQ04sUUFBQ2dFO29CQUFLQyxVQUFVVjtvQkFBcUJPLFdBQVU7O3NDQUMzQyxRQUFDRDs0QkFBSUMsV0FBVTs7OENBQ1gsUUFBQ3RFO29DQUFNMEUsU0FBUTs4Q0FBYzs7Ozs7OzhDQUM3QixRQUFDM0U7b0NBQ0d1RCxJQUFHO29DQUNIQyxNQUFLO29DQUNMb0IsYUFBWTtvQ0FDWkMsT0FBTzFEO29DQUNQMkQsVUFBVSxDQUFDNUMsSUFBTWQsZUFBZWMsRUFBRTZDLE1BQU0sQ0FBQ0YsS0FBSztvQ0FDOUNHLFFBQVE7b0NBQ1JRLFdBQVc7Ozs7Ozs7Ozs7OztzQ0FHbkIsUUFBQ2xCOzRCQUFJQyxXQUFVOzs4Q0FDWCxRQUFDdEU7b0NBQU0wRSxTQUFROzhDQUFrQjs7Ozs7OzhDQUNqQyxRQUFDM0U7b0NBQ0d1RCxJQUFHO29DQUNIQyxNQUFLO29DQUNMb0IsYUFBWTtvQ0FDWkMsT0FBT3hEO29DQUNQeUQsVUFBVSxDQUFDNUMsSUFBTVosbUJBQW1CWSxFQUFFNkMsTUFBTSxDQUFDRixLQUFLO29DQUNsREcsUUFBUTs7Ozs7Ozs7Ozs7O3NDQUdoQixRQUFDakY7NEJBQU95RCxNQUFLOzRCQUFTZSxXQUFVOzRCQUFTVSxNQUFLOzRCQUFLQyxVQUFVM0Q7c0NBQ3hEQSx3QkFDRzs7a0RBQ0ksUUFBQ3JCO3dDQUFRcUUsV0FBVTs7Ozs7O29DQUE4Qjs7K0NBSXJEOzs7Ozs7Ozs7Ozs7OEJBTWhCLFFBQUNEO29CQUFJQyxXQUFVOzhCQUNYLGNBQUEsUUFBQzFFO3dCQUFLNEYsSUFBRzt3QkFBU2xCLFdBQVU7a0NBQXVDOzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7O0FBT3ZGO0dBL1J3Qi9EO0tBQUFBIn0=

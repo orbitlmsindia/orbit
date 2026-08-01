@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { BookOpen, Clock, AlertCircle, CheckCircle2, PlayCircle, ArrowRight, Bell, Award, Loader2, Quote } from "lucide-react";
+import { BookOpen, Clock, AlertCircle, CheckCircle2, PlayCircle, ArrowRight, Bell, Award, Loader2, Quote, Video } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 
@@ -14,6 +14,7 @@ export default function StudentDashboard() {
     const [userName, setUserName] = useState("");
     const [notifications, setNotifications] = useState<any[]>([]);
     const [upcomingDeadlines, setUpcomingDeadlines] = useState<any[]>([]);
+    const [liveClasses, setLiveClasses] = useState<any[]>([]);
     const [dailyQuote, setDailyQuote] = useState<string | null>(null);
 
     useEffect(() => {
@@ -89,6 +90,24 @@ export default function StudentDashboard() {
                 }
 
                 setUpcomingDeadlines(filteredDeadlines);
+
+                // Fetch Live Classes for enrolled courses
+                const { data: lives } = await supabase
+                    .from('live_classes')
+                    .select(`
+                        id,
+                        title,
+                        meeting_link,
+                        scheduled_at,
+                        duration_minutes,
+                        description,
+                        status,
+                        course:courses (id, title, teacher:users!teacher_id(full_name))
+                    `)
+                    .in('course_id', courseIds)
+                    .order('scheduled_at', { ascending: true });
+
+                setLiveClasses(lives || []);
             }
 
             if (error) throw error;
@@ -167,6 +186,51 @@ export default function StudentDashboard() {
                             <p className="text-foreground italic text-lg font-serif">"{dailyQuote}"</p>
                         </div>
                     </div>
+                )}
+                {/* Live Classes Card */}
+                {liveClasses.length > 0 && (
+                    <Card className="border-red-500/30 bg-gradient-to-r from-red-500/10 via-background to-background shadow-md overflow-hidden">
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-xl font-bold flex items-center justify-between">
+                                <div className="flex items-center gap-2 text-foreground">
+                                    <span className="h-3 w-3 rounded-full bg-red-500 animate-pulse"></span>
+                                    🔴 Live Classes & Interactive Sessions
+                                </div>
+                                <Badge className="bg-red-500 text-white font-mono text-xs">
+                                    {liveClasses.filter(c => new Date(c.scheduled_at) <= new Date()).length > 0 ? "LIVE NOW" : `${liveClasses.length} Scheduled`}
+                                </Badge>
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            {liveClasses.map((lc) => {
+                                const isLiveNow = new Date(lc.scheduled_at) <= new Date();
+                                return (
+                                    <div key={lc.id} className="p-4 rounded-xl border bg-card flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:border-red-500/40 transition-colors">
+                                        <div className="space-y-1">
+                                            <div className="flex items-center gap-2">
+                                                <Badge variant="outline" className={isLiveNow ? "bg-red-500 text-white border-red-500 font-bold text-[10px] animate-pulse" : "bg-primary/10 text-primary border-primary/20 text-[10px]"}>
+                                                    {isLiveNow ? "🔴 HAPPENING NOW" : "UPCOMING CLASS"}
+                                                </Badge>
+                                                <h3 className="font-bold text-base text-foreground">{lc.title}</h3>
+                                            </div>
+                                            <p className="text-xs text-muted-foreground">
+                                                Course: <span className="font-semibold text-foreground">{lc.course?.title}</span> • Teacher: <span className="font-semibold text-primary">{lc.course?.teacher?.full_name || "Instructor"}</span>
+                                            </p>
+                                            <div className="flex items-center gap-4 text-xs font-mono text-muted-foreground pt-0.5">
+                                                <span>📅 {new Date(lc.scheduled_at).toLocaleString()}</span>
+                                                <span>⏱️ {lc.duration_minutes || 60} mins</span>
+                                            </div>
+                                        </div>
+                                        <a href={lc.meeting_link} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                                            <Button size="default" className="gap-2 bg-red-600 hover:bg-red-700 text-white font-bold shadow-md">
+                                                <Video className="h-4 w-4" /> Join Live Class ↗
+                                            </Button>
+                                        </a>
+                                    </div>
+                                );
+                            })}
+                        </CardContent>
+                    </Card>
                 )}
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

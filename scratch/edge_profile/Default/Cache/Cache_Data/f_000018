@@ -1,0 +1,1038 @@
+import { createHotContext as __vite__createHotContext } from "/@vite/client";import.meta.hot = __vite__createHotContext("/src/pages/admin/Notifications.tsx");import * as RefreshRuntime from "/@react-refresh";
+const inWebWorker = typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope;
+
+let prevRefreshReg;
+let prevRefreshSig;
+
+if (import.meta.hot && !inWebWorker) {
+  if (!window.$RefreshReg$) {
+    throw new Error(
+      "@vitejs/plugin-react-swc can't detect preamble. Something is wrong."
+    );
+  }
+
+  prevRefreshReg = window.$RefreshReg$;
+  prevRefreshSig = window.$RefreshSig$;
+  window.$RefreshReg$ = RefreshRuntime.getRefreshReg("D:/Orbitlms/src/pages/admin/Notifications.tsx");
+  window.$RefreshSig$ = RefreshRuntime.createSignatureFunctionForTransform;
+}
+
+import __vite__cjsImport2_react_jsxDevRuntime from "/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=88ed5bfa"; const _jsxDEV = __vite__cjsImport2_react_jsxDevRuntime["jsxDEV"]; const _Fragment = __vite__cjsImport2_react_jsxDevRuntime["Fragment"];
+var _s = $RefreshSig$();
+import __vite__cjsImport3_react from "/node_modules/.vite/deps/react.js?v=88ed5bfa"; const useState = __vite__cjsImport3_react["useState"]; const useEffect = __vite__cjsImport3_react["useEffect"];
+import { AdminLayout } from "/src/components/layout/AdminLayout.tsx";
+import { DataTable } from "/src/components/ui/data-table.tsx";
+import { Button } from "/src/components/ui/button.tsx";
+import { Badge } from "/src/components/ui/badge.tsx";
+import { Input } from "/src/components/ui/input.tsx";
+import { Label } from "/src/components/ui/label.tsx";
+import { Textarea } from "/src/components/ui/textarea.tsx";
+import { Card, CardContent, CardHeader, CardTitle } from "/src/components/ui/card.tsx";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "/src/components/ui/tabs.tsx";
+import { Checkbox } from "/src/components/ui/checkbox.tsx";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "/src/components/ui/dialog.tsx";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "/src/components/ui/select.tsx";
+import { Bell, Plus, Send, Users, GraduationCap, BookOpen, Clock, CheckCircle, AlertCircle, Info, Megaphone } from "/node_modules/.vite/deps/lucide-react.js?v=88ed5bfa";
+import { supabase } from "/src/lib/supabase.ts";
+import { useToast } from "/src/hooks/use-toast.ts";
+// Templates can remain static or be moved to DB later
+const templates = [
+    {
+        id: 1,
+        name: "Assignment Reminder",
+        content: "This is a reminder that [ASSIGNMENT] is due on [DATE]. Please ensure your submission is complete."
+    },
+    {
+        id: 2,
+        name: "Course Update",
+        content: "We have updated the course materials for [COURSE]. Please review the new content."
+    },
+    {
+        id: 3,
+        name: "Maintenance Notice",
+        content: "The platform will undergo maintenance on [DATE] from [TIME] to [TIME]. Please save your work."
+    },
+    {
+        id: 4,
+        name: "Welcome Message",
+        content: "Welcome to [COURSE]! We're excited to have you. Get started by reviewing the course outline."
+    }
+];
+export default function Notifications() {
+    _s();
+    const { toast } = useToast();
+    const [activeTab, setActiveTab] = useState("history");
+    const [createModalOpen, setCreateModalOpen] = useState(false);
+    const [selectedAudience, setSelectedAudience] = useState("all");
+    const [selectedCourses, setSelectedCourses] = useState([]);
+    const [notificationType, setNotificationType] = useState("announcement");
+    const [title, setTitle] = useState("");
+    const [message, setMessage] = useState("");
+    const [notificationsHistory, setNotificationsHistory] = useState([]);
+    const [coursesList, setCoursesList] = useState([]);
+    const [loading, setLoading] = useState(true);
+    useEffect(()=>{
+        fetchData();
+    }, []);
+    const fetchData = async ()=>{
+        setLoading(true);
+        // Fetch Notifications
+        const { data: notifs, error } = await supabase.from('notifications').select('id, title, message, visibility, notification_type, created_at').order('created_at', {
+            ascending: false
+        });
+        if (notifs) {
+            setNotificationsHistory(notifs.map((n)=>({
+                    id: n.id,
+                    title: n.title,
+                    message: n.message,
+                    audience: n.visibility || "all",
+                    type: n.notification_type || "announcement",
+                    status: "sent",
+                    sentAt: new Date(n.created_at).toLocaleString(),
+                    readRate: 0 // Requires tracking
+                })));
+        }
+        // Fetch Courses for selection
+        const { data: courses } = await supabase.from('courses').select('id, title'); // title instead of name
+        if (courses) {
+            setCoursesList(courses);
+        }
+        setLoading(false);
+    };
+    const handleSendNotification = async ()=>{
+        if (!title || !message) {
+            toast({
+                variant: "destructive",
+                title: "Missing fields",
+                description: "Please enter title and message."
+            });
+            return;
+        }
+        if (selectedAudience === "courses" && selectedCourses.length === 0) {
+            toast({
+                variant: "destructive",
+                title: "No courses selected",
+                description: "Please select at least one course."
+            });
+            return;
+        }
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error("Not authenticated");
+            // Get user role
+            const { data: userData } = await supabase.from('users').select('role').eq('id', user.id).single();
+            const userRole = userData?.role || 'admin';
+            const priority = userRole === 'admin' ? 2 : 1;
+            if (selectedAudience === "courses") {
+                // Send to specific courses using RPC function
+                let totalSent = 0;
+                for (const courseId of selectedCourses){
+                    const { data: count, error } = await supabase.rpc('x_n_c_s', {
+                        p_course_id: courseId,
+                        p_title: title,
+                        p_message: message,
+                        p_notification_type: notificationType,
+                        p_sender_id: user.id,
+                        p_sender_role: userRole,
+                        p_priority: priority
+                    });
+                    if (error) throw error;
+                    totalSent += count || 0;
+                }
+                toast({
+                    title: "Notifications Sent",
+                    description: `Successfully sent ${totalSent} notifications to ${selectedCourses.length} course(s).`
+                });
+            } else {
+                // Send to all users of a specific role
+                let targetUsers = [];
+                if (selectedAudience === "all") {
+                    const { data } = await supabase.from('users').select('id');
+                    targetUsers = data || [];
+                } else if (selectedAudience === "students") {
+                    const { data } = await supabase.from('users').select('id').eq('role', 'student');
+                    targetUsers = data || [];
+                } else if (selectedAudience === "teachers") {
+                    const { data } = await supabase.from('users').select('id').eq('role', 'teacher');
+                    targetUsers = data || [];
+                }
+                // Insert notifications for each user
+                const notifications = targetUsers.map((u)=>({
+                        user_id: u.id,
+                        title,
+                        message,
+                        notification_type: notificationType,
+                        priority,
+                        sender_role: userRole,
+                        visibility: selectedAudience,
+                        created_at: new Date().toISOString()
+                    }));
+                const { error } = await supabase.from('notifications').insert(notifications);
+                if (error) throw error;
+                toast({
+                    title: "Notifications Sent",
+                    description: `Successfully sent ${targetUsers.length} notifications.`
+                });
+            }
+            setCreateModalOpen(false);
+            setTitle("");
+            setMessage("");
+            setSelectedCourses([]);
+            setSelectedAudience("all");
+            fetchData(); // Refresh list
+        } catch (err) {
+            console.error(err);
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: err.message
+            });
+        }
+    };
+    const handleTemplateSelect = (templateId)=>{
+        const template = templates.find((t)=>t.id === templateId);
+        if (template) {
+            setMessage(template.content);
+            setCreateModalOpen(true);
+        }
+    };
+    const handleCourseToggle = (courseId)=>{
+        setSelectedCourses((prev)=>prev.includes(courseId) ? prev.filter((id)=>id !== courseId) : [
+                ...prev,
+                courseId
+            ]);
+    };
+    const getAudienceDisplay = (audience)=>{
+        if (audience === "all") return {
+            label: "All Users",
+            icon: Users
+        };
+        if (audience === "students") return {
+            label: "All Students",
+            icon: Users
+        };
+        if (audience === "teachers") return {
+            label: "All Teachers",
+            icon: GraduationCap
+        };
+        if (audience.startsWith("course:")) return {
+            label: audience.replace("course:", ""),
+            icon: BookOpen
+        };
+        return {
+            label: audience,
+            icon: Users
+        };
+    };
+    const getTypeConfig = (type)=>{
+        const configs = {
+            announcement: {
+                label: "Announcement",
+                variant: "default",
+                icon: Megaphone
+            },
+            reminder: {
+                label: "Reminder",
+                variant: "warning",
+                icon: Clock
+            },
+            alert: {
+                label: "Alert",
+                variant: "destructive",
+                icon: AlertCircle
+            },
+            system: {
+                label: "System",
+                variant: "secondary",
+                icon: Info
+            },
+            event: {
+                label: "Event",
+                variant: "accent",
+                icon: Bell
+            }
+        };
+        return configs[type] || configs.announcement;
+    };
+    const historyColumns = [
+        {
+            key: "title",
+            header: "Notification",
+            cell: (row)=>{
+                const typeConfig = getTypeConfig(row.type);
+                return /*#__PURE__*/ _jsxDEV("div", {
+                    className: "flex items-start gap-3",
+                    children: [
+                        /*#__PURE__*/ _jsxDEV("div", {
+                            className: `p-2 rounded-lg bg-muted`,
+                            children: /*#__PURE__*/ _jsxDEV(typeConfig.icon, {
+                                className: `h-4 w-4 text-muted-foreground`
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                lineNumber: 239,
+                                columnNumber: 15
+                            }, this)
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                            lineNumber: 238,
+                            columnNumber: 13
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV("div", {
+                            children: [
+                                /*#__PURE__*/ _jsxDEV("p", {
+                                    className: "font-medium",
+                                    children: row.title
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                    lineNumber: 242,
+                                    columnNumber: 15
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV("p", {
+                                    className: "text-xs text-muted-foreground line-clamp-1 max-w-xs",
+                                    children: row.message
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                    lineNumber: 243,
+                                    columnNumber: 15
+                                }, this)
+                            ]
+                        }, void 0, true, {
+                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                            lineNumber: 241,
+                            columnNumber: 13
+                        }, this)
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                    lineNumber: 237,
+                    columnNumber: 11
+                }, this);
+            }
+        },
+        {
+            key: "type",
+            header: "Type",
+            cell: (row)=>{
+                const config = getTypeConfig(row.type);
+                return /*#__PURE__*/ _jsxDEV(Badge, {
+                    variant: config.variant,
+                    children: config.label
+                }, void 0, false, {
+                    fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                    lineNumber: 254,
+                    columnNumber: 16
+                }, this);
+            }
+        },
+        {
+            key: "audience",
+            header: "Audience",
+            cell: (row)=>{
+                const display = getAudienceDisplay(row.audience);
+                return /*#__PURE__*/ _jsxDEV("div", {
+                    className: "flex items-center gap-2",
+                    children: [
+                        /*#__PURE__*/ _jsxDEV(display.icon, {
+                            className: "h-4 w-4 text-muted-foreground"
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                            lineNumber: 264,
+                            columnNumber: 13
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV("span", {
+                            className: "text-sm",
+                            children: display.label
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                            lineNumber: 265,
+                            columnNumber: 13
+                        }, this)
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                    lineNumber: 263,
+                    columnNumber: 11
+                }, this);
+            }
+        },
+        {
+            key: "sentAt",
+            header: "Sent",
+            cell: (row)=>/*#__PURE__*/ _jsxDEV("span", {
+                    className: "text-muted-foreground text-sm",
+                    children: row.sentAt
+                }, void 0, false, {
+                    fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                    lineNumber: 274,
+                    columnNumber: 9
+                }, this)
+        },
+        {
+            key: "status",
+            header: "Status",
+            cell: (row)=>/*#__PURE__*/ _jsxDEV(Badge, {
+                    variant: row.status === "sent" ? "success" : "secondary",
+                    children: row.status === "sent" ? /*#__PURE__*/ _jsxDEV(_Fragment, {
+                        children: [
+                            /*#__PURE__*/ _jsxDEV(CheckCircle, {
+                                className: "h-3 w-3 mr-1"
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                lineNumber: 283,
+                                columnNumber: 15
+                            }, this),
+                            " Sent"
+                        ]
+                    }, void 0, true) : /*#__PURE__*/ _jsxDEV(_Fragment, {
+                        children: [
+                            /*#__PURE__*/ _jsxDEV(Clock, {
+                                className: "h-3 w-3 mr-1"
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                lineNumber: 285,
+                                columnNumber: 15
+                            }, this),
+                            " Scheduled"
+                        ]
+                    }, void 0, true)
+                }, void 0, false, {
+                    fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                    lineNumber: 281,
+                    columnNumber: 9
+                }, this)
+        },
+        {
+            key: "readRate",
+            header: "Read Rate",
+            cell: (row)=>/*#__PURE__*/ _jsxDEV("span", {
+                    className: "text-muted-foreground",
+                    children: "-"
+                }, void 0, false, {
+                    fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                    lineNumber: 294,
+                    columnNumber: 9
+                }, this)
+        }
+    ];
+    return /*#__PURE__*/ _jsxDEV(AdminLayout, {
+        children: /*#__PURE__*/ _jsxDEV("div", {
+            className: "space-y-6 animate-fade-in",
+            children: [
+                /*#__PURE__*/ _jsxDEV("div", {
+                    className: "flex flex-col gap-4 md:flex-row md:items-center md:justify-between",
+                    children: [
+                        /*#__PURE__*/ _jsxDEV("div", {
+                            children: [
+                                /*#__PURE__*/ _jsxDEV("h1", {
+                                    className: "text-2xl lg:text-3xl font-display font-bold text-foreground",
+                                    children: "Notifications"
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                    lineNumber: 305,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV("p", {
+                                    className: "text-muted-foreground mt-1",
+                                    children: "Send announcements and manage notification history"
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                    lineNumber: 308,
+                                    columnNumber: 13
+                                }, this)
+                            ]
+                        }, void 0, true, {
+                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                            lineNumber: 304,
+                            columnNumber: 11
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV(Dialog, {
+                            open: createModalOpen,
+                            onOpenChange: setCreateModalOpen,
+                            children: [
+                                /*#__PURE__*/ _jsxDEV(DialogTrigger, {
+                                    asChild: true,
+                                    children: /*#__PURE__*/ _jsxDEV(Button, {
+                                        className: "gap-2",
+                                        children: [
+                                            /*#__PURE__*/ _jsxDEV(Plus, {
+                                                className: "h-4 w-4"
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                lineNumber: 315,
+                                                columnNumber: 17
+                                            }, this),
+                                            "New Notification"
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                        lineNumber: 314,
+                                        columnNumber: 15
+                                    }, this)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                    lineNumber: 313,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(DialogContent, {
+                                    className: "sm:max-w-xl",
+                                    children: [
+                                        /*#__PURE__*/ _jsxDEV(DialogHeader, {
+                                            children: [
+                                                /*#__PURE__*/ _jsxDEV(DialogTitle, {
+                                                    children: "Create Notification"
+                                                }, void 0, false, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                    lineNumber: 321,
+                                                    columnNumber: 17
+                                                }, this),
+                                                /*#__PURE__*/ _jsxDEV(DialogDescription, {
+                                                    children: "Send a notification to students, teachers, or specific courses"
+                                                }, void 0, false, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                    lineNumber: 322,
+                                                    columnNumber: 17
+                                                }, this)
+                                            ]
+                                        }, void 0, true, {
+                                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                            lineNumber: 320,
+                                            columnNumber: 15
+                                        }, this),
+                                        /*#__PURE__*/ _jsxDEV("div", {
+                                            className: "space-y-4 py-4 max-h-[60vh] overflow-y-auto",
+                                            children: [
+                                                /*#__PURE__*/ _jsxDEV("div", {
+                                                    className: "space-y-2",
+                                                    children: [
+                                                        /*#__PURE__*/ _jsxDEV(Label, {
+                                                            children: "Notification Type"
+                                                        }, void 0, false, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                            lineNumber: 329,
+                                                            columnNumber: 19
+                                                        }, this),
+                                                        /*#__PURE__*/ _jsxDEV("div", {
+                                                            className: "grid grid-cols-2 sm:grid-cols-4 gap-2",
+                                                            children: [
+                                                                "announcement",
+                                                                "reminder",
+                                                                "alert",
+                                                                "event"
+                                                            ].map((type)=>{
+                                                                const config = getTypeConfig(type);
+                                                                return /*#__PURE__*/ _jsxDEV("button", {
+                                                                    onClick: ()=>setNotificationType(type),
+                                                                    className: `p-3 rounded-lg border-2 transition-all text-center ${notificationType === type ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/30"}`,
+                                                                    children: [
+                                                                        /*#__PURE__*/ _jsxDEV(config.icon, {
+                                                                            className: `h-5 w-5 mx-auto mb-1 ${notificationType === type ? "text-primary" : "text-muted-foreground"}`
+                                                                        }, void 0, false, {
+                                                                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                                            lineNumber: 342,
+                                                                            columnNumber: 27
+                                                                        }, this),
+                                                                        /*#__PURE__*/ _jsxDEV("span", {
+                                                                            className: "text-xs font-medium",
+                                                                            children: config.label
+                                                                        }, void 0, false, {
+                                                                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                                            lineNumber: 344,
+                                                                            columnNumber: 27
+                                                                        }, this)
+                                                                    ]
+                                                                }, type, true, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                                    lineNumber: 334,
+                                                                    columnNumber: 25
+                                                                }, this);
+                                                            })
+                                                        }, void 0, false, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                            lineNumber: 330,
+                                                            columnNumber: 19
+                                                        }, this)
+                                                    ]
+                                                }, void 0, true, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                    lineNumber: 328,
+                                                    columnNumber: 17
+                                                }, this),
+                                                /*#__PURE__*/ _jsxDEV("div", {
+                                                    className: "space-y-2",
+                                                    children: [
+                                                        /*#__PURE__*/ _jsxDEV(Label, {
+                                                            children: "Select Audience"
+                                                        }, void 0, false, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                            lineNumber: 353,
+                                                            columnNumber: 19
+                                                        }, this),
+                                                        /*#__PURE__*/ _jsxDEV(Select, {
+                                                            value: selectedAudience,
+                                                            onValueChange: setSelectedAudience,
+                                                            children: [
+                                                                /*#__PURE__*/ _jsxDEV(SelectTrigger, {
+                                                                    children: /*#__PURE__*/ _jsxDEV(SelectValue, {
+                                                                        placeholder: "Choose audience"
+                                                                    }, void 0, false, {
+                                                                        fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                                        lineNumber: 356,
+                                                                        columnNumber: 23
+                                                                    }, this)
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                                    lineNumber: 355,
+                                                                    columnNumber: 21
+                                                                }, this),
+                                                                /*#__PURE__*/ _jsxDEV(SelectContent, {
+                                                                    children: [
+                                                                        /*#__PURE__*/ _jsxDEV(SelectItem, {
+                                                                            value: "all",
+                                                                            children: "All Users"
+                                                                        }, void 0, false, {
+                                                                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                                            lineNumber: 359,
+                                                                            columnNumber: 23
+                                                                        }, this),
+                                                                        /*#__PURE__*/ _jsxDEV(SelectItem, {
+                                                                            value: "students",
+                                                                            children: "All Students"
+                                                                        }, void 0, false, {
+                                                                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                                            lineNumber: 360,
+                                                                            columnNumber: 23
+                                                                        }, this),
+                                                                        /*#__PURE__*/ _jsxDEV(SelectItem, {
+                                                                            value: "teachers",
+                                                                            children: "All Teachers"
+                                                                        }, void 0, false, {
+                                                                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                                            lineNumber: 361,
+                                                                            columnNumber: 23
+                                                                        }, this),
+                                                                        /*#__PURE__*/ _jsxDEV(SelectItem, {
+                                                                            value: "courses",
+                                                                            children: "Specific Courses"
+                                                                        }, void 0, false, {
+                                                                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                                            lineNumber: 362,
+                                                                            columnNumber: 23
+                                                                        }, this)
+                                                                    ]
+                                                                }, void 0, true, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                                    lineNumber: 358,
+                                                                    columnNumber: 21
+                                                                }, this)
+                                                            ]
+                                                        }, void 0, true, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                            lineNumber: 354,
+                                                            columnNumber: 19
+                                                        }, this)
+                                                    ]
+                                                }, void 0, true, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                    lineNumber: 352,
+                                                    columnNumber: 17
+                                                }, this),
+                                                selectedAudience === "courses" && /*#__PURE__*/ _jsxDEV("div", {
+                                                    className: "space-y-2",
+                                                    children: [
+                                                        /*#__PURE__*/ _jsxDEV(Label, {
+                                                            children: "Select Courses"
+                                                        }, void 0, false, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                            lineNumber: 370,
+                                                            columnNumber: 21
+                                                        }, this),
+                                                        /*#__PURE__*/ _jsxDEV("div", {
+                                                            className: "border border-border rounded-lg p-3 space-y-2 max-h-40 overflow-y-auto",
+                                                            children: coursesList.map((course)=>/*#__PURE__*/ _jsxDEV("div", {
+                                                                    className: "flex items-center gap-2",
+                                                                    children: [
+                                                                        /*#__PURE__*/ _jsxDEV(Checkbox, {
+                                                                            id: `course-${course.id}`,
+                                                                            checked: selectedCourses.includes(course.id),
+                                                                            onCheckedChange: ()=>handleCourseToggle(course.id)
+                                                                        }, void 0, false, {
+                                                                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                                            lineNumber: 374,
+                                                                            columnNumber: 27
+                                                                        }, this),
+                                                                        /*#__PURE__*/ _jsxDEV(Label, {
+                                                                            htmlFor: `course-${course.id}`,
+                                                                            className: "font-normal flex-1 cursor-pointer",
+                                                                            children: course.title
+                                                                        }, void 0, false, {
+                                                                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                                            lineNumber: 379,
+                                                                            columnNumber: 27
+                                                                        }, this)
+                                                                    ]
+                                                                }, course.id, true, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                                    lineNumber: 373,
+                                                                    columnNumber: 25
+                                                                }, this))
+                                                        }, void 0, false, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                            lineNumber: 371,
+                                                            columnNumber: 21
+                                                        }, this)
+                                                    ]
+                                                }, void 0, true, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                    lineNumber: 369,
+                                                    columnNumber: 19
+                                                }, this),
+                                                /*#__PURE__*/ _jsxDEV("div", {
+                                                    className: "space-y-2",
+                                                    children: [
+                                                        /*#__PURE__*/ _jsxDEV(Label, {
+                                                            htmlFor: "title",
+                                                            children: "Title"
+                                                        }, void 0, false, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                            lineNumber: 390,
+                                                            columnNumber: 19
+                                                        }, this),
+                                                        /*#__PURE__*/ _jsxDEV(Input, {
+                                                            id: "title",
+                                                            placeholder: "Enter notification title",
+                                                            value: title,
+                                                            onChange: (e)=>setTitle(e.target.value)
+                                                        }, void 0, false, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                            lineNumber: 391,
+                                                            columnNumber: 19
+                                                        }, this)
+                                                    ]
+                                                }, void 0, true, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                    lineNumber: 389,
+                                                    columnNumber: 17
+                                                }, this),
+                                                /*#__PURE__*/ _jsxDEV("div", {
+                                                    className: "space-y-2",
+                                                    children: [
+                                                        /*#__PURE__*/ _jsxDEV(Label, {
+                                                            htmlFor: "message",
+                                                            children: "Message"
+                                                        }, void 0, false, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                            lineNumber: 401,
+                                                            columnNumber: 19
+                                                        }, this),
+                                                        /*#__PURE__*/ _jsxDEV(Textarea, {
+                                                            id: "message",
+                                                            placeholder: "Enter your notification message...",
+                                                            rows: 4,
+                                                            value: message,
+                                                            onChange: (e)=>setMessage(e.target.value)
+                                                        }, void 0, false, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                            lineNumber: 402,
+                                                            columnNumber: 19
+                                                        }, this)
+                                                    ]
+                                                }, void 0, true, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                    lineNumber: 400,
+                                                    columnNumber: 17
+                                                }, this)
+                                            ]
+                                        }, void 0, true, {
+                                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                            lineNumber: 326,
+                                            columnNumber: 15
+                                        }, this),
+                                        /*#__PURE__*/ _jsxDEV(DialogFooter, {
+                                            children: [
+                                                /*#__PURE__*/ _jsxDEV(Button, {
+                                                    variant: "outline",
+                                                    onClick: ()=>setCreateModalOpen(false),
+                                                    children: "Cancel"
+                                                }, void 0, false, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                    lineNumber: 413,
+                                                    columnNumber: 17
+                                                }, this),
+                                                /*#__PURE__*/ _jsxDEV(Button, {
+                                                    className: "gap-2",
+                                                    onClick: handleSendNotification,
+                                                    children: [
+                                                        /*#__PURE__*/ _jsxDEV(Send, {
+                                                            className: "h-4 w-4"
+                                                        }, void 0, false, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                            lineNumber: 417,
+                                                            columnNumber: 19
+                                                        }, this),
+                                                        "Send Notification"
+                                                    ]
+                                                }, void 0, true, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                    lineNumber: 416,
+                                                    columnNumber: 17
+                                                }, this)
+                                            ]
+                                        }, void 0, true, {
+                                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                            lineNumber: 412,
+                                            columnNumber: 15
+                                        }, this)
+                                    ]
+                                }, void 0, true, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                    lineNumber: 319,
+                                    columnNumber: 13
+                                }, this)
+                            ]
+                        }, void 0, true, {
+                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                            lineNumber: 312,
+                            columnNumber: 11
+                        }, this)
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                    lineNumber: 303,
+                    columnNumber: 9
+                }, this),
+                /*#__PURE__*/ _jsxDEV("div", {
+                    className: "grid gap-4 md:grid-cols-4",
+                    children: /*#__PURE__*/ _jsxDEV(Card, {
+                        children: /*#__PURE__*/ _jsxDEV(CardContent, {
+                            className: "p-4 flex items-center gap-4",
+                            children: [
+                                /*#__PURE__*/ _jsxDEV("div", {
+                                    className: "p-3 rounded-lg bg-primary/10",
+                                    children: /*#__PURE__*/ _jsxDEV(Bell, {
+                                        className: "h-5 w-5 text-primary"
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                        lineNumber: 430,
+                                        columnNumber: 17
+                                    }, this)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                    lineNumber: 429,
+                                    columnNumber: 15
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV("div", {
+                                    children: [
+                                        /*#__PURE__*/ _jsxDEV("p", {
+                                            className: "text-2xl font-bold",
+                                            children: notificationsHistory.length
+                                        }, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                            lineNumber: 433,
+                                            columnNumber: 17
+                                        }, this),
+                                        /*#__PURE__*/ _jsxDEV("p", {
+                                            className: "text-sm text-muted-foreground",
+                                            children: "Total Sent"
+                                        }, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                            lineNumber: 434,
+                                            columnNumber: 17
+                                        }, this)
+                                    ]
+                                }, void 0, true, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                    lineNumber: 432,
+                                    columnNumber: 15
+                                }, this)
+                            ]
+                        }, void 0, true, {
+                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                            lineNumber: 428,
+                            columnNumber: 13
+                        }, this)
+                    }, void 0, false, {
+                        fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                        lineNumber: 427,
+                        columnNumber: 11
+                    }, this)
+                }, void 0, false, {
+                    fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                    lineNumber: 426,
+                    columnNumber: 9
+                }, this),
+                /*#__PURE__*/ _jsxDEV(Tabs, {
+                    value: activeTab,
+                    onValueChange: setActiveTab,
+                    children: [
+                        /*#__PURE__*/ _jsxDEV(TabsList, {
+                            children: [
+                                /*#__PURE__*/ _jsxDEV(TabsTrigger, {
+                                    value: "history",
+                                    className: "gap-2",
+                                    children: [
+                                        /*#__PURE__*/ _jsxDEV(Clock, {
+                                            className: "h-4 w-4"
+                                        }, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                            lineNumber: 444,
+                                            columnNumber: 15
+                                        }, this),
+                                        "History"
+                                    ]
+                                }, void 0, true, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                    lineNumber: 443,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(TabsTrigger, {
+                                    value: "templates",
+                                    className: "gap-2",
+                                    children: [
+                                        /*#__PURE__*/ _jsxDEV(Megaphone, {
+                                            className: "h-4 w-4"
+                                        }, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                            lineNumber: 448,
+                                            columnNumber: 15
+                                        }, this),
+                                        "Templates"
+                                    ]
+                                }, void 0, true, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                    lineNumber: 447,
+                                    columnNumber: 13
+                                }, this)
+                            ]
+                        }, void 0, true, {
+                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                            lineNumber: 442,
+                            columnNumber: 11
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV(TabsContent, {
+                            value: "history",
+                            className: "mt-6",
+                            children: /*#__PURE__*/ _jsxDEV(DataTable, {
+                                data: notificationsHistory,
+                                columns: historyColumns,
+                                searchPlaceholder: "Search notifications..."
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                lineNumber: 454,
+                                columnNumber: 13
+                            }, this)
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                            lineNumber: 453,
+                            columnNumber: 11
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV(TabsContent, {
+                            value: "templates",
+                            className: "mt-6",
+                            children: /*#__PURE__*/ _jsxDEV("div", {
+                                className: "grid gap-4 sm:grid-cols-2",
+                                children: templates.map((template)=>/*#__PURE__*/ _jsxDEV(Card, {
+                                        className: "hover:shadow-md transition-shadow",
+                                        children: [
+                                            /*#__PURE__*/ _jsxDEV(CardHeader, {
+                                                className: "pb-2",
+                                                children: /*#__PURE__*/ _jsxDEV(CardTitle, {
+                                                    className: "text-base",
+                                                    children: template.name
+                                                }, void 0, false, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                    lineNumber: 466,
+                                                    columnNumber: 21
+                                                }, this)
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                lineNumber: 465,
+                                                columnNumber: 19
+                                            }, this),
+                                            /*#__PURE__*/ _jsxDEV(CardContent, {
+                                                children: [
+                                                    /*#__PURE__*/ _jsxDEV("p", {
+                                                        className: "text-sm text-muted-foreground mb-4",
+                                                        children: template.content
+                                                    }, void 0, false, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                        lineNumber: 469,
+                                                        columnNumber: 21
+                                                    }, this),
+                                                    /*#__PURE__*/ _jsxDEV(Button, {
+                                                        variant: "outline",
+                                                        size: "sm",
+                                                        onClick: ()=>handleTemplateSelect(template.id),
+                                                        children: "Use Template"
+                                                    }, void 0, false, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                        lineNumber: 470,
+                                                        columnNumber: 21
+                                                    }, this)
+                                                ]
+                                            }, void 0, true, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                                lineNumber: 468,
+                                                columnNumber: 19
+                                            }, this)
+                                        ]
+                                    }, template.id, true, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                        lineNumber: 464,
+                                        columnNumber: 17
+                                    }, this))
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                                lineNumber: 462,
+                                columnNumber: 13
+                            }, this)
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                            lineNumber: 461,
+                            columnNumber: 11
+                        }, this)
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+                    lineNumber: 441,
+                    columnNumber: 9
+                }, this)
+            ]
+        }, void 0, true, {
+            fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+            lineNumber: 301,
+            columnNumber: 7
+        }, this)
+    }, void 0, false, {
+        fileName: "D:/Orbitlms/src/pages/admin/Notifications.tsx",
+        lineNumber: 300,
+        columnNumber: 5
+    }, this);
+}
+_s(Notifications, "qeuE7tkXHLV6j4f8lSP6Ws/Wkco=", false, function() {
+    return [
+        useToast
+    ];
+});
+_c = Notifications;
+var _c;
+$RefreshReg$(_c, "Notifications");
+
+
+if (import.meta.hot && !inWebWorker) {
+  window.$RefreshReg$ = prevRefreshReg;
+  window.$RefreshSig$ = prevRefreshSig;
+}
+
+
+if (import.meta.hot && !inWebWorker) {
+  RefreshRuntime.__hmr_import(import.meta.url).then((currentExports) => {
+    RefreshRuntime.registerExportsForReactRefresh("D:/Orbitlms/src/pages/admin/Notifications.tsx", currentExports);
+    import.meta.hot.accept((nextExports) => {
+      if (!nextExports) return;
+      const invalidateMessage = RefreshRuntime.validateRefreshBoundaryAndEnqueueUpdate("D:/Orbitlms/src/pages/admin/Notifications.tsx", currentExports, nextExports);
+      if (invalidateMessage) import.meta.hot.invalidate(invalidateMessage);
+    });
+  });
+}
+
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbIk5vdGlmaWNhdGlvbnMudHN4Il0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7IHVzZVN0YXRlLCB1c2VFZmZlY3QgfSBmcm9tIFwicmVhY3RcIjtcclxuaW1wb3J0IHsgQWRtaW5MYXlvdXQgfSBmcm9tIFwiQC9jb21wb25lbnRzL2xheW91dC9BZG1pbkxheW91dFwiO1xyXG5pbXBvcnQgeyBEYXRhVGFibGUgfSBmcm9tIFwiQC9jb21wb25lbnRzL3VpL2RhdGEtdGFibGVcIjtcclxuaW1wb3J0IHsgQnV0dG9uIH0gZnJvbSBcIkAvY29tcG9uZW50cy91aS9idXR0b25cIjtcclxuaW1wb3J0IHsgQmFkZ2UgfSBmcm9tIFwiQC9jb21wb25lbnRzL3VpL2JhZGdlXCI7XHJcbmltcG9ydCB7IElucHV0IH0gZnJvbSBcIkAvY29tcG9uZW50cy91aS9pbnB1dFwiO1xyXG5pbXBvcnQgeyBMYWJlbCB9IGZyb20gXCJAL2NvbXBvbmVudHMvdWkvbGFiZWxcIjtcclxuaW1wb3J0IHsgVGV4dGFyZWEgfSBmcm9tIFwiQC9jb21wb25lbnRzL3VpL3RleHRhcmVhXCI7XHJcbmltcG9ydCB7IENhcmQsIENhcmRDb250ZW50LCBDYXJkSGVhZGVyLCBDYXJkVGl0bGUgfSBmcm9tIFwiQC9jb21wb25lbnRzL3VpL2NhcmRcIjtcclxuaW1wb3J0IHsgVGFicywgVGFic0NvbnRlbnQsIFRhYnNMaXN0LCBUYWJzVHJpZ2dlciB9IGZyb20gXCJAL2NvbXBvbmVudHMvdWkvdGFic1wiO1xyXG5pbXBvcnQgeyBDaGVja2JveCB9IGZyb20gXCJAL2NvbXBvbmVudHMvdWkvY2hlY2tib3hcIjtcclxuaW1wb3J0IHtcclxuICBEaWFsb2csXHJcbiAgRGlhbG9nQ29udGVudCxcclxuICBEaWFsb2dEZXNjcmlwdGlvbixcclxuICBEaWFsb2dGb290ZXIsXHJcbiAgRGlhbG9nSGVhZGVyLFxyXG4gIERpYWxvZ1RpdGxlLFxyXG4gIERpYWxvZ1RyaWdnZXIsXHJcbn0gZnJvbSBcIkAvY29tcG9uZW50cy91aS9kaWFsb2dcIjtcclxuaW1wb3J0IHtcclxuICBTZWxlY3QsXHJcbiAgU2VsZWN0Q29udGVudCxcclxuICBTZWxlY3RJdGVtLFxyXG4gIFNlbGVjdFRyaWdnZXIsXHJcbiAgU2VsZWN0VmFsdWUsXHJcbn0gZnJvbSBcIkAvY29tcG9uZW50cy91aS9zZWxlY3RcIjtcclxuaW1wb3J0IHtcclxuICBCZWxsLFxyXG4gIFBsdXMsXHJcbiAgU2VuZCxcclxuICBVc2VycyxcclxuICBHcmFkdWF0aW9uQ2FwLFxyXG4gIEJvb2tPcGVuLFxyXG4gIENsb2NrLFxyXG4gIENoZWNrQ2lyY2xlLFxyXG4gIEFsZXJ0Q2lyY2xlLFxyXG4gIEluZm8sXHJcbiAgTWVnYXBob25lLFxyXG59IGZyb20gXCJsdWNpZGUtcmVhY3RcIjtcclxuaW1wb3J0IHsgc3VwYWJhc2UgfSBmcm9tIFwiQC9saWIvc3VwYWJhc2VcIjtcclxuaW1wb3J0IHsgdXNlVG9hc3QgfSBmcm9tIFwiQC9ob29rcy91c2UtdG9hc3RcIjtcclxuXHJcbi8vIFRlbXBsYXRlcyBjYW4gcmVtYWluIHN0YXRpYyBvciBiZSBtb3ZlZCB0byBEQiBsYXRlclxyXG5jb25zdCB0ZW1wbGF0ZXMgPSBbXHJcbiAgeyBpZDogMSwgbmFtZTogXCJBc3NpZ25tZW50IFJlbWluZGVyXCIsIGNvbnRlbnQ6IFwiVGhpcyBpcyBhIHJlbWluZGVyIHRoYXQgW0FTU0lHTk1FTlRdIGlzIGR1ZSBvbiBbREFURV0uIFBsZWFzZSBlbnN1cmUgeW91ciBzdWJtaXNzaW9uIGlzIGNvbXBsZXRlLlwiIH0sXHJcbiAgeyBpZDogMiwgbmFtZTogXCJDb3Vyc2UgVXBkYXRlXCIsIGNvbnRlbnQ6IFwiV2UgaGF2ZSB1cGRhdGVkIHRoZSBjb3Vyc2UgbWF0ZXJpYWxzIGZvciBbQ09VUlNFXS4gUGxlYXNlIHJldmlldyB0aGUgbmV3IGNvbnRlbnQuXCIgfSxcclxuICB7IGlkOiAzLCBuYW1lOiBcIk1haW50ZW5hbmNlIE5vdGljZVwiLCBjb250ZW50OiBcIlRoZSBwbGF0Zm9ybSB3aWxsIHVuZGVyZ28gbWFpbnRlbmFuY2Ugb24gW0RBVEVdIGZyb20gW1RJTUVdIHRvIFtUSU1FXS4gUGxlYXNlIHNhdmUgeW91ciB3b3JrLlwiIH0sXHJcbiAgeyBpZDogNCwgbmFtZTogXCJXZWxjb21lIE1lc3NhZ2VcIiwgY29udGVudDogXCJXZWxjb21lIHRvIFtDT1VSU0VdISBXZSdyZSBleGNpdGVkIHRvIGhhdmUgeW91LiBHZXQgc3RhcnRlZCBieSByZXZpZXdpbmcgdGhlIGNvdXJzZSBvdXRsaW5lLlwiIH0sXHJcbl07XHJcblxyXG5leHBvcnQgZGVmYXVsdCBmdW5jdGlvbiBOb3RpZmljYXRpb25zKCkge1xyXG4gIGNvbnN0IHsgdG9hc3QgfSA9IHVzZVRvYXN0KCk7XHJcbiAgY29uc3QgW2FjdGl2ZVRhYiwgc2V0QWN0aXZlVGFiXSA9IHVzZVN0YXRlKFwiaGlzdG9yeVwiKTtcclxuICBjb25zdCBbY3JlYXRlTW9kYWxPcGVuLCBzZXRDcmVhdGVNb2RhbE9wZW5dID0gdXNlU3RhdGUoZmFsc2UpO1xyXG4gIGNvbnN0IFtzZWxlY3RlZEF1ZGllbmNlLCBzZXRTZWxlY3RlZEF1ZGllbmNlXSA9IHVzZVN0YXRlKFwiYWxsXCIpO1xyXG4gIGNvbnN0IFtzZWxlY3RlZENvdXJzZXMsIHNldFNlbGVjdGVkQ291cnNlc10gPSB1c2VTdGF0ZTxudW1iZXJbXT4oW10pO1xyXG4gIGNvbnN0IFtub3RpZmljYXRpb25UeXBlLCBzZXROb3RpZmljYXRpb25UeXBlXSA9IHVzZVN0YXRlKFwiYW5ub3VuY2VtZW50XCIpO1xyXG4gIGNvbnN0IFt0aXRsZSwgc2V0VGl0bGVdID0gdXNlU3RhdGUoXCJcIik7XHJcbiAgY29uc3QgW21lc3NhZ2UsIHNldE1lc3NhZ2VdID0gdXNlU3RhdGUoXCJcIik7XHJcblxyXG4gIGNvbnN0IFtub3RpZmljYXRpb25zSGlzdG9yeSwgc2V0Tm90aWZpY2F0aW9uc0hpc3RvcnldID0gdXNlU3RhdGU8YW55W10+KFtdKTtcclxuICBjb25zdCBbY291cnNlc0xpc3QsIHNldENvdXJzZXNMaXN0XSA9IHVzZVN0YXRlPGFueVtdPihbXSk7XHJcbiAgY29uc3QgW2xvYWRpbmcsIHNldExvYWRpbmddID0gdXNlU3RhdGUodHJ1ZSk7XHJcblxyXG4gIHVzZUVmZmVjdCgoKSA9PiB7XHJcbiAgICBmZXRjaERhdGEoKTtcclxuICB9LCBbXSk7XHJcblxyXG4gIGNvbnN0IGZldGNoRGF0YSA9IGFzeW5jICgpID0+IHtcclxuICAgIHNldExvYWRpbmcodHJ1ZSk7XHJcbiAgICAvLyBGZXRjaCBOb3RpZmljYXRpb25zXHJcbiAgICBjb25zdCB7IGRhdGE6IG5vdGlmcywgZXJyb3IgfSA9IGF3YWl0IHN1cGFiYXNlXHJcbiAgICAgIC5mcm9tKCdub3RpZmljYXRpb25zJylcclxuICAgICAgLnNlbGVjdCgnaWQsIHRpdGxlLCBtZXNzYWdlLCB2aXNpYmlsaXR5LCBub3RpZmljYXRpb25fdHlwZSwgY3JlYXRlZF9hdCcpXHJcbiAgICAgIC5vcmRlcignY3JlYXRlZF9hdCcsIHsgYXNjZW5kaW5nOiBmYWxzZSB9KTtcclxuXHJcbiAgICBpZiAobm90aWZzKSB7XHJcbiAgICAgIHNldE5vdGlmaWNhdGlvbnNIaXN0b3J5KG5vdGlmcy5tYXAoKG46IGFueSkgPT4gKHtcclxuICAgICAgICBpZDogbi5pZCxcclxuICAgICAgICB0aXRsZTogbi50aXRsZSxcclxuICAgICAgICBtZXNzYWdlOiBuLm1lc3NhZ2UsXHJcbiAgICAgICAgYXVkaWVuY2U6IG4udmlzaWJpbGl0eSB8fCBcImFsbFwiLFxyXG4gICAgICAgIHR5cGU6IG4ubm90aWZpY2F0aW9uX3R5cGUgfHwgXCJhbm5vdW5jZW1lbnRcIixcclxuICAgICAgICBzdGF0dXM6IFwic2VudFwiLFxyXG4gICAgICAgIHNlbnRBdDogbmV3IERhdGUobi5jcmVhdGVkX2F0KS50b0xvY2FsZVN0cmluZygpLFxyXG4gICAgICAgIHJlYWRSYXRlOiAwIC8vIFJlcXVpcmVzIHRyYWNraW5nXHJcbiAgICAgIH0pKSk7XHJcbiAgICB9XHJcblxyXG4gICAgLy8gRmV0Y2ggQ291cnNlcyBmb3Igc2VsZWN0aW9uXHJcbiAgICBjb25zdCB7IGRhdGE6IGNvdXJzZXMgfSA9IGF3YWl0IHN1cGFiYXNlLmZyb20oJ2NvdXJzZXMnKS5zZWxlY3QoJ2lkLCB0aXRsZScpOyAvLyB0aXRsZSBpbnN0ZWFkIG9mIG5hbWVcclxuICAgIGlmIChjb3Vyc2VzKSB7XHJcbiAgICAgIHNldENvdXJzZXNMaXN0KGNvdXJzZXMpO1xyXG4gICAgfVxyXG4gICAgc2V0TG9hZGluZyhmYWxzZSk7XHJcbiAgfTtcclxuXHJcbiAgY29uc3QgaGFuZGxlU2VuZE5vdGlmaWNhdGlvbiA9IGFzeW5jICgpID0+IHtcclxuICAgIGlmICghdGl0bGUgfHwgIW1lc3NhZ2UpIHtcclxuICAgICAgdG9hc3QoeyB2YXJpYW50OiBcImRlc3RydWN0aXZlXCIsIHRpdGxlOiBcIk1pc3NpbmcgZmllbGRzXCIsIGRlc2NyaXB0aW9uOiBcIlBsZWFzZSBlbnRlciB0aXRsZSBhbmQgbWVzc2FnZS5cIiB9KTtcclxuICAgICAgcmV0dXJuO1xyXG4gICAgfVxyXG5cclxuICAgIGlmIChzZWxlY3RlZEF1ZGllbmNlID09PSBcImNvdXJzZXNcIiAmJiBzZWxlY3RlZENvdXJzZXMubGVuZ3RoID09PSAwKSB7XHJcbiAgICAgIHRvYXN0KHsgdmFyaWFudDogXCJkZXN0cnVjdGl2ZVwiLCB0aXRsZTogXCJObyBjb3Vyc2VzIHNlbGVjdGVkXCIsIGRlc2NyaXB0aW9uOiBcIlBsZWFzZSBzZWxlY3QgYXQgbGVhc3Qgb25lIGNvdXJzZS5cIiB9KTtcclxuICAgICAgcmV0dXJuO1xyXG4gICAgfVxyXG5cclxuICAgIHRyeSB7XHJcbiAgICAgIGNvbnN0IHsgZGF0YTogeyB1c2VyIH0gfSA9IGF3YWl0IHN1cGFiYXNlLmF1dGguZ2V0VXNlcigpO1xyXG4gICAgICBpZiAoIXVzZXIpIHRocm93IG5ldyBFcnJvcihcIk5vdCBhdXRoZW50aWNhdGVkXCIpO1xyXG5cclxuICAgICAgLy8gR2V0IHVzZXIgcm9sZVxyXG4gICAgICBjb25zdCB7IGRhdGE6IHVzZXJEYXRhIH0gPSBhd2FpdCBzdXBhYmFzZVxyXG4gICAgICAgIC5mcm9tKCd1c2VycycpXHJcbiAgICAgICAgLnNlbGVjdCgncm9sZScpXHJcbiAgICAgICAgLmVxKCdpZCcsIHVzZXIuaWQpXHJcbiAgICAgICAgLnNpbmdsZSgpO1xyXG5cclxuICAgICAgY29uc3QgdXNlclJvbGUgPSB1c2VyRGF0YT8ucm9sZSB8fCAnYWRtaW4nO1xyXG4gICAgICBjb25zdCBwcmlvcml0eSA9IHVzZXJSb2xlID09PSAnYWRtaW4nID8gMiA6IDE7XHJcblxyXG4gICAgICBpZiAoc2VsZWN0ZWRBdWRpZW5jZSA9PT0gXCJjb3Vyc2VzXCIpIHtcclxuICAgICAgICAvLyBTZW5kIHRvIHNwZWNpZmljIGNvdXJzZXMgdXNpbmcgUlBDIGZ1bmN0aW9uXHJcbiAgICAgICAgbGV0IHRvdGFsU2VudCA9IDA7XHJcbiAgICAgICAgZm9yIChjb25zdCBjb3Vyc2VJZCBvZiBzZWxlY3RlZENvdXJzZXMpIHtcclxuICAgICAgICAgIGNvbnN0IHsgZGF0YTogY291bnQsIGVycm9yIH0gPSBhd2FpdCBzdXBhYmFzZS5ycGMoJ3hfbl9jX3MnLCB7XHJcbiAgICAgICAgICAgIHBfY291cnNlX2lkOiBjb3Vyc2VJZCxcclxuICAgICAgICAgICAgcF90aXRsZTogdGl0bGUsXHJcbiAgICAgICAgICAgIHBfbWVzc2FnZTogbWVzc2FnZSxcclxuICAgICAgICAgICAgcF9ub3RpZmljYXRpb25fdHlwZTogbm90aWZpY2F0aW9uVHlwZSxcclxuICAgICAgICAgICAgcF9zZW5kZXJfaWQ6IHVzZXIuaWQsXHJcbiAgICAgICAgICAgIHBfc2VuZGVyX3JvbGU6IHVzZXJSb2xlLFxyXG4gICAgICAgICAgICBwX3ByaW9yaXR5OiBwcmlvcml0eVxyXG4gICAgICAgICAgfSk7XHJcblxyXG4gICAgICAgICAgaWYgKGVycm9yKSB0aHJvdyBlcnJvcjtcclxuICAgICAgICAgIHRvdGFsU2VudCArPSAoY291bnQgfHwgMCk7XHJcbiAgICAgICAgfVxyXG5cclxuICAgICAgICB0b2FzdCh7XHJcbiAgICAgICAgICB0aXRsZTogXCJOb3RpZmljYXRpb25zIFNlbnRcIixcclxuICAgICAgICAgIGRlc2NyaXB0aW9uOiBgU3VjY2Vzc2Z1bGx5IHNlbnQgJHt0b3RhbFNlbnR9IG5vdGlmaWNhdGlvbnMgdG8gJHtzZWxlY3RlZENvdXJzZXMubGVuZ3RofSBjb3Vyc2UocykuYFxyXG4gICAgICAgIH0pO1xyXG4gICAgICB9IGVsc2Uge1xyXG4gICAgICAgIC8vIFNlbmQgdG8gYWxsIHVzZXJzIG9mIGEgc3BlY2lmaWMgcm9sZVxyXG4gICAgICAgIGxldCB0YXJnZXRVc2VyczogYW55W10gPSBbXTtcclxuXHJcbiAgICAgICAgaWYgKHNlbGVjdGVkQXVkaWVuY2UgPT09IFwiYWxsXCIpIHtcclxuICAgICAgICAgIGNvbnN0IHsgZGF0YSB9ID0gYXdhaXQgc3VwYWJhc2UuZnJvbSgndXNlcnMnKS5zZWxlY3QoJ2lkJyk7XHJcbiAgICAgICAgICB0YXJnZXRVc2VycyA9IGRhdGEgfHwgW107XHJcbiAgICAgICAgfSBlbHNlIGlmIChzZWxlY3RlZEF1ZGllbmNlID09PSBcInN0dWRlbnRzXCIpIHtcclxuICAgICAgICAgIGNvbnN0IHsgZGF0YSB9ID0gYXdhaXQgc3VwYWJhc2UuZnJvbSgndXNlcnMnKS5zZWxlY3QoJ2lkJykuZXEoJ3JvbGUnLCAnc3R1ZGVudCcpO1xyXG4gICAgICAgICAgdGFyZ2V0VXNlcnMgPSBkYXRhIHx8IFtdO1xyXG4gICAgICAgIH0gZWxzZSBpZiAoc2VsZWN0ZWRBdWRpZW5jZSA9PT0gXCJ0ZWFjaGVyc1wiKSB7XHJcbiAgICAgICAgICBjb25zdCB7IGRhdGEgfSA9IGF3YWl0IHN1cGFiYXNlLmZyb20oJ3VzZXJzJykuc2VsZWN0KCdpZCcpLmVxKCdyb2xlJywgJ3RlYWNoZXInKTtcclxuICAgICAgICAgIHRhcmdldFVzZXJzID0gZGF0YSB8fCBbXTtcclxuICAgICAgICB9XHJcblxyXG4gICAgICAgIC8vIEluc2VydCBub3RpZmljYXRpb25zIGZvciBlYWNoIHVzZXJcclxuICAgICAgICBjb25zdCBub3RpZmljYXRpb25zID0gdGFyZ2V0VXNlcnMubWFwKHUgPT4gKHtcclxuICAgICAgICAgIHVzZXJfaWQ6IHUuaWQsXHJcbiAgICAgICAgICB0aXRsZSxcclxuICAgICAgICAgIG1lc3NhZ2UsXHJcbiAgICAgICAgICBub3RpZmljYXRpb25fdHlwZTogbm90aWZpY2F0aW9uVHlwZSxcclxuICAgICAgICAgIHByaW9yaXR5LFxyXG4gICAgICAgICAgc2VuZGVyX3JvbGU6IHVzZXJSb2xlLFxyXG4gICAgICAgICAgdmlzaWJpbGl0eTogc2VsZWN0ZWRBdWRpZW5jZSxcclxuICAgICAgICAgIGNyZWF0ZWRfYXQ6IG5ldyBEYXRlKCkudG9JU09TdHJpbmcoKVxyXG4gICAgICAgIH0pKTtcclxuXHJcbiAgICAgICAgY29uc3QgeyBlcnJvciB9ID0gYXdhaXQgc3VwYWJhc2UuZnJvbSgnbm90aWZpY2F0aW9ucycpLmluc2VydChub3RpZmljYXRpb25zKTtcclxuICAgICAgICBpZiAoZXJyb3IpIHRocm93IGVycm9yO1xyXG5cclxuICAgICAgICB0b2FzdCh7XHJcbiAgICAgICAgICB0aXRsZTogXCJOb3RpZmljYXRpb25zIFNlbnRcIixcclxuICAgICAgICAgIGRlc2NyaXB0aW9uOiBgU3VjY2Vzc2Z1bGx5IHNlbnQgJHt0YXJnZXRVc2Vycy5sZW5ndGh9IG5vdGlmaWNhdGlvbnMuYFxyXG4gICAgICAgIH0pO1xyXG4gICAgICB9XHJcblxyXG4gICAgICBzZXRDcmVhdGVNb2RhbE9wZW4oZmFsc2UpO1xyXG4gICAgICBzZXRUaXRsZShcIlwiKTtcclxuICAgICAgc2V0TWVzc2FnZShcIlwiKTtcclxuICAgICAgc2V0U2VsZWN0ZWRDb3Vyc2VzKFtdKTtcclxuICAgICAgc2V0U2VsZWN0ZWRBdWRpZW5jZShcImFsbFwiKTtcclxuICAgICAgZmV0Y2hEYXRhKCk7IC8vIFJlZnJlc2ggbGlzdFxyXG5cclxuICAgIH0gY2F0Y2ggKGVycjogYW55KSB7XHJcbiAgICAgIGNvbnNvbGUuZXJyb3IoZXJyKTtcclxuICAgICAgdG9hc3QoeyB2YXJpYW50OiBcImRlc3RydWN0aXZlXCIsIHRpdGxlOiBcIkVycm9yXCIsIGRlc2NyaXB0aW9uOiBlcnIubWVzc2FnZSB9KTtcclxuICAgIH1cclxuICB9O1xyXG5cclxuICBjb25zdCBoYW5kbGVUZW1wbGF0ZVNlbGVjdCA9ICh0ZW1wbGF0ZUlkOiBudW1iZXIpID0+IHtcclxuICAgIGNvbnN0IHRlbXBsYXRlID0gdGVtcGxhdGVzLmZpbmQodCA9PiB0LmlkID09PSB0ZW1wbGF0ZUlkKTtcclxuICAgIGlmICh0ZW1wbGF0ZSkge1xyXG4gICAgICBzZXRNZXNzYWdlKHRlbXBsYXRlLmNvbnRlbnQpO1xyXG4gICAgICBzZXRDcmVhdGVNb2RhbE9wZW4odHJ1ZSk7XHJcbiAgICB9XHJcbiAgfTtcclxuXHJcbiAgY29uc3QgaGFuZGxlQ291cnNlVG9nZ2xlID0gKGNvdXJzZUlkOiBudW1iZXIpID0+IHtcclxuICAgIHNldFNlbGVjdGVkQ291cnNlcyhwcmV2ID0+XHJcbiAgICAgIHByZXYuaW5jbHVkZXMoY291cnNlSWQpXHJcbiAgICAgICAgPyBwcmV2LmZpbHRlcihpZCA9PiBpZCAhPT0gY291cnNlSWQpXHJcbiAgICAgICAgOiBbLi4ucHJldiwgY291cnNlSWRdXHJcbiAgICApO1xyXG4gIH07XHJcblxyXG4gIGNvbnN0IGdldEF1ZGllbmNlRGlzcGxheSA9IChhdWRpZW5jZTogc3RyaW5nKSA9PiB7XHJcbiAgICBpZiAoYXVkaWVuY2UgPT09IFwiYWxsXCIpIHJldHVybiB7IGxhYmVsOiBcIkFsbCBVc2Vyc1wiLCBpY29uOiBVc2VycyB9O1xyXG4gICAgaWYgKGF1ZGllbmNlID09PSBcInN0dWRlbnRzXCIpIHJldHVybiB7IGxhYmVsOiBcIkFsbCBTdHVkZW50c1wiLCBpY29uOiBVc2VycyB9O1xyXG4gICAgaWYgKGF1ZGllbmNlID09PSBcInRlYWNoZXJzXCIpIHJldHVybiB7IGxhYmVsOiBcIkFsbCBUZWFjaGVyc1wiLCBpY29uOiBHcmFkdWF0aW9uQ2FwIH07XHJcbiAgICBpZiAoYXVkaWVuY2Uuc3RhcnRzV2l0aChcImNvdXJzZTpcIikpIHJldHVybiB7IGxhYmVsOiBhdWRpZW5jZS5yZXBsYWNlKFwiY291cnNlOlwiLCBcIlwiKSwgaWNvbjogQm9va09wZW4gfTtcclxuICAgIHJldHVybiB7IGxhYmVsOiBhdWRpZW5jZSwgaWNvbjogVXNlcnMgfTtcclxuICB9O1xyXG5cclxuICBjb25zdCBnZXRUeXBlQ29uZmlnID0gKHR5cGU6IHN0cmluZykgPT4ge1xyXG4gICAgY29uc3QgY29uZmlncyA9IHtcclxuICAgICAgYW5ub3VuY2VtZW50OiB7IGxhYmVsOiBcIkFubm91bmNlbWVudFwiLCB2YXJpYW50OiBcImRlZmF1bHRcIiBhcyBjb25zdCwgaWNvbjogTWVnYXBob25lIH0sXHJcbiAgICAgIHJlbWluZGVyOiB7IGxhYmVsOiBcIlJlbWluZGVyXCIsIHZhcmlhbnQ6IFwid2FybmluZ1wiIGFzIGNvbnN0LCBpY29uOiBDbG9jayB9LFxyXG4gICAgICBhbGVydDogeyBsYWJlbDogXCJBbGVydFwiLCB2YXJpYW50OiBcImRlc3RydWN0aXZlXCIgYXMgY29uc3QsIGljb246IEFsZXJ0Q2lyY2xlIH0sXHJcbiAgICAgIHN5c3RlbTogeyBsYWJlbDogXCJTeXN0ZW1cIiwgdmFyaWFudDogXCJzZWNvbmRhcnlcIiBhcyBjb25zdCwgaWNvbjogSW5mbyB9LFxyXG4gICAgICBldmVudDogeyBsYWJlbDogXCJFdmVudFwiLCB2YXJpYW50OiBcImFjY2VudFwiIGFzIGNvbnN0LCBpY29uOiBCZWxsIH0sXHJcbiAgICB9O1xyXG4gICAgcmV0dXJuIGNvbmZpZ3NbdHlwZSBhcyBrZXlvZiB0eXBlb2YgY29uZmlnc10gfHwgY29uZmlncy5hbm5vdW5jZW1lbnQ7XHJcbiAgfTtcclxuXHJcbiAgY29uc3QgaGlzdG9yeUNvbHVtbnMgPSBbXHJcbiAgICB7XHJcbiAgICAgIGtleTogXCJ0aXRsZVwiLFxyXG4gICAgICBoZWFkZXI6IFwiTm90aWZpY2F0aW9uXCIsXHJcbiAgICAgIGNlbGw6IChyb3c6IGFueSkgPT4ge1xyXG4gICAgICAgIGNvbnN0IHR5cGVDb25maWcgPSBnZXRUeXBlQ29uZmlnKHJvdy50eXBlKTtcclxuICAgICAgICByZXR1cm4gKFxyXG4gICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJmbGV4IGl0ZW1zLXN0YXJ0IGdhcC0zXCI+XHJcbiAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPXtgcC0yIHJvdW5kZWQtbGcgYmctbXV0ZWRgfT5cclxuICAgICAgICAgICAgICA8dHlwZUNvbmZpZy5pY29uIGNsYXNzTmFtZT17YGgtNCB3LTQgdGV4dC1tdXRlZC1mb3JlZ3JvdW5kYH0gLz5cclxuICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgIDxkaXY+XHJcbiAgICAgICAgICAgICAgPHAgY2xhc3NOYW1lPVwiZm9udC1tZWRpdW1cIj57cm93LnRpdGxlfTwvcD5cclxuICAgICAgICAgICAgICA8cCBjbGFzc05hbWU9XCJ0ZXh0LXhzIHRleHQtbXV0ZWQtZm9yZWdyb3VuZCBsaW5lLWNsYW1wLTEgbWF4LXcteHNcIj57cm93Lm1lc3NhZ2V9PC9wPlxyXG4gICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICk7XHJcbiAgICAgIH0sXHJcbiAgICB9LFxyXG4gICAge1xyXG4gICAgICBrZXk6IFwidHlwZVwiLFxyXG4gICAgICBoZWFkZXI6IFwiVHlwZVwiLFxyXG4gICAgICBjZWxsOiAocm93OiBhbnkpID0+IHtcclxuICAgICAgICBjb25zdCBjb25maWcgPSBnZXRUeXBlQ29uZmlnKHJvdy50eXBlKTtcclxuICAgICAgICByZXR1cm4gPEJhZGdlIHZhcmlhbnQ9e2NvbmZpZy52YXJpYW50fT57Y29uZmlnLmxhYmVsfTwvQmFkZ2U+O1xyXG4gICAgICB9LFxyXG4gICAgfSxcclxuICAgIHtcclxuICAgICAga2V5OiBcImF1ZGllbmNlXCIsXHJcbiAgICAgIGhlYWRlcjogXCJBdWRpZW5jZVwiLFxyXG4gICAgICBjZWxsOiAocm93OiBhbnkpID0+IHtcclxuICAgICAgICBjb25zdCBkaXNwbGF5ID0gZ2V0QXVkaWVuY2VEaXNwbGF5KHJvdy5hdWRpZW5jZSk7XHJcbiAgICAgICAgcmV0dXJuIChcclxuICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZmxleCBpdGVtcy1jZW50ZXIgZ2FwLTJcIj5cclxuICAgICAgICAgICAgPGRpc3BsYXkuaWNvbiBjbGFzc05hbWU9XCJoLTQgdy00IHRleHQtbXV0ZWQtZm9yZWdyb3VuZFwiIC8+XHJcbiAgICAgICAgICAgIDxzcGFuIGNsYXNzTmFtZT1cInRleHQtc21cIj57ZGlzcGxheS5sYWJlbH08L3NwYW4+XHJcbiAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICApO1xyXG4gICAgICB9LFxyXG4gICAgfSxcclxuICAgIHtcclxuICAgICAga2V5OiBcInNlbnRBdFwiLFxyXG4gICAgICBoZWFkZXI6IFwiU2VudFwiLFxyXG4gICAgICBjZWxsOiAocm93OiBhbnkpID0+IChcclxuICAgICAgICA8c3BhbiBjbGFzc05hbWU9XCJ0ZXh0LW11dGVkLWZvcmVncm91bmQgdGV4dC1zbVwiPntyb3cuc2VudEF0fTwvc3Bhbj5cclxuICAgICAgKSxcclxuICAgIH0sXHJcbiAgICB7XHJcbiAgICAgIGtleTogXCJzdGF0dXNcIixcclxuICAgICAgaGVhZGVyOiBcIlN0YXR1c1wiLFxyXG4gICAgICBjZWxsOiAocm93OiBhbnkpID0+IChcclxuICAgICAgICA8QmFkZ2UgdmFyaWFudD17cm93LnN0YXR1cyA9PT0gXCJzZW50XCIgPyBcInN1Y2Nlc3NcIiA6IFwic2Vjb25kYXJ5XCJ9PlxyXG4gICAgICAgICAge3Jvdy5zdGF0dXMgPT09IFwic2VudFwiID8gKFxyXG4gICAgICAgICAgICA8PjxDaGVja0NpcmNsZSBjbGFzc05hbWU9XCJoLTMgdy0zIG1yLTFcIiAvPiBTZW50PC8+XHJcbiAgICAgICAgICApIDogKFxyXG4gICAgICAgICAgICA8PjxDbG9jayBjbGFzc05hbWU9XCJoLTMgdy0zIG1yLTFcIiAvPiBTY2hlZHVsZWQ8Lz5cclxuICAgICAgICAgICl9XHJcbiAgICAgICAgPC9CYWRnZT5cclxuICAgICAgKSxcclxuICAgIH0sXHJcbiAgICB7XHJcbiAgICAgIGtleTogXCJyZWFkUmF0ZVwiLFxyXG4gICAgICBoZWFkZXI6IFwiUmVhZCBSYXRlXCIsXHJcbiAgICAgIGNlbGw6IChyb3c6IGFueSkgPT4gKFxyXG4gICAgICAgIDxzcGFuIGNsYXNzTmFtZT1cInRleHQtbXV0ZWQtZm9yZWdyb3VuZFwiPi08L3NwYW4+XHJcbiAgICAgICksXHJcbiAgICB9LFxyXG4gIF07XHJcblxyXG4gIHJldHVybiAoXHJcbiAgICA8QWRtaW5MYXlvdXQ+XHJcbiAgICAgIDxkaXYgY2xhc3NOYW1lPVwic3BhY2UteS02IGFuaW1hdGUtZmFkZS1pblwiPlxyXG4gICAgICAgIHsvKiBIZWFkZXIgKi99XHJcbiAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJmbGV4IGZsZXgtY29sIGdhcC00IG1kOmZsZXgtcm93IG1kOml0ZW1zLWNlbnRlciBtZDpqdXN0aWZ5LWJldHdlZW5cIj5cclxuICAgICAgICAgIDxkaXY+XHJcbiAgICAgICAgICAgIDxoMSBjbGFzc05hbWU9XCJ0ZXh0LTJ4bCBsZzp0ZXh0LTN4bCBmb250LWRpc3BsYXkgZm9udC1ib2xkIHRleHQtZm9yZWdyb3VuZFwiPlxyXG4gICAgICAgICAgICAgIE5vdGlmaWNhdGlvbnNcclxuICAgICAgICAgICAgPC9oMT5cclxuICAgICAgICAgICAgPHAgY2xhc3NOYW1lPVwidGV4dC1tdXRlZC1mb3JlZ3JvdW5kIG10LTFcIj5cclxuICAgICAgICAgICAgICBTZW5kIGFubm91bmNlbWVudHMgYW5kIG1hbmFnZSBub3RpZmljYXRpb24gaGlzdG9yeVxyXG4gICAgICAgICAgICA8L3A+XHJcbiAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgIDxEaWFsb2cgb3Blbj17Y3JlYXRlTW9kYWxPcGVufSBvbk9wZW5DaGFuZ2U9e3NldENyZWF0ZU1vZGFsT3Blbn0+XHJcbiAgICAgICAgICAgIDxEaWFsb2dUcmlnZ2VyIGFzQ2hpbGQ+XHJcbiAgICAgICAgICAgICAgPEJ1dHRvbiBjbGFzc05hbWU9XCJnYXAtMlwiPlxyXG4gICAgICAgICAgICAgICAgPFBsdXMgY2xhc3NOYW1lPVwiaC00IHctNFwiIC8+XHJcbiAgICAgICAgICAgICAgICBOZXcgTm90aWZpY2F0aW9uXHJcbiAgICAgICAgICAgICAgPC9CdXR0b24+XHJcbiAgICAgICAgICAgIDwvRGlhbG9nVHJpZ2dlcj5cclxuICAgICAgICAgICAgPERpYWxvZ0NvbnRlbnQgY2xhc3NOYW1lPVwic206bWF4LXcteGxcIj5cclxuICAgICAgICAgICAgICA8RGlhbG9nSGVhZGVyPlxyXG4gICAgICAgICAgICAgICAgPERpYWxvZ1RpdGxlPkNyZWF0ZSBOb3RpZmljYXRpb248L0RpYWxvZ1RpdGxlPlxyXG4gICAgICAgICAgICAgICAgPERpYWxvZ0Rlc2NyaXB0aW9uPlxyXG4gICAgICAgICAgICAgICAgICBTZW5kIGEgbm90aWZpY2F0aW9uIHRvIHN0dWRlbnRzLCB0ZWFjaGVycywgb3Igc3BlY2lmaWMgY291cnNlc1xyXG4gICAgICAgICAgICAgICAgPC9EaWFsb2dEZXNjcmlwdGlvbj5cclxuICAgICAgICAgICAgICA8L0RpYWxvZ0hlYWRlcj5cclxuICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInNwYWNlLXktNCBweS00IG1heC1oLVs2MHZoXSBvdmVyZmxvdy15LWF1dG9cIj5cclxuICAgICAgICAgICAgICAgIHsvKiBOb3RpZmljYXRpb24gVHlwZSAqL31cclxuICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwic3BhY2UteS0yXCI+XHJcbiAgICAgICAgICAgICAgICAgIDxMYWJlbD5Ob3RpZmljYXRpb24gVHlwZTwvTGFiZWw+XHJcbiAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZ3JpZCBncmlkLWNvbHMtMiBzbTpncmlkLWNvbHMtNCBnYXAtMlwiPlxyXG4gICAgICAgICAgICAgICAgICAgIHtbXCJhbm5vdW5jZW1lbnRcIiwgXCJyZW1pbmRlclwiLCBcImFsZXJ0XCIsIFwiZXZlbnRcIl0ubWFwKCh0eXBlKSA9PiB7XHJcbiAgICAgICAgICAgICAgICAgICAgICBjb25zdCBjb25maWcgPSBnZXRUeXBlQ29uZmlnKHR5cGUpO1xyXG4gICAgICAgICAgICAgICAgICAgICAgcmV0dXJuIChcclxuICAgICAgICAgICAgICAgICAgICAgICAgPGJ1dHRvblxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgIGtleT17dHlwZX1cclxuICAgICAgICAgICAgICAgICAgICAgICAgICBvbkNsaWNrPXsoKSA9PiBzZXROb3RpZmljYXRpb25UeXBlKHR5cGUpfVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgIGNsYXNzTmFtZT17YHAtMyByb3VuZGVkLWxnIGJvcmRlci0yIHRyYW5zaXRpb24tYWxsIHRleHQtY2VudGVyICR7bm90aWZpY2F0aW9uVHlwZSA9PT0gdHlwZVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgPyBcImJvcmRlci1wcmltYXJ5IGJnLXByaW1hcnkvNVwiXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICA6IFwiYm9yZGVyLWJvcmRlciBob3Zlcjpib3JkZXItbXV0ZWQtZm9yZWdyb3VuZC8zMFwiXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICB9YH1cclxuICAgICAgICAgICAgICAgICAgICAgICAgPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgIDxjb25maWcuaWNvbiBjbGFzc05hbWU9e2BoLTUgdy01IG14LWF1dG8gbWItMSAke25vdGlmaWNhdGlvblR5cGUgPT09IHR5cGUgPyBcInRleHQtcHJpbWFyeVwiIDogXCJ0ZXh0LW11dGVkLWZvcmVncm91bmRcIlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgfWB9IC8+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgPHNwYW4gY2xhc3NOYW1lPVwidGV4dC14cyBmb250LW1lZGl1bVwiPntjb25maWcubGFiZWx9PC9zcGFuPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICA8L2J1dHRvbj5cclxuICAgICAgICAgICAgICAgICAgICAgICk7XHJcbiAgICAgICAgICAgICAgICAgICAgfSl9XHJcbiAgICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgPC9kaXY+XHJcblxyXG4gICAgICAgICAgICAgICAgey8qIEF1ZGllbmNlIFNlbGVjdGlvbiAqL31cclxuICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwic3BhY2UteS0yXCI+XHJcbiAgICAgICAgICAgICAgICAgIDxMYWJlbD5TZWxlY3QgQXVkaWVuY2U8L0xhYmVsPlxyXG4gICAgICAgICAgICAgICAgICA8U2VsZWN0IHZhbHVlPXtzZWxlY3RlZEF1ZGllbmNlfSBvblZhbHVlQ2hhbmdlPXtzZXRTZWxlY3RlZEF1ZGllbmNlfT5cclxuICAgICAgICAgICAgICAgICAgICA8U2VsZWN0VHJpZ2dlcj5cclxuICAgICAgICAgICAgICAgICAgICAgIDxTZWxlY3RWYWx1ZSBwbGFjZWhvbGRlcj1cIkNob29zZSBhdWRpZW5jZVwiIC8+XHJcbiAgICAgICAgICAgICAgICAgICAgPC9TZWxlY3RUcmlnZ2VyPlxyXG4gICAgICAgICAgICAgICAgICAgIDxTZWxlY3RDb250ZW50PlxyXG4gICAgICAgICAgICAgICAgICAgICAgPFNlbGVjdEl0ZW0gdmFsdWU9XCJhbGxcIj5BbGwgVXNlcnM8L1NlbGVjdEl0ZW0+XHJcbiAgICAgICAgICAgICAgICAgICAgICA8U2VsZWN0SXRlbSB2YWx1ZT1cInN0dWRlbnRzXCI+QWxsIFN0dWRlbnRzPC9TZWxlY3RJdGVtPlxyXG4gICAgICAgICAgICAgICAgICAgICAgPFNlbGVjdEl0ZW0gdmFsdWU9XCJ0ZWFjaGVyc1wiPkFsbCBUZWFjaGVyczwvU2VsZWN0SXRlbT5cclxuICAgICAgICAgICAgICAgICAgICAgIDxTZWxlY3RJdGVtIHZhbHVlPVwiY291cnNlc1wiPlNwZWNpZmljIENvdXJzZXM8L1NlbGVjdEl0ZW0+XHJcbiAgICAgICAgICAgICAgICAgICAgPC9TZWxlY3RDb250ZW50PlxyXG4gICAgICAgICAgICAgICAgICA8L1NlbGVjdD5cclxuICAgICAgICAgICAgICAgIDwvZGl2PlxyXG5cclxuICAgICAgICAgICAgICAgIHsvKiBDb3Vyc2UgU2VsZWN0aW9uIChpZiBjb3Vyc2VzIHNlbGVjdGVkKSAqL31cclxuICAgICAgICAgICAgICAgIHtzZWxlY3RlZEF1ZGllbmNlID09PSBcImNvdXJzZXNcIiAmJiAoXHJcbiAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwic3BhY2UteS0yXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgPExhYmVsPlNlbGVjdCBDb3Vyc2VzPC9MYWJlbD5cclxuICAgICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImJvcmRlciBib3JkZXItYm9yZGVyIHJvdW5kZWQtbGcgcC0zIHNwYWNlLXktMiBtYXgtaC00MCBvdmVyZmxvdy15LWF1dG9cIj5cclxuICAgICAgICAgICAgICAgICAgICAgIHtjb3Vyc2VzTGlzdC5tYXAoKGNvdXJzZTogYW55KSA9PiAoXHJcbiAgICAgICAgICAgICAgICAgICAgICAgIDxkaXYga2V5PXtjb3Vyc2UuaWR9IGNsYXNzTmFtZT1cImZsZXggaXRlbXMtY2VudGVyIGdhcC0yXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgPENoZWNrYm94XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICBpZD17YGNvdXJzZS0ke2NvdXJzZS5pZH1gfVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgY2hlY2tlZD17c2VsZWN0ZWRDb3Vyc2VzLmluY2x1ZGVzKGNvdXJzZS5pZCl9XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICBvbkNoZWNrZWRDaGFuZ2U9eygpID0+IGhhbmRsZUNvdXJzZVRvZ2dsZShjb3Vyc2UuaWQpfVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgIC8+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgPExhYmVsIGh0bWxGb3I9e2Bjb3Vyc2UtJHtjb3Vyc2UuaWR9YH0gY2xhc3NOYW1lPVwiZm9udC1ub3JtYWwgZmxleC0xIGN1cnNvci1wb2ludGVyXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICB7Y291cnNlLnRpdGxlfVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgIDwvTGFiZWw+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgICAgICAgKSl9XHJcbiAgICAgICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgKX1cclxuXHJcbiAgICAgICAgICAgICAgICB7LyogVGl0bGUgKi99XHJcbiAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInNwYWNlLXktMlwiPlxyXG4gICAgICAgICAgICAgICAgICA8TGFiZWwgaHRtbEZvcj1cInRpdGxlXCI+VGl0bGU8L0xhYmVsPlxyXG4gICAgICAgICAgICAgICAgICA8SW5wdXRcclxuICAgICAgICAgICAgICAgICAgICBpZD1cInRpdGxlXCJcclxuICAgICAgICAgICAgICAgICAgICBwbGFjZWhvbGRlcj1cIkVudGVyIG5vdGlmaWNhdGlvbiB0aXRsZVwiXHJcbiAgICAgICAgICAgICAgICAgICAgdmFsdWU9e3RpdGxlfVxyXG4gICAgICAgICAgICAgICAgICAgIG9uQ2hhbmdlPXsoZSkgPT4gc2V0VGl0bGUoZS50YXJnZXQudmFsdWUpfVxyXG4gICAgICAgICAgICAgICAgICAvPlxyXG4gICAgICAgICAgICAgICAgPC9kaXY+XHJcblxyXG4gICAgICAgICAgICAgICAgey8qIE1lc3NhZ2UgKi99XHJcbiAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInNwYWNlLXktMlwiPlxyXG4gICAgICAgICAgICAgICAgICA8TGFiZWwgaHRtbEZvcj1cIm1lc3NhZ2VcIj5NZXNzYWdlPC9MYWJlbD5cclxuICAgICAgICAgICAgICAgICAgPFRleHRhcmVhXHJcbiAgICAgICAgICAgICAgICAgICAgaWQ9XCJtZXNzYWdlXCJcclxuICAgICAgICAgICAgICAgICAgICBwbGFjZWhvbGRlcj1cIkVudGVyIHlvdXIgbm90aWZpY2F0aW9uIG1lc3NhZ2UuLi5cIlxyXG4gICAgICAgICAgICAgICAgICAgIHJvd3M9ezR9XHJcbiAgICAgICAgICAgICAgICAgICAgdmFsdWU9e21lc3NhZ2V9XHJcbiAgICAgICAgICAgICAgICAgICAgb25DaGFuZ2U9eyhlKSA9PiBzZXRNZXNzYWdlKGUudGFyZ2V0LnZhbHVlKX1cclxuICAgICAgICAgICAgICAgICAgLz5cclxuICAgICAgICAgICAgICAgIDwvZGl2PlxyXG5cclxuICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICA8RGlhbG9nRm9vdGVyPlxyXG4gICAgICAgICAgICAgICAgPEJ1dHRvbiB2YXJpYW50PVwib3V0bGluZVwiIG9uQ2xpY2s9eygpID0+IHNldENyZWF0ZU1vZGFsT3BlbihmYWxzZSl9PlxyXG4gICAgICAgICAgICAgICAgICBDYW5jZWxcclxuICAgICAgICAgICAgICAgIDwvQnV0dG9uPlxyXG4gICAgICAgICAgICAgICAgPEJ1dHRvbiBjbGFzc05hbWU9XCJnYXAtMlwiIG9uQ2xpY2s9e2hhbmRsZVNlbmROb3RpZmljYXRpb259PlxyXG4gICAgICAgICAgICAgICAgICA8U2VuZCBjbGFzc05hbWU9XCJoLTQgdy00XCIgLz5cclxuICAgICAgICAgICAgICAgICAgU2VuZCBOb3RpZmljYXRpb25cclxuICAgICAgICAgICAgICAgIDwvQnV0dG9uPlxyXG4gICAgICAgICAgICAgIDwvRGlhbG9nRm9vdGVyPlxyXG4gICAgICAgICAgICA8L0RpYWxvZ0NvbnRlbnQ+XHJcbiAgICAgICAgICA8L0RpYWxvZz5cclxuICAgICAgICA8L2Rpdj5cclxuXHJcbiAgICAgICAgey8qIFN0YXRzICovfVxyXG4gICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZ3JpZCBnYXAtNCBtZDpncmlkLWNvbHMtNFwiPlxyXG4gICAgICAgICAgPENhcmQ+XHJcbiAgICAgICAgICAgIDxDYXJkQ29udGVudCBjbGFzc05hbWU9XCJwLTQgZmxleCBpdGVtcy1jZW50ZXIgZ2FwLTRcIj5cclxuICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInAtMyByb3VuZGVkLWxnIGJnLXByaW1hcnkvMTBcIj5cclxuICAgICAgICAgICAgICAgIDxCZWxsIGNsYXNzTmFtZT1cImgtNSB3LTUgdGV4dC1wcmltYXJ5XCIgLz5cclxuICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICA8ZGl2PlxyXG4gICAgICAgICAgICAgICAgPHAgY2xhc3NOYW1lPVwidGV4dC0yeGwgZm9udC1ib2xkXCI+e25vdGlmaWNhdGlvbnNIaXN0b3J5Lmxlbmd0aH08L3A+XHJcbiAgICAgICAgICAgICAgICA8cCBjbGFzc05hbWU9XCJ0ZXh0LXNtIHRleHQtbXV0ZWQtZm9yZWdyb3VuZFwiPlRvdGFsIFNlbnQ8L3A+XHJcbiAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgIDwvQ2FyZENvbnRlbnQ+XHJcbiAgICAgICAgICA8L0NhcmQ+XHJcbiAgICAgICAgPC9kaXY+XHJcblxyXG4gICAgICAgIHsvKiBUYWJzICovfVxyXG4gICAgICAgIDxUYWJzIHZhbHVlPXthY3RpdmVUYWJ9IG9uVmFsdWVDaGFuZ2U9e3NldEFjdGl2ZVRhYn0+XHJcbiAgICAgICAgICA8VGFic0xpc3Q+XHJcbiAgICAgICAgICAgIDxUYWJzVHJpZ2dlciB2YWx1ZT1cImhpc3RvcnlcIiBjbGFzc05hbWU9XCJnYXAtMlwiPlxyXG4gICAgICAgICAgICAgIDxDbG9jayBjbGFzc05hbWU9XCJoLTQgdy00XCIgLz5cclxuICAgICAgICAgICAgICBIaXN0b3J5XHJcbiAgICAgICAgICAgIDwvVGFic1RyaWdnZXI+XHJcbiAgICAgICAgICAgIDxUYWJzVHJpZ2dlciB2YWx1ZT1cInRlbXBsYXRlc1wiIGNsYXNzTmFtZT1cImdhcC0yXCI+XHJcbiAgICAgICAgICAgICAgPE1lZ2FwaG9uZSBjbGFzc05hbWU9XCJoLTQgdy00XCIgLz5cclxuICAgICAgICAgICAgICBUZW1wbGF0ZXNcclxuICAgICAgICAgICAgPC9UYWJzVHJpZ2dlcj5cclxuICAgICAgICAgIDwvVGFic0xpc3Q+XHJcblxyXG4gICAgICAgICAgPFRhYnNDb250ZW50IHZhbHVlPVwiaGlzdG9yeVwiIGNsYXNzTmFtZT1cIm10LTZcIj5cclxuICAgICAgICAgICAgPERhdGFUYWJsZVxyXG4gICAgICAgICAgICAgIGRhdGE9e25vdGlmaWNhdGlvbnNIaXN0b3J5fVxyXG4gICAgICAgICAgICAgIGNvbHVtbnM9e2hpc3RvcnlDb2x1bW5zfVxyXG4gICAgICAgICAgICAgIHNlYXJjaFBsYWNlaG9sZGVyPVwiU2VhcmNoIG5vdGlmaWNhdGlvbnMuLi5cIlxyXG4gICAgICAgICAgICAvPlxyXG4gICAgICAgICAgPC9UYWJzQ29udGVudD5cclxuXHJcbiAgICAgICAgICA8VGFic0NvbnRlbnQgdmFsdWU9XCJ0ZW1wbGF0ZXNcIiBjbGFzc05hbWU9XCJtdC02XCI+XHJcbiAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZ3JpZCBnYXAtNCBzbTpncmlkLWNvbHMtMlwiPlxyXG4gICAgICAgICAgICAgIHt0ZW1wbGF0ZXMubWFwKCh0ZW1wbGF0ZSkgPT4gKFxyXG4gICAgICAgICAgICAgICAgPENhcmQga2V5PXt0ZW1wbGF0ZS5pZH0gY2xhc3NOYW1lPVwiaG92ZXI6c2hhZG93LW1kIHRyYW5zaXRpb24tc2hhZG93XCI+XHJcbiAgICAgICAgICAgICAgICAgIDxDYXJkSGVhZGVyIGNsYXNzTmFtZT1cInBiLTJcIj5cclxuICAgICAgICAgICAgICAgICAgICA8Q2FyZFRpdGxlIGNsYXNzTmFtZT1cInRleHQtYmFzZVwiPnt0ZW1wbGF0ZS5uYW1lfTwvQ2FyZFRpdGxlPlxyXG4gICAgICAgICAgICAgICAgICA8L0NhcmRIZWFkZXI+XHJcbiAgICAgICAgICAgICAgICAgIDxDYXJkQ29udGVudD5cclxuICAgICAgICAgICAgICAgICAgICA8cCBjbGFzc05hbWU9XCJ0ZXh0LXNtIHRleHQtbXV0ZWQtZm9yZWdyb3VuZCBtYi00XCI+e3RlbXBsYXRlLmNvbnRlbnR9PC9wPlxyXG4gICAgICAgICAgICAgICAgICAgIDxCdXR0b24gdmFyaWFudD1cIm91dGxpbmVcIiBzaXplPVwic21cIiBvbkNsaWNrPXsoKSA9PiBoYW5kbGVUZW1wbGF0ZVNlbGVjdCh0ZW1wbGF0ZS5pZCl9PlxyXG4gICAgICAgICAgICAgICAgICAgICAgVXNlIFRlbXBsYXRlXHJcbiAgICAgICAgICAgICAgICAgICAgPC9CdXR0b24+XHJcbiAgICAgICAgICAgICAgICAgIDwvQ2FyZENvbnRlbnQ+XHJcbiAgICAgICAgICAgICAgICA8L0NhcmQ+XHJcbiAgICAgICAgICAgICAgKSl9XHJcbiAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgPC9UYWJzQ29udGVudD5cclxuICAgICAgICA8L1RhYnM+XHJcbiAgICAgIDwvZGl2PlxyXG4gICAgPC9BZG1pbkxheW91dD5cclxuICApO1xyXG59XHJcbiJdLCJuYW1lcyI6WyJ1c2VTdGF0ZSIsInVzZUVmZmVjdCIsIkFkbWluTGF5b3V0IiwiRGF0YVRhYmxlIiwiQnV0dG9uIiwiQmFkZ2UiLCJJbnB1dCIsIkxhYmVsIiwiVGV4dGFyZWEiLCJDYXJkIiwiQ2FyZENvbnRlbnQiLCJDYXJkSGVhZGVyIiwiQ2FyZFRpdGxlIiwiVGFicyIsIlRhYnNDb250ZW50IiwiVGFic0xpc3QiLCJUYWJzVHJpZ2dlciIsIkNoZWNrYm94IiwiRGlhbG9nIiwiRGlhbG9nQ29udGVudCIsIkRpYWxvZ0Rlc2NyaXB0aW9uIiwiRGlhbG9nRm9vdGVyIiwiRGlhbG9nSGVhZGVyIiwiRGlhbG9nVGl0bGUiLCJEaWFsb2dUcmlnZ2VyIiwiU2VsZWN0IiwiU2VsZWN0Q29udGVudCIsIlNlbGVjdEl0ZW0iLCJTZWxlY3RUcmlnZ2VyIiwiU2VsZWN0VmFsdWUiLCJCZWxsIiwiUGx1cyIsIlNlbmQiLCJVc2VycyIsIkdyYWR1YXRpb25DYXAiLCJCb29rT3BlbiIsIkNsb2NrIiwiQ2hlY2tDaXJjbGUiLCJBbGVydENpcmNsZSIsIkluZm8iLCJNZWdhcGhvbmUiLCJzdXBhYmFzZSIsInVzZVRvYXN0IiwidGVtcGxhdGVzIiwiaWQiLCJuYW1lIiwiY29udGVudCIsIk5vdGlmaWNhdGlvbnMiLCJ0b2FzdCIsImFjdGl2ZVRhYiIsInNldEFjdGl2ZVRhYiIsImNyZWF0ZU1vZGFsT3BlbiIsInNldENyZWF0ZU1vZGFsT3BlbiIsInNlbGVjdGVkQXVkaWVuY2UiLCJzZXRTZWxlY3RlZEF1ZGllbmNlIiwic2VsZWN0ZWRDb3Vyc2VzIiwic2V0U2VsZWN0ZWRDb3Vyc2VzIiwibm90aWZpY2F0aW9uVHlwZSIsInNldE5vdGlmaWNhdGlvblR5cGUiLCJ0aXRsZSIsInNldFRpdGxlIiwibWVzc2FnZSIsInNldE1lc3NhZ2UiLCJub3RpZmljYXRpb25zSGlzdG9yeSIsInNldE5vdGlmaWNhdGlvbnNIaXN0b3J5IiwiY291cnNlc0xpc3QiLCJzZXRDb3Vyc2VzTGlzdCIsImxvYWRpbmciLCJzZXRMb2FkaW5nIiwiZmV0Y2hEYXRhIiwiZGF0YSIsIm5vdGlmcyIsImVycm9yIiwiZnJvbSIsInNlbGVjdCIsIm9yZGVyIiwiYXNjZW5kaW5nIiwibWFwIiwibiIsImF1ZGllbmNlIiwidmlzaWJpbGl0eSIsInR5cGUiLCJub3RpZmljYXRpb25fdHlwZSIsInN0YXR1cyIsInNlbnRBdCIsIkRhdGUiLCJjcmVhdGVkX2F0IiwidG9Mb2NhbGVTdHJpbmciLCJyZWFkUmF0ZSIsImNvdXJzZXMiLCJoYW5kbGVTZW5kTm90aWZpY2F0aW9uIiwidmFyaWFudCIsImRlc2NyaXB0aW9uIiwibGVuZ3RoIiwidXNlciIsImF1dGgiLCJnZXRVc2VyIiwiRXJyb3IiLCJ1c2VyRGF0YSIsImVxIiwic2luZ2xlIiwidXNlclJvbGUiLCJyb2xlIiwicHJpb3JpdHkiLCJ0b3RhbFNlbnQiLCJjb3Vyc2VJZCIsImNvdW50IiwicnBjIiwicF9jb3Vyc2VfaWQiLCJwX3RpdGxlIiwicF9tZXNzYWdlIiwicF9ub3RpZmljYXRpb25fdHlwZSIsInBfc2VuZGVyX2lkIiwicF9zZW5kZXJfcm9sZSIsInBfcHJpb3JpdHkiLCJ0YXJnZXRVc2VycyIsIm5vdGlmaWNhdGlvbnMiLCJ1IiwidXNlcl9pZCIsInNlbmRlcl9yb2xlIiwidG9JU09TdHJpbmciLCJpbnNlcnQiLCJlcnIiLCJjb25zb2xlIiwiaGFuZGxlVGVtcGxhdGVTZWxlY3QiLCJ0ZW1wbGF0ZUlkIiwidGVtcGxhdGUiLCJmaW5kIiwidCIsImhhbmRsZUNvdXJzZVRvZ2dsZSIsInByZXYiLCJpbmNsdWRlcyIsImZpbHRlciIsImdldEF1ZGllbmNlRGlzcGxheSIsImxhYmVsIiwiaWNvbiIsInN0YXJ0c1dpdGgiLCJyZXBsYWNlIiwiZ2V0VHlwZUNvbmZpZyIsImNvbmZpZ3MiLCJhbm5vdW5jZW1lbnQiLCJyZW1pbmRlciIsImFsZXJ0Iiwic3lzdGVtIiwiZXZlbnQiLCJoaXN0b3J5Q29sdW1ucyIsImtleSIsImhlYWRlciIsImNlbGwiLCJyb3ciLCJ0eXBlQ29uZmlnIiwiZGl2IiwiY2xhc3NOYW1lIiwicCIsImNvbmZpZyIsImRpc3BsYXkiLCJzcGFuIiwiaDEiLCJvcGVuIiwib25PcGVuQ2hhbmdlIiwiYXNDaGlsZCIsImJ1dHRvbiIsIm9uQ2xpY2siLCJ2YWx1ZSIsIm9uVmFsdWVDaGFuZ2UiLCJwbGFjZWhvbGRlciIsImNvdXJzZSIsImNoZWNrZWQiLCJvbkNoZWNrZWRDaGFuZ2UiLCJodG1sRm9yIiwib25DaGFuZ2UiLCJlIiwidGFyZ2V0Iiwicm93cyIsImNvbHVtbnMiLCJzZWFyY2hQbGFjZWhvbGRlciIsInNpemUiXSwibWFwcGluZ3MiOiI7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7OztBQUFBLFNBQVNBLFFBQVEsRUFB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

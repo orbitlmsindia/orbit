@@ -84,7 +84,7 @@ export default function CourseManagement() {
     const { data: coursesData, error: coursesError } = await supabase
       .from('courses')
       .select(`
-        id, title, description, is_published, created_at,
+        id, title, description, is_published, is_deletion_requested, deletion_requested_at, created_at,
         teacher:users!teacher_id(full_name)
       `)
       .order('created_at', { ascending: false });
@@ -104,6 +104,8 @@ export default function CourseManagement() {
         lessons: 0,
         completion: 0,
         status: c.is_published ? "published" : "draft",
+        is_deletion_requested: c.is_deletion_requested,
+        deletion_requested_at: c.deletion_requested_at,
         visibility: c.is_published,
         created_at: c.created_at
       }));
@@ -147,23 +149,43 @@ export default function CourseManagement() {
     }
   };
 
-  const handleDeleteCourse = async (id: string) => {
-    const course = courses.find(c => c.id === id);
-    if (course && course.status === "published") {
-      toast({ 
-        variant: "destructive", 
-        title: "Action Blocked", 
-        description: "You can only delete draft courses. Please unpublish the course first." 
-      });
-      return;
-    }
+  // Admin Direct Delete Course (No permission needed)
+  const handleDeleteCourse = async (id: string, title?: string) => {
+    if (!confirm(`Are you sure you want to permanently delete "${title || 'this course'}"?\n\nAs Admin, this will immediately delete the course and all associated data.`)) return;
 
-    if (!confirm("Are you sure you want to permanently delete this draft course?")) return;
     const { error } = await supabase.from('courses').delete().eq('id', id);
+    if (error) {
+      toast({ variant: "destructive", title: "Error Deleting Course", description: error.message });
+    } else {
+      toast({ title: "Course Permanently Deleted by Admin 🗑️" });
+      fetchData();
+    }
+  };
+
+  // Admin Approve Teacher Deletion Request
+  const handleApproveDeleteRequest = async (id: string, title: string) => {
+    if (!confirm(`Approve deletion request for "${title}"?\n\nThis will permanently delete the course.`)) return;
+
+    const { error } = await supabase.from('courses').delete().eq('id', id);
+    if (error) {
+      toast({ variant: "destructive", title: "Error Deleting Course", description: error.message });
+    } else {
+      toast({ title: "Deletion Approved & Course Removed 🗑️" });
+      fetchData();
+    }
+  };
+
+  // Admin Reject Teacher Deletion Request
+  const handleRejectDeleteRequest = async (id: string) => {
+    const { error } = await supabase.from('courses').update({
+      is_deletion_requested: false,
+      deletion_requested_at: null
+    }).eq('id', id);
+
     if (error) {
       toast({ variant: "destructive", title: "Error", description: error.message });
     } else {
-      toast({ title: "Deleted Permanently" });
+      toast({ title: "Deletion Request Rejected", description: "The course remains active." });
       fetchData();
     }
   };
@@ -378,10 +400,29 @@ export default function CourseManagement() {
                         <Badge variant={course.status === "published" ? "default" : "secondary"}>
                           {course.status}
                         </Badge>
+                        {course.is_deletion_requested && (
+                          <Badge className="bg-amber-500 text-slate-900 font-bold border-amber-600 animate-pulse">
+                            Deletion Requested ⚠️
+                          </Badge>
+                        )}
                       </div>
                     </div>
 
                     <div className="p-4 space-y-3">
+                      {course.is_deletion_requested && (
+                        <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs space-y-2">
+                          <div className="font-bold text-amber-600 dark:text-amber-400">⚠️ Teacher Requested Deletion</div>
+                          <div className="flex gap-2">
+                            <Button size="sm" className="h-7 text-xs bg-red-600 hover:bg-red-700 text-white font-bold" onClick={(e) => { e.preventDefault(); handleApproveDeleteRequest(course.id, course.title); }}>
+                              Approve & Delete 🗑️
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-7 text-xs border-amber-500/40 text-amber-600 dark:text-amber-400" onClick={(e) => { e.preventDefault(); handleRejectDeleteRequest(course.id); }}>
+                              Reject
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
                       <div>
                         <h3 className="font-semibold group-hover:text-primary transition-colors line-clamp-1">
                           {course.title}
@@ -414,21 +455,30 @@ export default function CourseManagement() {
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
+                        {course.is_deletion_requested && (
+                          <>
+                            <DropdownMenuItem className="gap-2 text-red-600 font-bold" onClick={() => handleApproveDeleteRequest(course.id, course.title)}>
+                              <Trash2 className="h-4 w-4" /> Approve Deletion Request
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="gap-2 text-amber-600" onClick={() => handleRejectDeleteRequest(course.id)}>
+                              Reject Deletion Request
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                          </>
+                        )}
                         {course.status === 'published' ? (
                           <DropdownMenuItem className="gap-2" onClick={() => handleUnpublishCourse(course.id)}>
                             <BookOpen className="h-4 w-4" /> Unpublish
                           </DropdownMenuItem>
                         ) : (
-                          <>
-                            <DropdownMenuItem className="gap-2 text-primary" onClick={() => handlePublishCourse(course.id)}>
-                              <BookOpen className="h-4 w-4" /> Publish Course
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="gap-2 text-destructive" onClick={() => handleDeleteCourse(course.id)}>
-                              <Trash2 className="h-4 w-4" /> Delete Permanently
-                            </DropdownMenuItem>
-                          </>
+                          <DropdownMenuItem className="gap-2 text-primary" onClick={() => handlePublishCourse(course.id)}>
+                            <BookOpen className="h-4 w-4" /> Publish Course
+                          </DropdownMenuItem>
                         )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem className="gap-2 text-destructive font-semibold" onClick={() => handleDeleteCourse(course.id, course.title)}>
+                          <Trash2 className="h-4 w-4" /> Delete Directly (Admin)
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>

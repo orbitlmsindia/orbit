@@ -1,0 +1,1218 @@
+import { createHotContext as __vite__createHotContext } from "/@vite/client";import.meta.hot = __vite__createHotContext("/src/pages/admin/Monitoring.tsx");import * as RefreshRuntime from "/@react-refresh";
+const inWebWorker = typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope;
+
+let prevRefreshReg;
+let prevRefreshSig;
+
+if (import.meta.hot && !inWebWorker) {
+  if (!window.$RefreshReg$) {
+    throw new Error(
+      "@vitejs/plugin-react-swc can't detect preamble. Something is wrong."
+    );
+  }
+
+  prevRefreshReg = window.$RefreshReg$;
+  prevRefreshSig = window.$RefreshSig$;
+  window.$RefreshReg$ = RefreshRuntime.getRefreshReg("D:/Orbitlms/src/pages/admin/Monitoring.tsx");
+  window.$RefreshSig$ = RefreshRuntime.createSignatureFunctionForTransform;
+}
+
+import __vite__cjsImport2_react_jsxDevRuntime from "/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=88ed5bfa"; const _jsxDEV = __vite__cjsImport2_react_jsxDevRuntime["jsxDEV"];
+var _s = $RefreshSig$();
+import __vite__cjsImport3_react from "/node_modules/.vite/deps/react.js?v=88ed5bfa"; const useState = __vite__cjsImport3_react["useState"]; const useEffect = __vite__cjsImport3_react["useEffect"];
+import { AdminLayout } from "/src/components/layout/AdminLayout.tsx";
+import { DataTable } from "/src/components/ui/data-table.tsx";
+import { Button } from "/src/components/ui/button.tsx";
+import { Badge } from "/src/components/ui/badge.tsx";
+import { Card, CardContent, CardHeader, CardTitle } from "/src/components/ui/card.tsx";
+import { Progress } from "/src/components/ui/progress.tsx";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "/src/components/ui/tabs.tsx";
+import { Avatar, AvatarFallback } from "/src/components/ui/avatar.tsx";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "/src/components/ui/select.tsx";
+import { BarChart3, Users, BookOpen, FileText, CheckCircle, Clock, AlertCircle, TrendingUp, Download } from "/node_modules/.vite/deps/lucide-react.js?v=88ed5bfa";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "/node_modules/.vite/deps/recharts.js?v=88ed5bfa";
+import { supabase } from "/src/lib/supabase.ts";
+import { useToast } from "/src/hooks/use-toast.ts";
+import { StudentReportCardModal } from "/src/components/reports/StudentReportCardModal.tsx";
+export default function Monitoring() {
+    _s();
+    const { toast } = useToast();
+    const [activeTab, setActiveTab] = useState("progress");
+    const [selectedCourse, setSelectedCourse] = useState("All Courses");
+    const [coursesList, setCoursesList] = useState([
+        "All Courses"
+    ]);
+    const [reportModalOpen, setReportModalOpen] = useState(false);
+    const [selectedStudentForReport, setSelectedStudentForReport] = useState(null);
+    const [studentProgressData, setStudentProgressData] = useState([]);
+    const [attendanceData, setAttendanceData] = useState([]);
+    const [attendanceChartData, setAttendanceChartData] = useState([]);
+    const [assignmentsData, setAssignmentsData] = useState([]);
+    const [stats, setStats] = useState({
+        activeStudents: 0,
+        avgProgress: 0,
+        attendanceRate: 0,
+        pendingReviews: 0
+    });
+    useEffect(()=>{
+        fetchData();
+    }, []);
+    const fetchData = async ()=>{
+        try {
+            // 1. Fetch Courses for filter
+            const { data: courses } = await supabase.from('courses').select('id, title');
+            if (courses) {
+                setCoursesList([
+                    "All Courses",
+                    ...courses.map((c)=>c.title)
+                ]);
+            }
+            // 2. Fetch all student users from public.users
+            const { data: studentUsers } = await supabase.from('users').select('id, full_name, email, aura_points, bonus_credits, role, status').eq('role', 'student');
+            // 3. Fetch enrollments
+            const { data: enrollments } = await supabase.from('enrollments').select('id, student_id, status, completed, enrolled_at, course:courses(id, title, credit_points)');
+            // 4. Fetch submissions
+            const { data: submissions } = await supabase.from('submissions').select('id, student_id, grade, status');
+            const pendingCount = (submissions || []).filter((s)=>s.status === 'pending').length;
+            // Combine student user data with enrollments
+            const studentList = (studentUsers || []).map((u)=>{
+                const userEnrs = (enrollments || []).filter((e)=>e.student_id === u.id);
+                const approvedEnrs = userEnrs.filter((e)=>e.status === 'approved');
+                const completedEnrs = userEnrs.filter((e)=>e.status === 'approved' && e.completed === true);
+                const courseCreds = completedEnrs.reduce((acc, e)=>{
+                    const c = Array.isArray(e.course) ? e.course[0] : e.course;
+                    return acc + (c?.credit_points || 3);
+                }, 0);
+                const totalCreds = courseCreds + (u.bonus_credits || 0);
+                const courseNames = userEnrs.map((e)=>{
+                    const c = Array.isArray(e.course) ? e.course[0] : e.course;
+                    return c?.title || "Enrolled Course";
+                }).join(", ");
+                const computedProgress = approvedEnrs.length > 0 ? Math.min(100, approvedEnrs.length * 25 + (u.aura_points || 0)) : u.aura_points ? Math.min(100, u.aura_points * 5) : 0;
+                return {
+                    id: u.id,
+                    name: u.full_name || "Student User",
+                    email: u.email || "No email",
+                    course: courseNames || "General Learner",
+                    progress: computedProgress,
+                    aura: u.aura_points || 0,
+                    credits: totalCreds,
+                    completedLessons: approvedEnrs.length,
+                    totalLessons: Math.max(10, approvedEnrs.length * 3),
+                    lastActive: "Today",
+                    status: computedProgress >= 80 ? "completed" : "on-track"
+                };
+            });
+            setStudentProgressData(studentList);
+            // 5. Fetch Assignments & Submissions
+            const { data: assignmentsList } = await supabase.from('assignments').select('id, title, due_date, course_id, courses(title)');
+            const formattedAssignments = (assignmentsList || []).map((a)=>{
+                const courseObj = Array.isArray(a.courses) ? a.courses[0] : a.courses;
+                const assignSubs = (submissions || []).filter((s)=>s.assignment_id === a.id);
+                const pendingSubs = assignSubs.filter((s)=>s.status === 'pending').length;
+                const gradedSubs = assignSubs.filter((s)=>s.status === 'graded').length;
+                return {
+                    id: a.id,
+                    title: a.title || "Course Assignment",
+                    course: courseObj?.title || "General Course",
+                    dueDate: a.due_date ? new Date(a.due_date).toLocaleDateString() : "No Due Date",
+                    submitted: assignSubs.length,
+                    pending: pendingSubs,
+                    graded: gradedSubs,
+                    totalStudents: activeCount
+                };
+            });
+            setAssignmentsData(formattedAssignments);
+            setStats({
+                activeStudents: activeCount,
+                avgProgress: avgProg,
+                attendanceRate: 94,
+                pendingReviews: pendingCount
+            });
+        } catch (err) {
+            console.error("Monitoring fetch error:", err);
+        }
+    };
+    const handleExportStudentReport = ()=>{
+        if (studentProgressData.length === 0) {
+            toast({
+                variant: "destructive",
+                title: "No Data",
+                description: "No student records available for export."
+            });
+            return;
+        }
+        const csvRows = [
+            [
+                "Student Name",
+                "Email",
+                "Enrolled Courses",
+                "Progress (%)",
+                "Aura Points (XP)",
+                "Earned Credits",
+                "Status"
+            ].join(",")
+        ];
+        studentProgressData.forEach((s)=>{
+            csvRows.push([
+                `"${s.name}"`,
+                `"${s.email}"`,
+                `"${s.course}"`,
+                s.progress,
+                s.aura,
+                s.credits,
+                `"${s.status}"`
+            ].join(","));
+        });
+        const blob = new Blob([
+            csvRows.join("\n")
+        ], {
+            type: "text/csv"
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `orbit_lms_student_progress_report_${new Date().toISOString().split("T")[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast({
+            title: "Report Exported! 📊",
+            description: "Student-wise progress CSV report downloaded."
+        });
+    };
+    const progressColumns = [
+        {
+            key: "name",
+            header: "Student",
+            cell: (row)=>/*#__PURE__*/ _jsxDEV("div", {
+                    className: "flex items-center gap-3",
+                    children: [
+                        /*#__PURE__*/ _jsxDEV(Avatar, {
+                            className: "h-9 w-9",
+                            children: /*#__PURE__*/ _jsxDEV(AvatarFallback, {
+                                className: "bg-primary/10 text-primary text-sm",
+                                children: row.name.split(" ").map((n)=>n[0]).join("")
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                lineNumber: 208,
+                                columnNumber: 13
+                            }, this)
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                            lineNumber: 207,
+                            columnNumber: 11
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV("div", {
+                            children: [
+                                /*#__PURE__*/ _jsxDEV("p", {
+                                    className: "font-medium",
+                                    children: row.name
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                    lineNumber: 213,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV("p", {
+                                    className: "text-xs text-muted-foreground",
+                                    children: row.email
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                    lineNumber: 214,
+                                    columnNumber: 13
+                                }, this)
+                            ]
+                        }, void 0, true, {
+                            fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                            lineNumber: 212,
+                            columnNumber: 11
+                        }, this)
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                    lineNumber: 206,
+                    columnNumber: 9
+                }, this)
+        },
+        {
+            key: "course",
+            header: "Course",
+            cell: (row)=>/*#__PURE__*/ _jsxDEV(Badge, {
+                    variant: "outline",
+                    children: row.course
+                }, void 0, false, {
+                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                    lineNumber: 223,
+                    columnNumber: 9
+                }, this)
+        },
+        {
+            key: "progress",
+            header: "Progress",
+            cell: (row)=>/*#__PURE__*/ _jsxDEV("div", {
+                    className: "flex items-center gap-3 w-32",
+                    children: [
+                        /*#__PURE__*/ _jsxDEV(Progress, {
+                            value: row.progress,
+                            size: "sm",
+                            variant: row.progress === 100 ? "success" : row.progress < 30 ? "warning" : "default"
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                            lineNumber: 231,
+                            columnNumber: 11
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV("span", {
+                            className: "text-sm font-medium w-10",
+                            children: [
+                                row.progress,
+                                "%"
+                            ]
+                        }, void 0, true, {
+                            fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                            lineNumber: 236,
+                            columnNumber: 11
+                        }, this)
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                    lineNumber: 230,
+                    columnNumber: 9
+                }, this)
+        },
+        {
+            key: "lessons",
+            header: "Lessons",
+            cell: (row)=>/*#__PURE__*/ _jsxDEV("span", {
+                    className: "text-muted-foreground",
+                    children: [
+                        row.completedLessons,
+                        " / ",
+                        row.totalLessons
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                    lineNumber: 244,
+                    columnNumber: 9
+                }, this)
+        },
+        {
+            key: "lastActive",
+            header: "Last Active",
+            cell: (row)=>/*#__PURE__*/ _jsxDEV("span", {
+                    className: "text-muted-foreground",
+                    children: row.lastActive
+                }, void 0, false, {
+                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                    lineNumber: 253,
+                    columnNumber: 9
+                }, this)
+        },
+        {
+            key: "status",
+            header: "Status",
+            cell: (row)=>{
+                const statusConfig = {
+                    "on-track": {
+                        label: "On Track",
+                        variant: "success",
+                        icon: CheckCircle
+                    },
+                    "behind": {
+                        label: "Behind",
+                        variant: "warning",
+                        icon: Clock
+                    },
+                    "at-risk": {
+                        label: "At Risk",
+                        variant: "destructive",
+                        icon: AlertCircle
+                    },
+                    "completed": {
+                        label: "Completed",
+                        variant: "success",
+                        icon: CheckCircle
+                    }
+                };
+                const config = statusConfig[row.status] || statusConfig["on-track"];
+                return /*#__PURE__*/ _jsxDEV(Badge, {
+                    variant: config.variant,
+                    className: "gap-1",
+                    children: [
+                        /*#__PURE__*/ _jsxDEV(config.icon, {
+                            className: "h-3 w-3"
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                            lineNumber: 269,
+                            columnNumber: 13
+                        }, this),
+                        config.label
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                    lineNumber: 268,
+                    columnNumber: 11
+                }, this);
+            }
+        },
+        {
+            key: "actions",
+            header: "Report Card",
+            cell: (row)=>/*#__PURE__*/ _jsxDEV(Button, {
+                    variant: "outline",
+                    size: "sm",
+                    onClick: ()=>{
+                        setSelectedStudentForReport(row);
+                        setReportModalOpen(true);
+                    },
+                    className: "gap-1 text-xs font-semibold border-primary/30 text-primary hover:bg-primary/10",
+                    children: [
+                        /*#__PURE__*/ _jsxDEV(FileText, {
+                            className: "h-3.5 w-3.5"
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                            lineNumber: 288,
+                            columnNumber: 11
+                        }, this),
+                        " Report Card"
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                    lineNumber: 279,
+                    columnNumber: 9
+                }, this)
+        }
+    ];
+    const attendanceColumns = [
+        {
+            key: "name",
+            header: "Student",
+            cell: (row)=>/*#__PURE__*/ _jsxDEV("div", {
+                    className: "flex items-center gap-3",
+                    children: [
+                        /*#__PURE__*/ _jsxDEV(Avatar, {
+                            className: "h-8 w-8",
+                            children: /*#__PURE__*/ _jsxDEV(AvatarFallback, {
+                                className: "bg-primary/10 text-primary text-xs",
+                                children: row.name.split(" ").map((n)=>n[0]).join("")
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                lineNumber: 301,
+                                columnNumber: 13
+                            }, this)
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                            lineNumber: 300,
+                            columnNumber: 11
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV("span", {
+                            className: "font-medium",
+                            children: row.name
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                            lineNumber: 305,
+                            columnNumber: 11
+                        }, this)
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                    lineNumber: 299,
+                    columnNumber: 9
+                }, this)
+        },
+        {
+            key: "course",
+            header: "Course",
+            cell: (row)=>row.course
+        },
+        {
+            key: "date",
+            header: "Date",
+            cell: (row)=>new Date(row.date).toLocaleDateString()
+        },
+        {
+            key: "status",
+            header: "Status",
+            cell: (row)=>{
+                const statusConfig = {
+                    present: {
+                        label: "Present",
+                        variant: "success"
+                    },
+                    absent: {
+                        label: "Absent",
+                        variant: "destructive"
+                    },
+                    late: {
+                        label: "Late",
+                        variant: "warning"
+                    }
+                };
+                const config = statusConfig[row.status] || {
+                    label: row.status,
+                    variant: "secondary"
+                };
+                return /*#__PURE__*/ _jsxDEV(Badge, {
+                    variant: config.variant,
+                    children: config.label
+                }, void 0, false, {
+                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                    lineNumber: 329,
+                    columnNumber: 16
+                }, this);
+            }
+        },
+        {
+            key: "duration",
+            header: "Duration",
+            cell: (row)=>/*#__PURE__*/ _jsxDEV("span", {
+                    className: "text-muted-foreground",
+                    children: row.duration
+                }, void 0, false, {
+                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                    lineNumber: 336,
+                    columnNumber: 9
+                }, this)
+        }
+    ];
+    const assignmentColumns = [
+        {
+            key: "title",
+            header: "Assignment",
+            cell: (row)=>/*#__PURE__*/ _jsxDEV("div", {
+                    children: [
+                        /*#__PURE__*/ _jsxDEV("p", {
+                            className: "font-semibold text-foreground",
+                            children: row.title
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                            lineNumber: 347,
+                            columnNumber: 11
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV(Badge, {
+                            variant: "outline",
+                            className: "text-[10px] bg-primary/5 text-primary border-primary/20",
+                            children: row.course
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                            lineNumber: 348,
+                            columnNumber: 11
+                        }, this)
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                    lineNumber: 346,
+                    columnNumber: 9
+                }, this)
+        },
+        {
+            key: "dueDate",
+            header: "Due Date",
+            cell: (row)=>/*#__PURE__*/ _jsxDEV("span", {
+                    className: "text-xs font-mono text-muted-foreground",
+                    children: row.dueDate
+                }, void 0, false, {
+                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                    lineNumber: 358,
+                    columnNumber: 9
+                }, this)
+        },
+        {
+            key: "submissions",
+            header: "Submissions",
+            cell: (row)=>/*#__PURE__*/ _jsxDEV("div", {
+                    className: "flex items-center gap-1.5 font-mono text-xs font-bold text-foreground",
+                    children: [
+                        /*#__PURE__*/ _jsxDEV("span", {
+                            children: row.submitted
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                            lineNumber: 366,
+                            columnNumber: 11
+                        }, this),
+                        /*#__PURE__*/ _jsxDEV("span", {
+                            className: "text-muted-foreground font-normal",
+                            children: [
+                                "/ ",
+                                row.totalStudents || 1,
+                                " students"
+                            ]
+                        }, void 0, true, {
+                            fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                            lineNumber: 367,
+                            columnNumber: 11
+                        }, this)
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                    lineNumber: 365,
+                    columnNumber: 9
+                }, this)
+        },
+        {
+            key: "pending",
+            header: "Pending Review",
+            cell: (row)=>/*#__PURE__*/ _jsxDEV(Badge, {
+                    variant: row.pending > 0 ? "warning" : "outline",
+                    className: "font-mono text-xs",
+                    children: [
+                        row.pending,
+                        " pending"
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                    lineNumber: 375,
+                    columnNumber: 9
+                }, this)
+        },
+        {
+            key: "graded",
+            header: "Graded",
+            cell: (row)=>/*#__PURE__*/ _jsxDEV(Badge, {
+                    variant: "outline",
+                    className: "font-mono text-xs bg-emerald-500/10 text-emerald-600 border-emerald-500/30",
+                    children: [
+                        row.graded,
+                        " graded"
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                    lineNumber: 384,
+                    columnNumber: 9
+                }, this)
+        }
+    ];
+    return /*#__PURE__*/ _jsxDEV(AdminLayout, {
+        children: [
+            /*#__PURE__*/ _jsxDEV("div", {
+                className: "space-y-6 animate-fade-in",
+                children: [
+                    /*#__PURE__*/ _jsxDEV("div", {
+                        className: "flex flex-col gap-4 md:flex-row md:items-center md:justify-between",
+                        children: [
+                            /*#__PURE__*/ _jsxDEV("div", {
+                                children: [
+                                    /*#__PURE__*/ _jsxDEV("h1", {
+                                        className: "text-2xl lg:text-3xl font-display font-bold text-foreground",
+                                        children: "Monitoring"
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                        lineNumber: 397,
+                                        columnNumber: 13
+                                    }, this),
+                                    /*#__PURE__*/ _jsxDEV("p", {
+                                        className: "text-muted-foreground mt-1",
+                                        children: "Track student progress, attendance, and submissions"
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                        lineNumber: 400,
+                                        columnNumber: 13
+                                    }, this)
+                                ]
+                            }, void 0, true, {
+                                fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                lineNumber: 396,
+                                columnNumber: 11
+                            }, this),
+                            /*#__PURE__*/ _jsxDEV("div", {
+                                className: "flex items-center gap-2",
+                                children: [
+                                    /*#__PURE__*/ _jsxDEV(Select, {
+                                        value: selectedCourse,
+                                        onValueChange: setSelectedCourse,
+                                        children: [
+                                            /*#__PURE__*/ _jsxDEV(SelectTrigger, {
+                                                className: "w-48",
+                                                children: /*#__PURE__*/ _jsxDEV(SelectValue, {
+                                                    placeholder: "Select course"
+                                                }, void 0, false, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                                    lineNumber: 407,
+                                                    columnNumber: 17
+                                                }, this)
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                                lineNumber: 406,
+                                                columnNumber: 15
+                                            }, this),
+                                            /*#__PURE__*/ _jsxDEV(SelectContent, {
+                                                children: coursesList.map((course)=>/*#__PURE__*/ _jsxDEV(SelectItem, {
+                                                        value: course,
+                                                        children: course
+                                                    }, course, false, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                                        lineNumber: 411,
+                                                        columnNumber: 19
+                                                    }, this))
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                                lineNumber: 409,
+                                                columnNumber: 15
+                                            }, this)
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                        lineNumber: 405,
+                                        columnNumber: 13
+                                    }, this),
+                                    /*#__PURE__*/ _jsxDEV(Button, {
+                                        variant: "default",
+                                        onClick: handleExportStudentReport,
+                                        className: "gap-2 bg-primary text-primary-foreground font-bold shadow-sm",
+                                        children: [
+                                            /*#__PURE__*/ _jsxDEV(Download, {
+                                                className: "h-4 w-4"
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                                lineNumber: 416,
+                                                columnNumber: 15
+                                            }, this),
+                                            "Export Student Report (CSV)"
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                        lineNumber: 415,
+                                        columnNumber: 13
+                                    }, this)
+                                ]
+                            }, void 0, true, {
+                                fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                lineNumber: 404,
+                                columnNumber: 11
+                            }, this)
+                        ]
+                    }, void 0, true, {
+                        fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                        lineNumber: 395,
+                        columnNumber: 9
+                    }, this),
+                    /*#__PURE__*/ _jsxDEV("div", {
+                        className: "grid gap-4 md:grid-cols-4",
+                        children: [
+                            /*#__PURE__*/ _jsxDEV(Card, {
+                                children: /*#__PURE__*/ _jsxDEV(CardContent, {
+                                    className: "p-4 flex items-center gap-4",
+                                    children: [
+                                        /*#__PURE__*/ _jsxDEV("div", {
+                                            className: "p-3 rounded-lg bg-primary/10",
+                                            children: /*#__PURE__*/ _jsxDEV(Users, {
+                                                className: "h-5 w-5 text-primary"
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                                lineNumber: 427,
+                                                columnNumber: 17
+                                            }, this)
+                                        }, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                            lineNumber: 426,
+                                            columnNumber: 15
+                                        }, this),
+                                        /*#__PURE__*/ _jsxDEV("div", {
+                                            children: [
+                                                /*#__PURE__*/ _jsxDEV("p", {
+                                                    className: "text-2xl font-bold",
+                                                    children: stats.activeStudents
+                                                }, void 0, false, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                                    lineNumber: 430,
+                                                    columnNumber: 17
+                                                }, this),
+                                                /*#__PURE__*/ _jsxDEV("p", {
+                                                    className: "text-sm text-muted-foreground",
+                                                    children: "Active Students"
+                                                }, void 0, false, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                                    lineNumber: 431,
+                                                    columnNumber: 17
+                                                }, this)
+                                            ]
+                                        }, void 0, true, {
+                                            fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                            lineNumber: 429,
+                                            columnNumber: 15
+                                        }, this)
+                                    ]
+                                }, void 0, true, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                    lineNumber: 425,
+                                    columnNumber: 13
+                                }, this)
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                lineNumber: 424,
+                                columnNumber: 11
+                            }, this),
+                            /*#__PURE__*/ _jsxDEV(Card, {
+                                children: /*#__PURE__*/ _jsxDEV(CardContent, {
+                                    className: "p-4 flex items-center gap-4",
+                                    children: [
+                                        /*#__PURE__*/ _jsxDEV("div", {
+                                            className: "p-3 rounded-lg bg-success/10",
+                                            children: /*#__PURE__*/ _jsxDEV(TrendingUp, {
+                                                className: "h-5 w-5 text-success"
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                                lineNumber: 438,
+                                                columnNumber: 17
+                                            }, this)
+                                        }, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                            lineNumber: 437,
+                                            columnNumber: 15
+                                        }, this),
+                                        /*#__PURE__*/ _jsxDEV("div", {
+                                            children: [
+                                                /*#__PURE__*/ _jsxDEV("p", {
+                                                    className: "text-2xl font-bold",
+                                                    children: [
+                                                        stats.avgProgress,
+                                                        "%"
+                                                    ]
+                                                }, void 0, true, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                                    lineNumber: 441,
+                                                    columnNumber: 17
+                                                }, this),
+                                                /*#__PURE__*/ _jsxDEV("p", {
+                                                    className: "text-sm text-muted-foreground",
+                                                    children: "Avg. Progress"
+                                                }, void 0, false, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                                    lineNumber: 442,
+                                                    columnNumber: 17
+                                                }, this)
+                                            ]
+                                        }, void 0, true, {
+                                            fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                            lineNumber: 440,
+                                            columnNumber: 15
+                                        }, this)
+                                    ]
+                                }, void 0, true, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                    lineNumber: 436,
+                                    columnNumber: 13
+                                }, this)
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                lineNumber: 435,
+                                columnNumber: 11
+                            }, this),
+                            /*#__PURE__*/ _jsxDEV(Card, {
+                                children: /*#__PURE__*/ _jsxDEV(CardContent, {
+                                    className: "p-4 flex items-center gap-4",
+                                    children: [
+                                        /*#__PURE__*/ _jsxDEV("div", {
+                                            className: "p-3 rounded-lg bg-accent/10",
+                                            children: /*#__PURE__*/ _jsxDEV(BookOpen, {
+                                                className: "h-5 w-5 text-accent"
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                                lineNumber: 449,
+                                                columnNumber: 17
+                                            }, this)
+                                        }, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                            lineNumber: 448,
+                                            columnNumber: 15
+                                        }, this),
+                                        /*#__PURE__*/ _jsxDEV("div", {
+                                            children: [
+                                                /*#__PURE__*/ _jsxDEV("p", {
+                                                    className: "text-2xl font-bold",
+                                                    children: [
+                                                        stats.attendanceRate,
+                                                        "%"
+                                                    ]
+                                                }, void 0, true, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                                    lineNumber: 452,
+                                                    columnNumber: 17
+                                                }, this),
+                                                /*#__PURE__*/ _jsxDEV("p", {
+                                                    className: "text-sm text-muted-foreground",
+                                                    children: "Attendance Rate"
+                                                }, void 0, false, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                                    lineNumber: 453,
+                                                    columnNumber: 17
+                                                }, this)
+                                            ]
+                                        }, void 0, true, {
+                                            fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                            lineNumber: 451,
+                                            columnNumber: 15
+                                        }, this)
+                                    ]
+                                }, void 0, true, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                    lineNumber: 447,
+                                    columnNumber: 13
+                                }, this)
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                lineNumber: 446,
+                                columnNumber: 11
+                            }, this),
+                            /*#__PURE__*/ _jsxDEV(Card, {
+                                children: /*#__PURE__*/ _jsxDEV(CardContent, {
+                                    className: "p-4 flex items-center gap-4",
+                                    children: [
+                                        /*#__PURE__*/ _jsxDEV("div", {
+                                            className: "p-3 rounded-lg bg-warning/10",
+                                            children: /*#__PURE__*/ _jsxDEV(FileText, {
+                                                className: "h-5 w-5 text-warning"
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                                lineNumber: 460,
+                                                columnNumber: 17
+                                            }, this)
+                                        }, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                            lineNumber: 459,
+                                            columnNumber: 15
+                                        }, this),
+                                        /*#__PURE__*/ _jsxDEV("div", {
+                                            children: [
+                                                /*#__PURE__*/ _jsxDEV("p", {
+                                                    className: "text-2xl font-bold",
+                                                    children: stats.pendingReviews
+                                                }, void 0, false, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                                    lineNumber: 463,
+                                                    columnNumber: 17
+                                                }, this),
+                                                /*#__PURE__*/ _jsxDEV("p", {
+                                                    className: "text-sm text-muted-foreground",
+                                                    children: "Pending Reviews"
+                                                }, void 0, false, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                                    lineNumber: 464,
+                                                    columnNumber: 17
+                                                }, this)
+                                            ]
+                                        }, void 0, true, {
+                                            fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                            lineNumber: 462,
+                                            columnNumber: 15
+                                        }, this)
+                                    ]
+                                }, void 0, true, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                    lineNumber: 458,
+                                    columnNumber: 13
+                                }, this)
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                lineNumber: 457,
+                                columnNumber: 11
+                            }, this)
+                        ]
+                    }, void 0, true, {
+                        fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                        lineNumber: 423,
+                        columnNumber: 9
+                    }, this),
+                    /*#__PURE__*/ _jsxDEV(Tabs, {
+                        value: activeTab,
+                        onValueChange: setActiveTab,
+                        children: [
+                            /*#__PURE__*/ _jsxDEV(TabsList, {
+                                children: [
+                                    /*#__PURE__*/ _jsxDEV(TabsTrigger, {
+                                        value: "progress",
+                                        className: "gap-2",
+                                        children: [
+                                            /*#__PURE__*/ _jsxDEV(BarChart3, {
+                                                className: "h-4 w-4"
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                                lineNumber: 474,
+                                                columnNumber: 15
+                                            }, this),
+                                            "Student Progress"
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                        lineNumber: 473,
+                                        columnNumber: 13
+                                    }, this),
+                                    /*#__PURE__*/ _jsxDEV(TabsTrigger, {
+                                        value: "attendance",
+                                        className: "gap-2",
+                                        children: [
+                                            /*#__PURE__*/ _jsxDEV(Users, {
+                                                className: "h-4 w-4"
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                                lineNumber: 478,
+                                                columnNumber: 15
+                                            }, this),
+                                            "Attendance"
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                        lineNumber: 477,
+                                        columnNumber: 13
+                                    }, this),
+                                    /*#__PURE__*/ _jsxDEV(TabsTrigger, {
+                                        value: "assignments",
+                                        className: "gap-2",
+                                        children: [
+                                            /*#__PURE__*/ _jsxDEV(FileText, {
+                                                className: "h-4 w-4"
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                                lineNumber: 482,
+                                                columnNumber: 15
+                                            }, this),
+                                            "Assignments"
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                        lineNumber: 481,
+                                        columnNumber: 13
+                                    }, this)
+                                ]
+                            }, void 0, true, {
+                                fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                lineNumber: 472,
+                                columnNumber: 11
+                            }, this),
+                            /*#__PURE__*/ _jsxDEV(TabsContent, {
+                                value: "progress",
+                                className: "mt-6",
+                                children: /*#__PURE__*/ _jsxDEV(DataTable, {
+                                    data: studentProgressData,
+                                    columns: progressColumns,
+                                    searchPlaceholder: "Search students..."
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                    lineNumber: 488,
+                                    columnNumber: 13
+                                }, this)
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                lineNumber: 487,
+                                columnNumber: 11
+                            }, this),
+                            /*#__PURE__*/ _jsxDEV(TabsContent, {
+                                value: "attendance",
+                                className: "mt-6 space-y-6",
+                                children: [
+                                    /*#__PURE__*/ _jsxDEV(Card, {
+                                        children: [
+                                            /*#__PURE__*/ _jsxDEV(CardHeader, {
+                                                className: "pb-2",
+                                                children: /*#__PURE__*/ _jsxDEV(CardTitle, {
+                                                    className: "text-lg font-display",
+                                                    children: "Weekly Attendance Overview"
+                                                }, void 0, false, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                                    lineNumber: 499,
+                                                    columnNumber: 17
+                                                }, this)
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                                lineNumber: 498,
+                                                columnNumber: 15
+                                            }, this),
+                                            /*#__PURE__*/ _jsxDEV(CardContent, {
+                                                children: /*#__PURE__*/ _jsxDEV("div", {
+                                                    className: "h-[280px]",
+                                                    children: /*#__PURE__*/ _jsxDEV(ResponsiveContainer, {
+                                                        width: "100%",
+                                                        height: "100%",
+                                                        children: /*#__PURE__*/ _jsxDEV(BarChart, {
+                                                            data: attendanceChartData.length ? attendanceChartData : [
+                                                                {
+                                                                    day: 'Mon',
+                                                                    present: 0
+                                                                }
+                                                            ],
+                                                            children: [
+                                                                /*#__PURE__*/ _jsxDEV(CartesianGrid, {
+                                                                    strokeDasharray: "3 3",
+                                                                    className: "stroke-border"
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                                                    lineNumber: 505,
+                                                                    columnNumber: 23
+                                                                }, this),
+                                                                /*#__PURE__*/ _jsxDEV(XAxis, {
+                                                                    dataKey: "day"
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                                                    lineNumber: 506,
+                                                                    columnNumber: 23
+                                                                }, this),
+                                                                /*#__PURE__*/ _jsxDEV(YAxis, {}, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                                                    lineNumber: 507,
+                                                                    columnNumber: 23
+                                                                }, this),
+                                                                /*#__PURE__*/ _jsxDEV(Tooltip, {}, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                                                    lineNumber: 508,
+                                                                    columnNumber: 23
+                                                                }, this),
+                                                                /*#__PURE__*/ _jsxDEV(Bar, {
+                                                                    dataKey: "present",
+                                                                    fill: "hsl(142, 71%, 45%)",
+                                                                    name: "Present",
+                                                                    radius: [
+                                                                        4,
+                                                                        4,
+                                                                        0,
+                                                                        0
+                                                                    ]
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                                                    lineNumber: 509,
+                                                                    columnNumber: 23
+                                                                }, this),
+                                                                /*#__PURE__*/ _jsxDEV(Bar, {
+                                                                    dataKey: "late",
+                                                                    fill: "hsl(38, 92%, 50%)",
+                                                                    name: "Late",
+                                                                    radius: [
+                                                                        4,
+                                                                        4,
+                                                                        0,
+                                                                        0
+                                                                    ]
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                                                    lineNumber: 510,
+                                                                    columnNumber: 23
+                                                                }, this),
+                                                                /*#__PURE__*/ _jsxDEV(Bar, {
+                                                                    dataKey: "absent",
+                                                                    fill: "hsl(0, 72%, 51%)",
+                                                                    name: "Absent",
+                                                                    radius: [
+                                                                        4,
+                                                                        4,
+                                                                        0,
+                                                                        0
+                                                                    ]
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                                                    lineNumber: 511,
+                                                                    columnNumber: 23
+                                                                }, this)
+                                                            ]
+                                                        }, void 0, true, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                                            lineNumber: 504,
+                                                            columnNumber: 21
+                                                        }, this)
+                                                    }, void 0, false, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                                        lineNumber: 503,
+                                                        columnNumber: 19
+                                                    }, this)
+                                                }, void 0, false, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                                    lineNumber: 502,
+                                                    columnNumber: 17
+                                                }, this)
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                                lineNumber: 501,
+                                                columnNumber: 15
+                                            }, this)
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                        lineNumber: 497,
+                                        columnNumber: 13
+                                    }, this),
+                                    /*#__PURE__*/ _jsxDEV(DataTable, {
+                                        data: attendanceData,
+                                        columns: attendanceColumns,
+                                        searchPlaceholder: "Search attendance records..."
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                        lineNumber: 518,
+                                        columnNumber: 13
+                                    }, this)
+                                ]
+                            }, void 0, true, {
+                                fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                lineNumber: 495,
+                                columnNumber: 11
+                            }, this),
+                            /*#__PURE__*/ _jsxDEV(TabsContent, {
+                                value: "assignments",
+                                className: "mt-6",
+                                children: /*#__PURE__*/ _jsxDEV(DataTable, {
+                                    data: assignmentsData,
+                                    columns: assignmentColumns,
+                                    searchPlaceholder: "Search assignments..."
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                    lineNumber: 526,
+                                    columnNumber: 13
+                                }, this)
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                                lineNumber: 525,
+                                columnNumber: 11
+                            }, this)
+                        ]
+                    }, void 0, true, {
+                        fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                        lineNumber: 471,
+                        columnNumber: 9
+                    }, this)
+                ]
+            }, void 0, true, {
+                fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                lineNumber: 393,
+                columnNumber: 7
+            }, this),
+            /*#__PURE__*/ _jsxDEV(StudentReportCardModal, {
+                open: reportModalOpen,
+                onOpenChange: setReportModalOpen,
+                student: selectedStudentForReport
+            }, void 0, false, {
+                fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+                lineNumber: 534,
+                columnNumber: 7
+            }, this)
+        ]
+    }, void 0, true, {
+        fileName: "D:/Orbitlms/src/pages/admin/Monitoring.tsx",
+        lineNumber: 392,
+        columnNumber: 5
+    }, this);
+}
+_s(Monitoring, "6RigiDVUX9jNF+Oqu6HQMa21OZs=", false, function() {
+    return [
+        useToast
+    ];
+});
+_c = Monitoring;
+var _c;
+$RefreshReg$(_c, "Monitoring");
+
+
+if (import.meta.hot && !inWebWorker) {
+  window.$RefreshReg$ = prevRefreshReg;
+  window.$RefreshSig$ = prevRefreshSig;
+}
+
+
+if (import.meta.hot && !inWebWorker) {
+  RefreshRuntime.__hmr_import(import.meta.url).then((currentExports) => {
+    RefreshRuntime.registerExportsForReactRefresh("D:/Orbitlms/src/pages/admin/Monitoring.tsx", currentExports);
+    import.meta.hot.accept((nextExports) => {
+      if (!nextExports) return;
+      const invalidateMessage = RefreshRuntime.validateRefreshBoundaryAndEnqueueUpdate("D:/Orbitlms/src/pages/admin/Monitoring.tsx", currentExports, nextExports);
+      if (invalidateMessage) import.meta.hot.invalidate(invalidateMessage);
+    });
+  });
+}
+
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbIk1vbml0b3JpbmcudHN4Il0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7IHVzZVN0YXRlLCB1c2VFZmZlY3QgfSBmcm9tIFwicmVhY3RcIjtcclxuaW1wb3J0IHsgQWRtaW5MYXlvdXQgfSBmcm9tIFwiQC9jb21wb25lbnRzL2xheW91dC9BZG1pbkxheW91dFwiO1xyXG5pbXBvcnQgeyBEYXRhVGFibGUgfSBmcm9tIFwiQC9jb21wb25lbnRzL3VpL2RhdGEtdGFibGVcIjtcclxuaW1wb3J0IHsgQnV0dG9uIH0gZnJvbSBcIkAvY29tcG9uZW50cy91aS9idXR0b25cIjtcclxuaW1wb3J0IHsgQmFkZ2UgfSBmcm9tIFwiQC9jb21wb25lbnRzL3VpL2JhZGdlXCI7XHJcbmltcG9ydCB7IENhcmQsIENhcmRDb250ZW50LCBDYXJkSGVhZGVyLCBDYXJkVGl0bGUgfSBmcm9tIFwiQC9jb21wb25lbnRzL3VpL2NhcmRcIjtcclxuaW1wb3J0IHsgUHJvZ3Jlc3MgfSBmcm9tIFwiQC9jb21wb25lbnRzL3VpL3Byb2dyZXNzXCI7XHJcbmltcG9ydCB7IFRhYnMsIFRhYnNDb250ZW50LCBUYWJzTGlzdCwgVGFic1RyaWdnZXIgfSBmcm9tIFwiQC9jb21wb25lbnRzL3VpL3RhYnNcIjtcclxuaW1wb3J0IHsgQXZhdGFyLCBBdmF0YXJGYWxsYmFjayB9IGZyb20gXCJAL2NvbXBvbmVudHMvdWkvYXZhdGFyXCI7XHJcbmltcG9ydCB7XHJcbiAgU2VsZWN0LFxyXG4gIFNlbGVjdENvbnRlbnQsXHJcbiAgU2VsZWN0SXRlbSxcclxuICBTZWxlY3RUcmlnZ2VyLFxyXG4gIFNlbGVjdFZhbHVlLFxyXG59IGZyb20gXCJAL2NvbXBvbmVudHMvdWkvc2VsZWN0XCI7XHJcbmltcG9ydCB7XHJcbiAgQmFyQ2hhcnQzLFxyXG4gIFVzZXJzLFxyXG4gIEJvb2tPcGVuLFxyXG4gIEZpbGVUZXh0LFxyXG4gIENoZWNrQ2lyY2xlLFxyXG4gIENsb2NrLFxyXG4gIEFsZXJ0Q2lyY2xlLFxyXG4gIFRyZW5kaW5nVXAsXHJcbiAgRG93bmxvYWQsXHJcbn0gZnJvbSBcImx1Y2lkZS1yZWFjdFwiO1xyXG5pbXBvcnQge1xyXG4gIEJhckNoYXJ0LFxyXG4gIEJhcixcclxuICBYQXhpcyxcclxuICBZQXhpcyxcclxuICBDYXJ0ZXNpYW5HcmlkLFxyXG4gIFRvb2x0aXAsXHJcbiAgUmVzcG9uc2l2ZUNvbnRhaW5lcixcclxufSBmcm9tIFwicmVjaGFydHNcIjtcclxuaW1wb3J0IHsgc3VwYWJhc2UgfSBmcm9tIFwiQC9saWIvc3VwYWJhc2VcIjtcclxuaW1wb3J0IHsgdXNlVG9hc3QgfSBmcm9tIFwiQC9ob29rcy91c2UtdG9hc3RcIjtcclxuaW1wb3J0IHsgU3R1ZGVudFJlcG9ydENhcmRNb2RhbCB9IGZyb20gXCJAL2NvbXBvbmVudHMvcmVwb3J0cy9TdHVkZW50UmVwb3J0Q2FyZE1vZGFsXCI7XHJcblxyXG5leHBvcnQgZGVmYXVsdCBmdW5jdGlvbiBNb25pdG9yaW5nKCkge1xyXG4gIGNvbnN0IHsgdG9hc3QgfSA9IHVzZVRvYXN0KCk7XHJcbiAgY29uc3QgW2FjdGl2ZVRhYiwgc2V0QWN0aXZlVGFiXSA9IHVzZVN0YXRlKFwicHJvZ3Jlc3NcIik7XHJcbiAgY29uc3QgW3NlbGVjdGVkQ291cnNlLCBzZXRTZWxlY3RlZENvdXJzZV0gPSB1c2VTdGF0ZShcIkFsbCBDb3Vyc2VzXCIpO1xyXG4gIGNvbnN0IFtjb3Vyc2VzTGlzdCwgc2V0Q291cnNlc0xpc3RdID0gdXNlU3RhdGU8c3RyaW5nW10+KFtcIkFsbCBDb3Vyc2VzXCJdKTtcclxuICBjb25zdCBbcmVwb3J0TW9kYWxPcGVuLCBzZXRSZXBvcnRNb2RhbE9wZW5dID0gdXNlU3RhdGUoZmFsc2UpO1xyXG4gIGNvbnN0IFtzZWxlY3RlZFN0dWRlbnRGb3JSZXBvcnQsIHNldFNlbGVjdGVkU3R1ZGVudEZvclJlcG9ydF0gPSB1c2VTdGF0ZTxhbnk+KG51bGwpO1xyXG5cclxuICBjb25zdCBbc3R1ZGVudFByb2dyZXNzRGF0YSwgc2V0U3R1ZGVudFByb2dyZXNzRGF0YV0gPSB1c2VTdGF0ZTxhbnlbXT4oW10pO1xyXG4gIGNvbnN0IFthdHRlbmRhbmNlRGF0YSwgc2V0QXR0ZW5kYW5jZURhdGFdID0gdXNlU3RhdGU8YW55W10+KFtdKTtcclxuICBjb25zdCBbYXR0ZW5kYW5jZUNoYXJ0RGF0YSwgc2V0QXR0ZW5kYW5jZUNoYXJ0RGF0YV0gPSB1c2VTdGF0ZTxhbnlbXT4oW10pO1xyXG4gIGNvbnN0IFthc3NpZ25tZW50c0RhdGEsIHNldEFzc2lnbm1lbnRzRGF0YV0gPSB1c2VTdGF0ZTxhbnlbXT4oW10pO1xyXG5cclxuICBjb25zdCBbc3RhdHMsIHNldFN0YXRzXSA9IHVzZVN0YXRlKHtcclxuICAgIGFjdGl2ZVN0dWRlbnRzOiAwLFxyXG4gICAgYXZnUHJvZ3Jlc3M6IDAsXHJcbiAgICBhdHRlbmRhbmNlUmF0ZTogMCxcclxuICAgIHBlbmRpbmdSZXZpZXdzOiAwXHJcbiAgfSk7XHJcblxyXG4gIHVzZUVmZmVjdCgoKSA9PiB7XHJcbiAgICBmZXRjaERhdGEoKTtcclxuICB9LCBbXSk7XHJcblxyXG4gIGNvbnN0IGZldGNoRGF0YSA9IGFzeW5jICgpID0+IHtcclxuICAgIHRyeSB7XHJcbiAgICAgIC8vIDEuIEZldGNoIENvdXJzZXMgZm9yIGZpbHRlclxyXG4gICAgICBjb25zdCB7IGRhdGE6IGNvdXJzZXMgfSA9IGF3YWl0IHN1cGFiYXNlLmZyb20oJ2NvdXJzZXMnKS5zZWxlY3QoJ2lkLCB0aXRsZScpO1xyXG4gICAgICBpZiAoY291cnNlcykge1xyXG4gICAgICAgIHNldENvdXJzZXNMaXN0KFtcIkFsbCBDb3Vyc2VzXCIsIC4uLmNvdXJzZXMubWFwKGMgPT4gYy50aXRsZSldKTtcclxuICAgICAgfVxyXG5cclxuICAgICAgLy8gMi4gRmV0Y2ggYWxsIHN0dWRlbnQgdXNlcnMgZnJvbSBwdWJsaWMudXNlcnNcclxuICAgICAgY29uc3QgeyBkYXRhOiBzdHVkZW50VXNlcnMgfSA9IGF3YWl0IHN1cGFiYXNlXHJcbiAgICAgICAgLmZyb20oJ3VzZXJzJylcclxuICAgICAgICAuc2VsZWN0KCdpZCwgZnVsbF9uYW1lLCBlbWFpbCwgYXVyYV9wb2ludHMsIGJvbnVzX2NyZWRpdHMsIHJvbGUsIHN0YXR1cycpXHJcbiAgICAgICAgLmVxKCdyb2xlJywgJ3N0dWRlbnQnKTtcclxuXHJcbiAgICAgIC8vIDMuIEZldGNoIGVucm9sbG1lbnRzXHJcbiAgICAgIGNvbnN0IHsgZGF0YTogZW5yb2xsbWVudHMgfSA9IGF3YWl0IHN1cGFiYXNlXHJcbiAgICAgICAgLmZyb20oJ2Vucm9sbG1lbnRzJylcclxuICAgICAgICAuc2VsZWN0KCdpZCwgc3R1ZGVudF9pZCwgc3RhdHVzLCBjb21wbGV0ZWQsIGVucm9sbGVkX2F0LCBjb3Vyc2U6Y291cnNlcyhpZCwgdGl0bGUsIGNyZWRpdF9wb2ludHMpJyk7XHJcblxyXG4gICAgICAvLyA0LiBGZXRjaCBzdWJtaXNzaW9uc1xyXG4gICAgICBjb25zdCB7IGRhdGE6IHN1Ym1pc3Npb25zIH0gPSBhd2FpdCBzdXBhYmFzZVxyXG4gICAgICAgIC5mcm9tKCdzdWJtaXNzaW9ucycpXHJcbiAgICAgICAgLnNlbGVjdCgnaWQsIHN0dWRlbnRfaWQsIGdyYWRlLCBzdGF0dXMnKTtcclxuXHJcbiAgICAgIGNvbnN0IHBlbmRpbmdDb3VudCA9IChzdWJtaXNzaW9ucyB8fCBbXSkuZmlsdGVyKHMgPT4gcy5zdGF0dXMgPT09ICdwZW5kaW5nJykubGVuZ3RoO1xyXG5cclxuICAgICAgLy8gQ29tYmluZSBzdHVkZW50IHVzZXIgZGF0YSB3aXRoIGVucm9sbG1lbnRzXHJcbiAgICAgIGNvbnN0IHN0dWRlbnRMaXN0ID0gKHN0dWRlbnRVc2VycyB8fCBbXSkubWFwKCh1OiBhbnkpID0+IHtcclxuICAgICAgICBjb25zdCB1c2VyRW5ycyA9IChlbnJvbGxtZW50cyB8fCBbXSkuZmlsdGVyKGUgPT4gZS5zdHVkZW50X2lkID09PSB1LmlkKTtcclxuICAgICAgICBjb25zdCBhcHByb3ZlZEVucnMgPSB1c2VyRW5ycy5maWx0ZXIoZSA9PiBlLnN0YXR1cyA9PT0gJ2FwcHJvdmVkJyk7XHJcbiAgICAgICAgY29uc3QgY29tcGxldGVkRW5ycyA9IHVzZXJFbnJzLmZpbHRlcihlID0+IGUuc3RhdHVzID09PSAnYXBwcm92ZWQnICYmIGUuY29tcGxldGVkID09PSB0cnVlKTtcclxuICAgICAgICBcclxuICAgICAgICBjb25zdCBjb3Vyc2VDcmVkcyA9IGNvbXBsZXRlZEVucnMucmVkdWNlKChhY2MsIGUpID0+IHtcclxuICAgICAgICAgIGNvbnN0IGMgPSBBcnJheS5pc0FycmF5KGUuY291cnNlKSA/IGUuY291cnNlWzBdIDogZS5jb3Vyc2U7XHJcbiAgICAgICAgICByZXR1cm4gYWNjICsgKGM/LmNyZWRpdF9wb2ludHMgfHwgMyk7XHJcbiAgICAgICAgfSwgMCk7XHJcblxyXG4gICAgICAgIGNvbnN0IHRvdGFsQ3JlZHMgPSBjb3Vyc2VDcmVkcyArICh1LmJvbnVzX2NyZWRpdHMgfHwgMCk7XHJcblxyXG4gICAgICAgIGNvbnN0IGNvdXJzZU5hbWVzID0gdXNlckVucnMubWFwKGUgPT4ge1xyXG4gICAgICAgICAgY29uc3QgYyA9IEFycmF5LmlzQXJyYXkoZS5jb3Vyc2UpID8gZS5jb3Vyc2VbMF0gOiBlLmNvdXJzZTtcclxuICAgICAgICAgIHJldHVybiBjPy50aXRsZSB8fCBcIkVucm9sbGVkIENvdXJzZVwiO1xyXG4gICAgICAgIH0pLmpvaW4oXCIsIFwiKTtcclxuXHJcbiAgICAgICAgY29uc3QgY29tcHV0ZWRQcm9ncmVzcyA9IGFwcHJvdmVkRW5ycy5sZW5ndGggPiAwID8gTWF0aC5taW4oMTAwLCBhcHByb3ZlZEVucnMubGVuZ3RoICogMjUgKyAodS5hdXJhX3BvaW50cyB8fCAwKSkgOiAodS5hdXJhX3BvaW50cyA/IE1hdGgubWluKDEwMCwgdS5hdXJhX3BvaW50cyAqIDUpIDogMCk7XHJcblxyXG4gICAgICAgIHJldHVybiB7XHJcbiAgICAgICAgICBpZDogdS5pZCxcclxuICAgICAgICAgIG5hbWU6IHUuZnVsbF9uYW1lIHx8IFwiU3R1ZGVudCBVc2VyXCIsXHJcbiAgICAgICAgICBlbWFpbDogdS5lbWFpbCB8fCBcIk5vIGVtYWlsXCIsXHJcbiAgICAgICAgICBjb3Vyc2U6IGNvdXJzZU5hbWVzIHx8IFwiR2VuZXJhbCBMZWFybmVyXCIsXHJcbiAgICAgICAgICBwcm9ncmVzczogY29tcHV0ZWRQcm9ncmVzcyxcclxuICAgICAgICAgIGF1cmE6IHUuYXVyYV9wb2ludHMgfHwgMCxcclxuICAgICAgICAgIGNyZWRpdHM6IHRvdGFsQ3JlZHMsXHJcbiAgICAgICAgICBjb21wbGV0ZWRMZXNzb25zOiBhcHByb3ZlZEVucnMubGVuZ3RoLFxyXG4gICAgICAgICAgdG90YWxMZXNzb25zOiBNYXRoLm1heCgxMCwgYXBwcm92ZWRFbnJzLmxlbmd0aCAqIDMpLFxyXG4gICAgICAgICAgbGFzdEFjdGl2ZTogXCJUb2RheVwiLFxyXG4gICAgICAgICAgc3RhdHVzOiBjb21wdXRlZFByb2dyZXNzID49IDgwID8gXCJjb21wbGV0ZWRcIiA6IFwib24tdHJhY2tcIlxyXG4gICAgICAgIH07XHJcbiAgICAgIH0pO1xyXG5cclxuICAgICAgc2V0U3R1ZGVudFByb2dyZXNzRGF0YShzdHVkZW50TGlzdCk7XHJcblxyXG4gICAgICAvLyA1LiBGZXRjaCBBc3NpZ25tZW50cyAmIFN1Ym1pc3Npb25zXHJcbiAgICAgIGNvbnN0IHsgZGF0YTogYXNzaWdubWVudHNMaXN0IH0gPSBhd2FpdCBzdXBhYmFzZVxyXG4gICAgICAgIC5mcm9tKCdhc3NpZ25tZW50cycpXHJcbiAgICAgICAgLnNlbGVjdCgnaWQsIHRpdGxlLCBkdWVfZGF0ZSwgY291cnNlX2lkLCBjb3Vyc2VzKHRpdGxlKScpO1xyXG5cclxuICAgICAgY29uc3QgZm9ybWF0dGVkQXNzaWdubWVudHMgPSAoYXNzaWdubWVudHNMaXN0IHx8IFtdKS5tYXAoKGE6IGFueSkgPT4ge1xyXG4gICAgICAgIGNvbnN0IGNvdXJzZU9iaiA9IEFycmF5LmlzQXJyYXkoYS5jb3Vyc2VzKSA/IGEuY291cnNlc1swXSA6IGEuY291cnNlcztcclxuICAgICAgICBjb25zdCBhc3NpZ25TdWJzID0gKHN1Ym1pc3Npb25zIHx8IFtdKS5maWx0ZXIoKHM6IGFueSkgPT4gcy5hc3NpZ25tZW50X2lkID09PSBhLmlkKTtcclxuICAgICAgICBjb25zdCBwZW5kaW5nU3VicyA9IGFzc2lnblN1YnMuZmlsdGVyKChzOiBhbnkpID0+IHMuc3RhdHVzID09PSAncGVuZGluZycpLmxlbmd0aDtcclxuICAgICAgICBjb25zdCBncmFkZWRTdWJzID0gYXNzaWduU3Vicy5maWx0ZXIoKHM6IGFueSkgPT4gcy5zdGF0dXMgPT09ICdncmFkZWQnKS5sZW5ndGg7XHJcblxyXG4gICAgICAgIHJldHVybiB7XHJcbiAgICAgICAgICBpZDogYS5pZCxcclxuICAgICAgICAgIHRpdGxlOiBhLnRpdGxlIHx8IFwiQ291cnNlIEFzc2lnbm1lbnRcIixcclxuICAgICAgICAgIGNvdXJzZTogY291cnNlT2JqPy50aXRsZSB8fCBcIkdlbmVyYWwgQ291cnNlXCIsXHJcbiAgICAgICAgICBkdWVEYXRlOiBhLmR1ZV9kYXRlID8gbmV3IERhdGUoYS5kdWVfZGF0ZSkudG9Mb2NhbGVEYXRlU3RyaW5nKCkgOiBcIk5vIER1ZSBEYXRlXCIsXHJcbiAgICAgICAgICBzdWJtaXR0ZWQ6IGFzc2lnblN1YnMubGVuZ3RoLFxyXG4gICAgICAgICAgcGVuZGluZzogcGVuZGluZ1N1YnMsXHJcbiAgICAgICAgICBncmFkZWQ6IGdyYWRlZFN1YnMsXHJcbiAgICAgICAgICB0b3RhbFN0dWRlbnRzOiBhY3RpdmVDb3VudFxyXG4gICAgICAgIH07XHJcbiAgICAgIH0pO1xyXG5cclxuICAgICAgc2V0QXNzaWdubWVudHNEYXRhKGZvcm1hdHRlZEFzc2lnbm1lbnRzKTtcclxuXHJcbiAgICAgIHNldFN0YXRzKHtcclxuICAgICAgICBhY3RpdmVTdHVkZW50czogYWN0aXZlQ291bnQsXHJcbiAgICAgICAgYXZnUHJvZ3Jlc3M6IGF2Z1Byb2csXHJcbiAgICAgICAgYXR0ZW5kYW5jZVJhdGU6IDk0LFxyXG4gICAgICAgIHBlbmRpbmdSZXZpZXdzOiBwZW5kaW5nQ291bnRcclxuICAgICAgfSk7XHJcblxyXG4gICAgfSBjYXRjaCAoZXJyKSB7XHJcbiAgICAgIGNvbnNvbGUuZXJyb3IoXCJNb25pdG9yaW5nIGZldGNoIGVycm9yOlwiLCBlcnIpO1xyXG4gICAgfVxyXG4gIH07XHJcblxyXG4gIGNvbnN0IGhhbmRsZUV4cG9ydFN0dWRlbnRSZXBvcnQgPSAoKSA9PiB7XHJcbiAgICBpZiAoc3R1ZGVudFByb2dyZXNzRGF0YS5sZW5ndGggPT09IDApIHtcclxuICAgICAgdG9hc3QoeyB2YXJpYW50OiBcImRlc3RydWN0aXZlXCIsIHRpdGxlOiBcIk5vIERhdGFcIiwgZGVzY3JpcHRpb246IFwiTm8gc3R1ZGVudCByZWNvcmRzIGF2YWlsYWJsZSBmb3IgZXhwb3J0LlwiIH0pO1xyXG4gICAgICByZXR1cm47XHJcbiAgICB9XHJcblxyXG4gICAgY29uc3QgY3N2Um93cyA9IFtcclxuICAgICAgW1wiU3R1ZGVudCBOYW1lXCIsIFwiRW1haWxcIiwgXCJFbnJvbGxlZCBDb3Vyc2VzXCIsIFwiUHJvZ3Jlc3MgKCUpXCIsIFwiQXVyYSBQb2ludHMgKFhQKVwiLCBcIkVhcm5lZCBDcmVkaXRzXCIsIFwiU3RhdHVzXCJdLmpvaW4oXCIsXCIpXHJcbiAgICBdO1xyXG5cclxuICAgIHN0dWRlbnRQcm9ncmVzc0RhdGEuZm9yRWFjaCgocykgPT4ge1xyXG4gICAgICBjc3ZSb3dzLnB1c2goW1xyXG4gICAgICAgIGBcIiR7cy5uYW1lfVwiYCxcclxuICAgICAgICBgXCIke3MuZW1haWx9XCJgLFxyXG4gICAgICAgIGBcIiR7cy5jb3Vyc2V9XCJgLFxyXG4gICAgICAgIHMucHJvZ3Jlc3MsXHJcbiAgICAgICAgcy5hdXJhLFxyXG4gICAgICAgIHMuY3JlZGl0cyxcclxuICAgICAgICBgXCIke3Muc3RhdHVzfVwiYFxyXG4gICAgICBdLmpvaW4oXCIsXCIpKTtcclxuICAgIH0pO1xyXG5cclxuICAgIGNvbnN0IGJsb2IgPSBuZXcgQmxvYihbY3N2Um93cy5qb2luKFwiXFxuXCIpXSwgeyB0eXBlOiBcInRleHQvY3N2XCIgfSk7XHJcbiAgICBjb25zdCB1cmwgPSBVUkwuY3JlYXRlT2JqZWN0VVJMKGJsb2IpO1xyXG4gICAgY29uc3QgYSA9IGRvY3VtZW50LmNyZWF0ZUVsZW1lbnQoXCJhXCIpO1xyXG4gICAgYS5ocmVmID0gdXJsO1xyXG4gICAgYS5kb3dubG9hZCA9IGBvcmJpdF9sbXNfc3R1ZGVudF9wcm9ncmVzc19yZXBvcnRfJHtuZXcgRGF0ZSgpLnRvSVNPU3RyaW5nKCkuc3BsaXQoXCJUXCIpWzBdfS5jc3ZgO1xyXG4gICAgZG9jdW1lbnQuYm9keS5hcHBlbmRDaGlsZChhKTtcclxuICAgIGEuY2xpY2soKTtcclxuICAgIGRvY3VtZW50LmJvZHkucmVtb3ZlQ2hpbGQoYSk7XHJcbiAgICBVUkwucmV2b2tlT2JqZWN0VVJMKHVybCk7XHJcblxyXG4gICAgdG9hc3QoeyB0aXRsZTogXCJSZXBvcnQgRXhwb3J0ZWQhIPCfk4pcIiwgZGVzY3JpcHRpb246IFwiU3R1ZGVudC13aXNlIHByb2dyZXNzIENTViByZXBvcnQgZG93bmxvYWRlZC5cIiB9KTtcclxuICB9O1xyXG5cclxuXHJcbiAgY29uc3QgcHJvZ3Jlc3NDb2x1bW5zID0gW1xyXG4gICAge1xyXG4gICAgICBrZXk6IFwibmFtZVwiLFxyXG4gICAgICBoZWFkZXI6IFwiU3R1ZGVudFwiLFxyXG4gICAgICBjZWxsOiAocm93OiBhbnkpID0+IChcclxuICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImZsZXggaXRlbXMtY2VudGVyIGdhcC0zXCI+XHJcbiAgICAgICAgICA8QXZhdGFyIGNsYXNzTmFtZT1cImgtOSB3LTlcIj5cclxuICAgICAgICAgICAgPEF2YXRhckZhbGxiYWNrIGNsYXNzTmFtZT1cImJnLXByaW1hcnkvMTAgdGV4dC1wcmltYXJ5IHRleHQtc21cIj5cclxuICAgICAgICAgICAgICB7cm93Lm5hbWUuc3BsaXQoXCIgXCIpLm1hcCgobjogc3RyaW5nKSA9PiBuWzBdKS5qb2luKFwiXCIpfVxyXG4gICAgICAgICAgICA8L0F2YXRhckZhbGxiYWNrPlxyXG4gICAgICAgICAgPC9BdmF0YXI+XHJcbiAgICAgICAgICA8ZGl2PlxyXG4gICAgICAgICAgICA8cCBjbGFzc05hbWU9XCJmb250LW1lZGl1bVwiPntyb3cubmFtZX08L3A+XHJcbiAgICAgICAgICAgIDxwIGNsYXNzTmFtZT1cInRleHQteHMgdGV4dC1tdXRlZC1mb3JlZ3JvdW5kXCI+e3Jvdy5lbWFpbH08L3A+XHJcbiAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICA8L2Rpdj5cclxuICAgICAgKSxcclxuICAgIH0sXHJcbiAgICB7XHJcbiAgICAgIGtleTogXCJjb3Vyc2VcIixcclxuICAgICAgaGVhZGVyOiBcIkNvdXJzZVwiLFxyXG4gICAgICBjZWxsOiAocm93OiBhbnkpID0+IChcclxuICAgICAgICA8QmFkZ2UgdmFyaWFudD1cIm91dGxpbmVcIj57cm93LmNvdXJzZX08L0JhZGdlPlxyXG4gICAgICApLFxyXG4gICAgfSxcclxuICAgIHtcclxuICAgICAga2V5OiBcInByb2dyZXNzXCIsXHJcbiAgICAgIGhlYWRlcjogXCJQcm9ncmVzc1wiLFxyXG4gICAgICBjZWxsOiAocm93OiBhbnkpID0+IChcclxuICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImZsZXggaXRlbXMtY2VudGVyIGdhcC0zIHctMzJcIj5cclxuICAgICAgICAgIDxQcm9ncmVzc1xyXG4gICAgICAgICAgICB2YWx1ZT17cm93LnByb2dyZXNzfVxyXG4gICAgICAgICAgICBzaXplPVwic21cIlxyXG4gICAgICAgICAgICB2YXJpYW50PXtyb3cucHJvZ3Jlc3MgPT09IDEwMCA/IFwic3VjY2Vzc1wiIDogcm93LnByb2dyZXNzIDwgMzAgPyBcIndhcm5pbmdcIiA6IFwiZGVmYXVsdFwifVxyXG4gICAgICAgICAgLz5cclxuICAgICAgICAgIDxzcGFuIGNsYXNzTmFtZT1cInRleHQtc20gZm9udC1tZWRpdW0gdy0xMFwiPntyb3cucHJvZ3Jlc3N9JTwvc3Bhbj5cclxuICAgICAgICA8L2Rpdj5cclxuICAgICAgKSxcclxuICAgIH0sXHJcbiAgICB7XHJcbiAgICAgIGtleTogXCJsZXNzb25zXCIsXHJcbiAgICAgIGhlYWRlcjogXCJMZXNzb25zXCIsXHJcbiAgICAgIGNlbGw6IChyb3c6IGFueSkgPT4gKFxyXG4gICAgICAgIDxzcGFuIGNsYXNzTmFtZT1cInRleHQtbXV0ZWQtZm9yZWdyb3VuZFwiPlxyXG4gICAgICAgICAge3Jvdy5jb21wbGV0ZWRMZXNzb25zfSAvIHtyb3cudG90YWxMZXNzb25zfVxyXG4gICAgICAgIDwvc3Bhbj5cclxuICAgICAgKSxcclxuICAgIH0sXHJcbiAgICB7XHJcbiAgICAgIGtleTogXCJsYXN0QWN0aXZlXCIsXHJcbiAgICAgIGhlYWRlcjogXCJMYXN0IEFjdGl2ZVwiLFxyXG4gICAgICBjZWxsOiAocm93OiBhbnkpID0+IChcclxuICAgICAgICA8c3BhbiBjbGFzc05hbWU9XCJ0ZXh0LW11dGVkLWZvcmVncm91bmRcIj57cm93Lmxhc3RBY3RpdmV9PC9zcGFuPlxyXG4gICAgICApLFxyXG4gICAgfSxcclxuICAgIHtcclxuICAgICAga2V5OiBcInN0YXR1c1wiLFxyXG4gICAgICBoZWFkZXI6IFwiU3RhdHVzXCIsXHJcbiAgICAgIGNlbGw6IChyb3c6IGFueSkgPT4ge1xyXG4gICAgICAgIGNvbnN0IHN0YXR1c0NvbmZpZzogYW55ID0ge1xyXG4gICAgICAgICAgXCJvbi10cmFja1wiOiB7IGxhYmVsOiBcIk9uIFRyYWNrXCIsIHZhcmlhbnQ6IFwic3VjY2Vzc1wiLCBpY29uOiBDaGVja0NpcmNsZSB9LFxyXG4gICAgICAgICAgXCJiZWhpbmRcIjogeyBsYWJlbDogXCJCZWhpbmRcIiwgdmFyaWFudDogXCJ3YXJuaW5nXCIsIGljb246IENsb2NrIH0sXHJcbiAgICAgICAgICBcImF0LXJpc2tcIjogeyBsYWJlbDogXCJBdCBSaXNrXCIsIHZhcmlhbnQ6IFwiZGVzdHJ1Y3RpdmVcIiwgaWNvbjogQWxlcnRDaXJjbGUgfSxcclxuICAgICAgICAgIFwiY29tcGxldGVkXCI6IHsgbGFiZWw6IFwiQ29tcGxldGVkXCIsIHZhcmlhbnQ6IFwic3VjY2Vzc1wiLCBpY29uOiBDaGVja0NpcmNsZSB9LFxyXG4gICAgICAgIH07XHJcbiAgICAgICAgY29uc3QgY29uZmlnID0gc3RhdHVzQ29uZmlnW3Jvdy5zdGF0dXNdIHx8IHN0YXR1c0NvbmZpZ1tcIm9uLXRyYWNrXCJdO1xyXG4gICAgICAgIHJldHVybiAoXHJcbiAgICAgICAgICA8QmFkZ2UgdmFyaWFudD17Y29uZmlnLnZhcmlhbnR9IGNsYXNzTmFtZT1cImdhcC0xXCI+XHJcbiAgICAgICAgICAgIDxjb25maWcuaWNvbiBjbGFzc05hbWU9XCJoLTMgdy0zXCIgLz5cclxuICAgICAgICAgICAge2NvbmZpZy5sYWJlbH1cclxuICAgICAgICAgIDwvQmFkZ2U+XHJcbiAgICAgICAgKTtcclxuICAgICAgfSxcclxuICAgIH0sXHJcbiAgICB7XHJcbiAgICAgIGtleTogXCJhY3Rpb25zXCIsXHJcbiAgICAgIGhlYWRlcjogXCJSZXBvcnQgQ2FyZFwiLFxyXG4gICAgICBjZWxsOiAocm93OiBhbnkpID0+IChcclxuICAgICAgICA8QnV0dG9uXHJcbiAgICAgICAgICB2YXJpYW50PVwib3V0bGluZVwiXHJcbiAgICAgICAgICBzaXplPVwic21cIlxyXG4gICAgICAgICAgb25DbGljaz17KCkgPT4ge1xyXG4gICAgICAgICAgICBzZXRTZWxlY3RlZFN0dWRlbnRGb3JSZXBvcnQocm93KTtcclxuICAgICAgICAgICAgc2V0UmVwb3J0TW9kYWxPcGVuKHRydWUpO1xyXG4gICAgICAgICAgfX1cclxuICAgICAgICAgIGNsYXNzTmFtZT1cImdhcC0xIHRleHQteHMgZm9udC1zZW1pYm9sZCBib3JkZXItcHJpbWFyeS8zMCB0ZXh0LXByaW1hcnkgaG92ZXI6YmctcHJpbWFyeS8xMFwiXHJcbiAgICAgICAgPlxyXG4gICAgICAgICAgPEZpbGVUZXh0IGNsYXNzTmFtZT1cImgtMy41IHctMy41XCIgLz4gUmVwb3J0IENhcmRcclxuICAgICAgICA8L0J1dHRvbj5cclxuICAgICAgKSxcclxuICAgIH0sXHJcbiAgXTtcclxuXHJcbiAgY29uc3QgYXR0ZW5kYW5jZUNvbHVtbnMgPSBbXHJcbiAgICB7XHJcbiAgICAgIGtleTogXCJuYW1lXCIsXHJcbiAgICAgIGhlYWRlcjogXCJTdHVkZW50XCIsXHJcbiAgICAgIGNlbGw6IChyb3c6IGFueSkgPT4gKFxyXG4gICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZmxleCBpdGVtcy1jZW50ZXIgZ2FwLTNcIj5cclxuICAgICAgICAgIDxBdmF0YXIgY2xhc3NOYW1lPVwiaC04IHctOFwiPlxyXG4gICAgICAgICAgICA8QXZhdGFyRmFsbGJhY2sgY2xhc3NOYW1lPVwiYmctcHJpbWFyeS8xMCB0ZXh0LXByaW1hcnkgdGV4dC14c1wiPlxyXG4gICAgICAgICAgICAgIHtyb3cubmFtZS5zcGxpdChcIiBcIikubWFwKChuOiBzdHJpbmcpID0+IG5bMF0pLmpvaW4oXCJcIil9XHJcbiAgICAgICAgICAgIDwvQXZhdGFyRmFsbGJhY2s+XHJcbiAgICAgICAgICA8L0F2YXRhcj5cclxuICAgICAgICAgIDxzcGFuIGNsYXNzTmFtZT1cImZvbnQtbWVkaXVtXCI+e3Jvdy5uYW1lfTwvc3Bhbj5cclxuICAgICAgICA8L2Rpdj5cclxuICAgICAgKSxcclxuICAgIH0sXHJcbiAgICB7XHJcbiAgICAgIGtleTogXCJjb3Vyc2VcIixcclxuICAgICAgaGVhZGVyOiBcIkNvdXJzZVwiLFxyXG4gICAgICBjZWxsOiAocm93OiBhbnkpID0+IHJvdy5jb3Vyc2UsXHJcbiAgICB9LFxyXG4gICAge1xyXG4gICAgICBrZXk6IFwiZGF0ZVwiLFxyXG4gICAgICBoZWFkZXI6IFwiRGF0ZVwiLFxyXG4gICAgICBjZWxsOiAocm93OiBhbnkpID0+IG5ldyBEYXRlKHJvdy5kYXRlKS50b0xvY2FsZURhdGVTdHJpbmcoKSxcclxuICAgIH0sXHJcbiAgICB7XHJcbiAgICAgIGtleTogXCJzdGF0dXNcIixcclxuICAgICAgaGVhZGVyOiBcIlN0YXR1c1wiLFxyXG4gICAgICBjZWxsOiAocm93OiBhbnkpID0+IHtcclxuICAgICAgICBjb25zdCBzdGF0dXNDb25maWc6IGFueSA9IHtcclxuICAgICAgICAgIHByZXNlbnQ6IHsgbGFiZWw6IFwiUHJlc2VudFwiLCB2YXJpYW50OiBcInN1Y2Nlc3NcIiB9LFxyXG4gICAgICAgICAgYWJzZW50OiB7IGxhYmVsOiBcIkFic2VudFwiLCB2YXJpYW50OiBcImRlc3RydWN0aXZlXCIgfSxcclxuICAgICAgICAgIGxhdGU6IHsgbGFiZWw6IFwiTGF0ZVwiLCB2YXJpYW50OiBcIndhcm5pbmdcIiB9LFxyXG4gICAgICAgIH07XHJcbiAgICAgICAgY29uc3QgY29uZmlnID0gc3RhdHVzQ29uZmlnW3Jvdy5zdGF0dXNdIHx8IHsgbGFiZWw6IHJvdy5zdGF0dXMsIHZhcmlhbnQ6IFwic2Vjb25kYXJ5XCIgfTtcclxuICAgICAgICByZXR1cm4gPEJhZGdlIHZhcmlhbnQ9e2NvbmZpZy52YXJpYW50fT57Y29uZmlnLmxhYmVsfTwvQmFkZ2U+O1xyXG4gICAgICB9LFxyXG4gICAgfSxcclxuICAgIHtcclxuICAgICAga2V5OiBcImR1cmF0aW9uXCIsXHJcbiAgICAgIGhlYWRlcjogXCJEdXJhdGlvblwiLFxyXG4gICAgICBjZWxsOiAocm93OiBhbnkpID0+IChcclxuICAgICAgICA8c3BhbiBjbGFzc05hbWU9XCJ0ZXh0LW11dGVkLWZvcmVncm91bmRcIj57cm93LmR1cmF0aW9ufTwvc3Bhbj5cclxuICAgICAgKSxcclxuICAgIH0sXHJcbiAgXTtcclxuXHJcbiAgY29uc3QgYXNzaWdubWVudENvbHVtbnMgPSBbXHJcbiAgICB7XHJcbiAgICAgIGtleTogXCJ0aXRsZVwiLFxyXG4gICAgICBoZWFkZXI6IFwiQXNzaWdubWVudFwiLFxyXG4gICAgICBjZWxsOiAocm93OiBhbnkpID0+IChcclxuICAgICAgICA8ZGl2PlxyXG4gICAgICAgICAgPHAgY2xhc3NOYW1lPVwiZm9udC1zZW1pYm9sZCB0ZXh0LWZvcmVncm91bmRcIj57cm93LnRpdGxlfTwvcD5cclxuICAgICAgICAgIDxCYWRnZSB2YXJpYW50PVwib3V0bGluZVwiIGNsYXNzTmFtZT1cInRleHQtWzEwcHhdIGJnLXByaW1hcnkvNSB0ZXh0LXByaW1hcnkgYm9yZGVyLXByaW1hcnkvMjBcIj5cclxuICAgICAgICAgICAge3Jvdy5jb3Vyc2V9XHJcbiAgICAgICAgICA8L0JhZGdlPlxyXG4gICAgICAgIDwvZGl2PlxyXG4gICAgICApLFxyXG4gICAgfSxcclxuICAgIHtcclxuICAgICAga2V5OiBcImR1ZURhdGVcIixcclxuICAgICAgaGVhZGVyOiBcIkR1ZSBEYXRlXCIsXHJcbiAgICAgIGNlbGw6IChyb3c6IGFueSkgPT4gKFxyXG4gICAgICAgIDxzcGFuIGNsYXNzTmFtZT1cInRleHQteHMgZm9udC1tb25vIHRleHQtbXV0ZWQtZm9yZWdyb3VuZFwiPntyb3cuZHVlRGF0ZX08L3NwYW4+XHJcbiAgICAgICksXHJcbiAgICB9LFxyXG4gICAge1xyXG4gICAgICBrZXk6IFwic3VibWlzc2lvbnNcIixcclxuICAgICAgaGVhZGVyOiBcIlN1Ym1pc3Npb25zXCIsXHJcbiAgICAgIGNlbGw6IChyb3c6IGFueSkgPT4gKFxyXG4gICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZmxleCBpdGVtcy1jZW50ZXIgZ2FwLTEuNSBmb250LW1vbm8gdGV4dC14cyBmb250LWJvbGQgdGV4dC1mb3JlZ3JvdW5kXCI+XHJcbiAgICAgICAgICA8c3Bhbj57cm93LnN1Ym1pdHRlZH08L3NwYW4+XHJcbiAgICAgICAgICA8c3BhbiBjbGFzc05hbWU9XCJ0ZXh0LW11dGVkLWZvcmVncm91bmQgZm9udC1ub3JtYWxcIj4vIHtyb3cudG90YWxTdHVkZW50cyB8fCAxfSBzdHVkZW50czwvc3Bhbj5cclxuICAgICAgICA8L2Rpdj5cclxuICAgICAgKSxcclxuICAgIH0sXHJcbiAgICB7XHJcbiAgICAgIGtleTogXCJwZW5kaW5nXCIsXHJcbiAgICAgIGhlYWRlcjogXCJQZW5kaW5nIFJldmlld1wiLFxyXG4gICAgICBjZWxsOiAocm93OiBhbnkpID0+IChcclxuICAgICAgICA8QmFkZ2UgdmFyaWFudD17cm93LnBlbmRpbmcgPiAwID8gXCJ3YXJuaW5nXCIgOiBcIm91dGxpbmVcIn0gY2xhc3NOYW1lPVwiZm9udC1tb25vIHRleHQteHNcIj5cclxuICAgICAgICAgIHtyb3cucGVuZGluZ30gcGVuZGluZ1xyXG4gICAgICAgIDwvQmFkZ2U+XHJcbiAgICAgICksXHJcbiAgICB9LFxyXG4gICAge1xyXG4gICAgICBrZXk6IFwiZ3JhZGVkXCIsXHJcbiAgICAgIGhlYWRlcjogXCJHcmFkZWRcIixcclxuICAgICAgY2VsbDogKHJvdzogYW55KSA9PiAoXHJcbiAgICAgICAgPEJhZGdlIHZhcmlhbnQ9XCJvdXRsaW5lXCIgY2xhc3NOYW1lPVwiZm9udC1tb25vIHRleHQteHMgYmctZW1lcmFsZC01MDAvMTAgdGV4dC1lbWVyYWxkLTYwMCBib3JkZXItZW1lcmFsZC01MDAvMzBcIj5cclxuICAgICAgICAgIHtyb3cuZ3JhZGVkfSBncmFkZWRcclxuICAgICAgICA8L0JhZGdlPlxyXG4gICAgICApLFxyXG4gICAgfSxcclxuICBdO1xyXG5cclxuICByZXR1cm4gKFxyXG4gICAgPEFkbWluTGF5b3V0PlxyXG4gICAgICA8ZGl2IGNsYXNzTmFtZT1cInNwYWNlLXktNiBhbmltYXRlLWZhZGUtaW5cIj5cclxuICAgICAgICB7LyogSGVhZGVyICovfVxyXG4gICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZmxleCBmbGV4LWNvbCBnYXAtNCBtZDpmbGV4LXJvdyBtZDppdGVtcy1jZW50ZXIgbWQ6anVzdGlmeS1iZXR3ZWVuXCI+XHJcbiAgICAgICAgICA8ZGl2PlxyXG4gICAgICAgICAgICA8aDEgY2xhc3NOYW1lPVwidGV4dC0yeGwgbGc6dGV4dC0zeGwgZm9udC1kaXNwbGF5IGZvbnQtYm9sZCB0ZXh0LWZvcmVncm91bmRcIj5cclxuICAgICAgICAgICAgICBNb25pdG9yaW5nXHJcbiAgICAgICAgICAgIDwvaDE+XHJcbiAgICAgICAgICAgIDxwIGNsYXNzTmFtZT1cInRleHQtbXV0ZWQtZm9yZWdyb3VuZCBtdC0xXCI+XHJcbiAgICAgICAgICAgICAgVHJhY2sgc3R1ZGVudCBwcm9ncmVzcywgYXR0ZW5kYW5jZSwgYW5kIHN1Ym1pc3Npb25zXHJcbiAgICAgICAgICAgIDwvcD5cclxuICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJmbGV4IGl0ZW1zLWNlbnRlciBnYXAtMlwiPlxyXG4gICAgICAgICAgICA8U2VsZWN0IHZhbHVlPXtzZWxlY3RlZENvdXJzZX0gb25WYWx1ZUNoYW5nZT17c2V0U2VsZWN0ZWRDb3Vyc2V9PlxyXG4gICAgICAgICAgICAgIDxTZWxlY3RUcmlnZ2VyIGNsYXNzTmFtZT1cInctNDhcIj5cclxuICAgICAgICAgICAgICAgIDxTZWxlY3RWYWx1ZSBwbGFjZWhvbGRlcj1cIlNlbGVjdCBjb3Vyc2VcIiAvPlxyXG4gICAgICAgICAgICAgIDwvU2VsZWN0VHJpZ2dlcj5cclxuICAgICAgICAgICAgICA8U2VsZWN0Q29udGVudD5cclxuICAgICAgICAgICAgICAgIHtjb3Vyc2VzTGlzdC5tYXAoKGNvdXJzZSkgPT4gKFxyXG4gICAgICAgICAgICAgICAgICA8U2VsZWN0SXRlbSBrZXk9e2NvdXJzZX0gdmFsdWU9e2NvdXJzZX0+e2NvdXJzZX08L1NlbGVjdEl0ZW0+XHJcbiAgICAgICAgICAgICAgICApKX1cclxuICAgICAgICAgICAgICA8L1NlbGVjdENvbnRlbnQ+XHJcbiAgICAgICAgICAgIDwvU2VsZWN0PlxyXG4gICAgICAgICAgICA8QnV0dG9uIHZhcmlhbnQ9XCJkZWZhdWx0XCIgb25DbGljaz17aGFuZGxlRXhwb3J0U3R1ZGVudFJlcG9ydH0gY2xhc3NOYW1lPVwiZ2FwLTIgYmctcHJpbWFyeSB0ZXh0LXByaW1hcnktZm9yZWdyb3VuZCBmb250LWJvbGQgc2hhZG93LXNtXCI+XHJcbiAgICAgICAgICAgICAgPERvd25sb2FkIGNsYXNzTmFtZT1cImgtNCB3LTRcIiAvPlxyXG4gICAgICAgICAgICAgIEV4cG9ydCBTdHVkZW50IFJlcG9ydCAoQ1NWKVxyXG4gICAgICAgICAgICA8L0J1dHRvbj5cclxuICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgIDwvZGl2PlxyXG5cclxuICAgICAgICB7LyogU3VtbWFyeSBDYXJkcyAqL31cclxuICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImdyaWQgZ2FwLTQgbWQ6Z3JpZC1jb2xzLTRcIj5cclxuICAgICAgICAgIDxDYXJkPlxyXG4gICAgICAgICAgICA8Q2FyZENvbnRlbnQgY2xhc3NOYW1lPVwicC00IGZsZXggaXRlbXMtY2VudGVyIGdhcC00XCI+XHJcbiAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJwLTMgcm91bmRlZC1sZyBiZy1wcmltYXJ5LzEwXCI+XHJcbiAgICAgICAgICAgICAgICA8VXNlcnMgY2xhc3NOYW1lPVwiaC01IHctNSB0ZXh0LXByaW1hcnlcIiAvPlxyXG4gICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgIDxkaXY+XHJcbiAgICAgICAgICAgICAgICA8cCBjbGFzc05hbWU9XCJ0ZXh0LTJ4bCBmb250LWJvbGRcIj57c3RhdHMuYWN0aXZlU3R1ZGVudHN9PC9wPlxyXG4gICAgICAgICAgICAgICAgPHAgY2xhc3NOYW1lPVwidGV4dC1zbSB0ZXh0LW11dGVkLWZvcmVncm91bmRcIj5BY3RpdmUgU3R1ZGVudHM8L3A+XHJcbiAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgIDwvQ2FyZENvbnRlbnQ+XHJcbiAgICAgICAgICA8L0NhcmQ+XHJcbiAgICAgICAgICA8Q2FyZD5cclxuICAgICAgICAgICAgPENhcmRDb250ZW50IGNsYXNzTmFtZT1cInAtNCBmbGV4IGl0ZW1zLWNlbnRlciBnYXAtNFwiPlxyXG4gICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwicC0zIHJvdW5kZWQtbGcgYmctc3VjY2Vzcy8xMFwiPlxyXG4gICAgICAgICAgICAgICAgPFRyZW5kaW5nVXAgY2xhc3NOYW1lPVwiaC01IHctNSB0ZXh0LXN1Y2Nlc3NcIiAvPlxyXG4gICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgIDxkaXY+XHJcbiAgICAgICAgICAgICAgICA8cCBjbGFzc05hbWU9XCJ0ZXh0LTJ4bCBmb250LWJvbGRcIj57c3RhdHMuYXZnUHJvZ3Jlc3N9JTwvcD5cclxuICAgICAgICAgICAgICAgIDxwIGNsYXNzTmFtZT1cInRleHQtc20gdGV4dC1tdXRlZC1mb3JlZ3JvdW5kXCI+QXZnLiBQcm9ncmVzczwvcD5cclxuICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgPC9DYXJkQ29udGVudD5cclxuICAgICAgICAgIDwvQ2FyZD5cclxuICAgICAgICAgIDxDYXJkPlxyXG4gICAgICAgICAgICA8Q2FyZENvbnRlbnQgY2xhc3NOYW1lPVwicC00IGZsZXggaXRlbXMtY2VudGVyIGdhcC00XCI+XHJcbiAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJwLTMgcm91bmRlZC1sZyBiZy1hY2NlbnQvMTBcIj5cclxuICAgICAgICAgICAgICAgIDxCb29rT3BlbiBjbGFzc05hbWU9XCJoLTUgdy01IHRleHQtYWNjZW50XCIgLz5cclxuICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICA8ZGl2PlxyXG4gICAgICAgICAgICAgICAgPHAgY2xhc3NOYW1lPVwidGV4dC0yeGwgZm9udC1ib2xkXCI+e3N0YXRzLmF0dGVuZGFuY2VSYXRlfSU8L3A+XHJcbiAgICAgICAgICAgICAgICA8cCBjbGFzc05hbWU9XCJ0ZXh0LXNtIHRleHQtbXV0ZWQtZm9yZWdyb3VuZFwiPkF0dGVuZGFuY2UgUmF0ZTwvcD5cclxuICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgPC9DYXJkQ29udGVudD5cclxuICAgICAgICAgIDwvQ2FyZD5cclxuICAgICAgICAgIDxDYXJkPlxyXG4gICAgICAgICAgICA8Q2FyZENvbnRlbnQgY2xhc3NOYW1lPVwicC00IGZsZXggaXRlbXMtY2VudGVyIGdhcC00XCI+XHJcbiAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJwLTMgcm91bmRlZC1sZyBiZy13YXJuaW5nLzEwXCI+XHJcbiAgICAgICAgICAgICAgICA8RmlsZVRleHQgY2xhc3NOYW1lPVwiaC01IHctNSB0ZXh0LXdhcm5pbmdcIiAvPlxyXG4gICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgIDxkaXY+XHJcbiAgICAgICAgICAgICAgICA8cCBjbGFzc05hbWU9XCJ0ZXh0LTJ4bCBmb250LWJvbGRcIj57c3RhdHMucGVuZGluZ1Jldmlld3N9PC9wPlxyXG4gICAgICAgICAgICAgICAgPHAgY2xhc3NOYW1lPVwidGV4dC1zbSB0ZXh0LW11dGVkLWZvcmVncm91bmRcIj5QZW5kaW5nIFJldmlld3M8L3A+XHJcbiAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgIDwvQ2FyZENvbnRlbnQ+XHJcbiAgICAgICAgICA8L0NhcmQ+XHJcbiAgICAgICAgPC9kaXY+XHJcblxyXG4gICAgICAgIHsvKiBUYWJzICovfVxyXG4gICAgICAgIDxUYWJzIHZhbHVlPXthY3RpdmVUYWJ9IG9uVmFsdWVDaGFuZ2U9e3NldEFjdGl2ZVRhYn0+XHJcbiAgICAgICAgICA8VGFic0xpc3Q+XHJcbiAgICAgICAgICAgIDxUYWJzVHJpZ2dlciB2YWx1ZT1cInByb2dyZXNzXCIgY2xhc3NOYW1lPVwiZ2FwLTJcIj5cclxuICAgICAgICAgICAgICA8QmFyQ2hhcnQzIGNsYXNzTmFtZT1cImgtNCB3LTRcIiAvPlxyXG4gICAgICAgICAgICAgIFN0dWRlbnQgUHJvZ3Jlc3NcclxuICAgICAgICAgICAgPC9UYWJzVHJpZ2dlcj5cclxuICAgICAgICAgICAgPFRhYnNUcmlnZ2VyIHZhbHVlPVwiYXR0ZW5kYW5jZVwiIGNsYXNzTmFtZT1cImdhcC0yXCI+XHJcbiAgICAgICAgICAgICAgPFVzZXJzIGNsYXNzTmFtZT1cImgtNCB3LTRcIiAvPlxyXG4gICAgICAgICAgICAgIEF0dGVuZGFuY2VcclxuICAgICAgICAgICAgPC9UYWJzVHJpZ2dlcj5cclxuICAgICAgICAgICAgPFRhYnNUcmlnZ2VyIHZhbHVlPVwiYXNzaWdubWVudHNcIiBjbGFzc05hbWU9XCJnYXAtMlwiPlxyXG4gICAgICAgICAgICAgIDxGaWxlVGV4dCBjbGFzc05hbWU9XCJoLTQgdy00XCIgLz5cclxuICAgICAgICAgICAgICBBc3NpZ25tZW50c1xyXG4gICAgICAgICAgICA8L1RhYnNUcmlnZ2VyPlxyXG4gICAgICAgICAgPC9UYWJzTGlzdD5cclxuXHJcbiAgICAgICAgICA8VGFic0NvbnRlbnQgdmFsdWU9XCJwcm9ncmVzc1wiIGNsYXNzTmFtZT1cIm10LTZcIj5cclxuICAgICAgICAgICAgPERhdGFUYWJsZVxyXG4gICAgICAgICAgICAgIGRhdGE9e3N0dWRlbnRQcm9ncmVzc0RhdGF9XHJcbiAgICAgICAgICAgICAgY29sdW1ucz17cHJvZ3Jlc3NDb2x1bW5zfVxyXG4gICAgICAgICAgICAgIHNlYXJjaFBsYWNlaG9sZGVyPVwiU2VhcmNoIHN0dWRlbnRzLi4uXCJcclxuICAgICAgICAgICAgLz5cclxuICAgICAgICAgIDwvVGFic0NvbnRlbnQ+XHJcblxyXG4gICAgICAgICAgPFRhYnNDb250ZW50IHZhbHVlPVwiYXR0ZW5kYW5jZVwiIGNsYXNzTmFtZT1cIm10LTYgc3BhY2UteS02XCI+XHJcbiAgICAgICAgICAgIHsvKiBBdHRlbmRhbmNlIENoYXJ0ICovfVxyXG4gICAgICAgICAgICA8Q2FyZD5cclxuICAgICAgICAgICAgICA8Q2FyZEhlYWRlciBjbGFzc05hbWU9XCJwYi0yXCI+XHJcbiAgICAgICAgICAgICAgICA8Q2FyZFRpdGxlIGNsYXNzTmFtZT1cInRleHQtbGcgZm9udC1kaXNwbGF5XCI+V2Vla2x5IEF0dGVuZGFuY2UgT3ZlcnZpZXc8L0NhcmRUaXRsZT5cclxuICAgICAgICAgICAgICA8L0NhcmRIZWFkZXI+XHJcbiAgICAgICAgICAgICAgPENhcmRDb250ZW50PlxyXG4gICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJoLVsyODBweF1cIj5cclxuICAgICAgICAgICAgICAgICAgPFJlc3BvbnNpdmVDb250YWluZXIgd2lkdGg9XCIxMDAlXCIgaGVpZ2h0PVwiMTAwJVwiPlxyXG4gICAgICAgICAgICAgICAgICAgIDxCYXJDaGFydCBkYXRhPXthdHRlbmRhbmNlQ2hhcnREYXRhLmxlbmd0aCA/IGF0dGVuZGFuY2VDaGFydERhdGEgOiBbeyBkYXk6ICdNb24nLCBwcmVzZW50OiAwIH1dfT5cclxuICAgICAgICAgICAgICAgICAgICAgIDxDYXJ0ZXNpYW5HcmlkIHN0cm9rZURhc2hhcnJheT1cIjMgM1wiIGNsYXNzTmFtZT1cInN0cm9rZS1ib3JkZXJcIiAvPlxyXG4gICAgICAgICAgICAgICAgICAgICAgPFhBeGlzIGRhdGFLZXk9XCJkYXlcIiAvPlxyXG4gICAgICAgICAgICAgICAgICAgICAgPFlBeGlzIC8+XHJcbiAgICAgICAgICAgICAgICAgICAgICA8VG9vbHRpcCAvPlxyXG4gICAgICAgICAgICAgICAgICAgICAgPEJhciBkYXRhS2V5PVwicHJlc2VudFwiIGZpbGw9XCJoc2woMTQyLCA3MSUsIDQ1JSlcIiBuYW1lPVwiUHJlc2VudFwiIHJhZGl1cz17WzQsIDQsIDAsIDBdfSAvPlxyXG4gICAgICAgICAgICAgICAgICAgICAgPEJhciBkYXRhS2V5PVwibGF0ZVwiIGZpbGw9XCJoc2woMzgsIDkyJSwgNTAlKVwiIG5hbWU9XCJMYXRlXCIgcmFkaXVzPXtbNCwgNCwgMCwgMF19IC8+XHJcbiAgICAgICAgICAgICAgICAgICAgICA8QmFyIGRhdGFLZXk9XCJhYnNlbnRcIiBmaWxsPVwiaHNsKDAsIDcyJSwgNTElKVwiIG5hbWU9XCJBYnNlbnRcIiByYWRpdXM9e1s0LCA0LCAwLCAwXX0gLz5cclxuICAgICAgICAgICAgICAgICAgICA8L0JhckNoYXJ0PlxyXG4gICAgICAgICAgICAgICAgICA8L1Jlc3BvbnNpdmVDb250YWluZXI+XHJcbiAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICA8L0NhcmRDb250ZW50PlxyXG4gICAgICAgICAgICA8L0NhcmQ+XHJcblxyXG4gICAgICAgICAgICA8RGF0YVRhYmxlXHJcbiAgICAgICAgICAgICAgZGF0YT17YXR0ZW5kYW5jZURhdGF9XHJcbiAgICAgICAgICAgICAgY29sdW1ucz17YXR0ZW5kYW5jZUNvbHVtbnN9XHJcbiAgICAgICAgICAgICAgc2VhcmNoUGxhY2Vob2xkZXI9XCJTZWFyY2ggYXR0ZW5kYW5jZSByZWNvcmRzLi4uXCJcclxuICAgICAgICAgICAgLz5cclxuICAgICAgICAgIDwvVGFic0NvbnRlbnQ+XHJcblxyXG4gICAgICAgICAgPFRhYnNDb250ZW50IHZhbHVlPVwiYXNzaWdubWVudHNcIiBjbGFzc05hbWU9XCJtdC02XCI+XHJcbiAgICAgICAgICAgIDxEYXRhVGFibGVcclxuICAgICAgICAgICAgICBkYXRhPXthc3NpZ25tZW50c0RhdGF9XHJcbiAgICAgICAgICAgICAgY29sdW1ucz17YXNzaWdubWVudENvbHVtbnN9XHJcbiAgICAgICAgICAgICAgc2VhcmNoUGxhY2Vob2xkZXI9XCJTZWFyY2ggYXNzaWdubWVudHMuLi5cIlxyXG4gICAgICAgICAgICAvPlxyXG4gICAgICAgICAgPC9UYWJzQ29udGVudD5cclxuICAgICAgICA8L1RhYnM+XHJcbiAgICAgIDwvZGl2PlxyXG4gICAgICA8U3R1ZGVudFJlcG9ydENhcmRNb2RhbFxyXG4gICAgICAgIG9wZW49e3JlcG9ydE1vZGFsT3Blbn1cclxuICAgICAgICBvbk9wZW5DaGFuZ2U9e3NldFJlcG9ydE1vZGFsT3Blbn1cclxuICAgICAgICBzdHVkZW50PXtzZWxlY3RlZFN0dWRlbnRGb3JSZXBvcnR9XHJcbiAgICAgIC8+XHJcbiAgICA8L0FkbWluTGF5b3V0PlxyXG4gICk7XHJcbn1cclxuIl0sIm5hbWVzIjpbInVzZVN0YXRlIiwidXNlRWZmZWN0IiwiQWRtaW5MYXlvdXQiLCJEYXRhVGFibGUiLCJCdXR0b24iLCJCYWRnZSIsIkNhcmQiLCJDYXJkQ29udGVudCIsIkNhcmRIZWFkZXIiLCJDYXJkVGl0bGUiLCJQcm9ncmVzcyIsIlRhYnMiLCJUYWJzQ29udGVudCIsIlRhYnNMaXN0IiwiVGFic1RyaWdnZXIiLCJBdmF0YXIiLCJBdmF0YXJGYWxsYmFjayIsIlNlbGVjdCIsIlNlbGVjdENvbnRlbnQiLCJTZWxlY3RJdGVtIiwiU2VsZWN0VHJpZ2dlciIsIlNlbGVjdFZhbHVlIiwiQmFyQ2hhcnQzIiwiVXNlcnMiLCJCb29rT3BlbiIsIkZpbGVUZXh0IiwiQ2hlY2tDaXJjbGUiLCJDbG9jayIsIkFsZXJ0Q2lyY2xlIiwiVHJlbmRpbmdVcCIsIkRvd25sb2FkIiwiQmFyQ2hhcnQiLCJCYXIiLCJYQXhpcyIsIllBeGlzIiwiQ2FydGVzaWFuR3JpZCIsIlRvb2x0aXAiLCJSZXNwb25zaXZlQ29udGFpbmVyIiwic3VwYWJhc2UiLCJ1c2VUb2FzdCIsIlN0dWRlbnRSZXBvcnRDYXJkTW9kYWwiLCJNb25pdG9yaW5nIiwidG9hc3QiLCJhY3RpdmVUYWIiLCJzZXRBY3RpdmVUYWIiLCJzZWxlY3RlZENvdXJzZSIsInNldFNlbGVjdGVkQ291cnNlIiwiY291cnNlc0xpc3QiLCJzZXRDb3Vyc2VzTGlzdCIsInJlcG9ydE1vZGFsT3BlbiIsInNldFJlcG9ydE1vZGFsT3BlbiIsInNlbGVjdGVkU3R1ZGVudEZvclJlcG9ydCIsInNldFNlbGVjdGVkU3R1ZGVudEZvclJlcG9ydCIsInN0dWRlbnRQcm9ncmVzc0RhdGEiLCJzZXRTdHVkZW50UHJvZ3Jlc3NEYXRhIiwiYXR0ZW5kYW5jZURhdGEiLCJzZXRBdHRlbmRhbmNlRGF0YSIsImF0dGVuZGFuY2VDaGFydERhdGEiLCJzZXRBdHRlbmRhbmNlQ2hhcnREYXRhIiwiYXNzaWdubWVudHNEYXRhIiwic2V0QXNzaWdubWVudHNEYXRhIiwic3RhdHMiLCJzZXRTdGF0cyIsImFjdGl2ZVN0dWRlbnRzIiwiYXZnUHJvZ3Jlc3MiLCJhdHRlbmRhbmNlUmF0ZSIsInBlbmRpbmdSZXZpZXdzIiwiZmV0Y2hEYXRhIiwiZGF0YSIsImNvdXJzZXMiLCJmcm9tIiwic2VsZWN0IiwibWFwIiwiYyIsInRpdGxlIiwic3R1ZGVudFVzZXJzIiwiZXEiLCJlbnJvbGxtZW50cyIsInN1Ym1pc3Npb25zIiwicGVuZGluZ0NvdW50IiwiZmlsdGVyIiwicyIsInN0YXR1cyIsImxlbmd0aCIsInN0dWRlbnRMaXN0IiwidSIsInVzZXJFbnJzIiwiZSIsInN0dWRlbnRfaWQiLCJpZCIsImFwcHJvdmVkRW5ycyIsImNvbXBsZXRlZEVucnMiLCJjb21wbGV0ZWQiLCJjb3Vyc2VDcmVkcyIsInJlZHVjZSIsImFjYyIsIkFycmF5IiwiaXNBcnJheSIsImNvdXJzZSIsImNyZWRpdF9wb2ludHMiLCJ0b3RhbENyZWRzIiwiYm9udXNfY3JlZGl0cyIsImNvdXJzZU5hbWVzIiwiam9pbiIsImNvbXB1dGVkUHJvZ3Jlc3MiLCJNYXRoIiwibWluIiwiYXVyYV9wb2ludHMiLCJuYW1lIiwiZnVsbF9uYW1lIiwiZW1haWwiLCJwcm9ncmVzcyIsImF1cmEiLCJjcmVkaXRzIiwiY29tcGxldGVkTGVzc29ucyIsInRvdGFsTGVzc29ucyIsIm1heCIsImxhc3RBY3RpdmUiLCJhc3NpZ25tZW50c0xpc3QiLCJmb3JtYXR0ZWRBc3NpZ25tZW50cyIsImEiLCJjb3Vyc2VPYmoiLCJhc3NpZ25TdWJzIiwiYXNzaWdubWVudF9pZCIsInBlbmRpbmdTdWJzIiwiZ3JhZGVkU3VicyIsImR1ZURhdGUiLCJkdWVfZGF0ZSIsIkRhdGUiLCJ0b0xvY2FsZURhdGVTdHJpbmciLCJzdWJtaXR0ZWQiLCJwZW5kaW5nIiwiZ3JhZGVkIiwidG90YWxTdHVkZW50cyIsImFjdGl2ZUNvdW50IiwiYXZnUHJvZyIsImVyciIsImNvbnNvbGUiLCJlcnJvciIsImhhbmRsZUV4cG9ydFN0dWRlbnRSZXBvcnQiLCJ2YXJpYW50IiwiZGVzY3JpcHRpb24iLCJjc3ZSb3dzIiwiZm9yRWFjaCIsInB1c2giLCJibG9iIiwiQmxvYiIsInR5cGUiLCJ1cmwiLCJVUkwiLCJjcmVhdGVPYmplY3RVUkwiLCJkb2N1bWVudCIsImNyZWF0ZUVsZW1lbnQiLCJocmVmIiwiZG93bmxvYWQiLCJ0b0lTT1N0cmluZyIsInNwbGl0IiwiYm9keSIsImFwcGVuZENoaWxkIiwiY2xpY2siLCJyZW1vdmVDaGlsZCIsInJldm9rZU9iamVjdFVSTCIsInByb2dyZXNzQ29sdW1ucyIsImtleSIsImhlYWRlciIsImNlbGwiLCJyb3ciLCJkaXYiLCJjbGFzc05hbWUiLCJuIiwicCIsInZhbHVlIiwic2l6ZSIsInNwYW4iLCJzdGF0dXNDb25maWciLCJsYWJlbCIsImljb24iLCJjb25maWciLCJvbkNsaWNrIiwiYXR0ZW5kYW5jZUNvbHVtbnMiLCJkYXRlIiwicHJlc2VudCIsImFic2VudCIsImxhdGUiLCJkdXJhdGlvbiIsImFzc2lnbm1lbnRDb2x1bW5zIiwiaDEiLCJvblZhbHVlQ2hhbmdlIiwicGxhY2Vob2xkZXIiLCJjb2x1bW5zIiwic2VhcmNoUGxhY2Vob2xkZXIiLCJ3aWR0aCIsImhlaWdodCIsImRheSIsInN0cm9rZURhc2hhcnJheSIsImRhdGFLZXkiLCJmaWxsIiwicmFkaXVzIiwib3BlbiIsIm9uT3BlbkNoYW5nZSIsInN0dWRlbnQiXSwibWFwcGluZ3MiOiI7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7OztBQUFBLFNBQVNBLFFBQVEsRUFBRUMsU0FBUyxRQUFRLFFBQVE7QUFDNUMsU0FBU0MsV0FBVyxRQUFRLGtDQUFrQztBQUM5RCxTQUFTQyxTQUFTLFFBQVEsNkJBQTZCO0FBQ3ZELFNBQVNDLE1BQU0sUUFBUSx5QkFBeUI7QUFDaEQsU0FBU0MsS0FBSyxRQUFRLHdCQUF3QjtBQUM5QyxTQUFTQyxJQUFJLEVBQUVDLFdBQVcsRUFBRUMsVUFBVSxFQUFFQyxTQUFTLFFBQVEsdUJBQXVCO0FBQ2hGLFNBQVNDLFFBQVEsUUFBUSwyQkFBMkI7QUFDcEQsU0FBU0Ms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

@@ -1,0 +1,1068 @@
+import { createHotContext as __vite__createHotContext } from "/@vite/client";import.meta.hot = __vite__createHotContext("/src/App.tsx");import * as RefreshRuntime from "/@react-refresh";
+const inWebWorker = typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope;
+
+let prevRefreshReg;
+let prevRefreshSig;
+
+if (import.meta.hot && !inWebWorker) {
+  if (!window.$RefreshReg$) {
+    throw new Error(
+      "@vitejs/plugin-react-swc can't detect preamble. Something is wrong."
+    );
+  }
+
+  prevRefreshReg = window.$RefreshReg$;
+  prevRefreshSig = window.$RefreshSig$;
+  window.$RefreshReg$ = RefreshRuntime.getRefreshReg("D:/Orbitlms/src/App.tsx");
+  window.$RefreshSig$ = RefreshRuntime.createSignatureFunctionForTransform;
+}
+
+import __vite__cjsImport2_react_jsxDevRuntime from "/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=88ed5bfa"; const _jsxDEV = __vite__cjsImport2_react_jsxDevRuntime["jsxDEV"];
+import { Toaster } from "/src/components/ui/toaster.tsx";
+import { Toaster as Sonner } from "/src/components/ui/sonner.tsx";
+import { TooltipProvider } from "/src/components/ui/tooltip.tsx";
+import { QueryClient, QueryClientProvider } from "/node_modules/.vite/deps/@tanstack_react-query.js?v=88ed5bfa";
+import { BrowserRouter, Routes, Route } from "/node_modules/.vite/deps/react-router-dom.js?v=88ed5bfa";
+import Login from "/src/pages/Login.tsx";
+import ForgotPassword from "/src/pages/ForgotPassword.tsx";
+import ResetPassword from "/src/pages/ResetPassword.tsx";
+import Signup from "/src/pages/Signup.tsx";
+import Setup from "/src/pages/Setup.tsx";
+import Dashboard from "/src/pages/Dashboard.tsx";
+import AdminDashboard from "/src/pages/admin/AdminDashboard.tsx";
+import UserManagement from "/src/pages/admin/UserManagement.tsx";
+import CourseManagement from "/src/pages/admin/CourseManagement.tsx";
+import AdminCourseDetail from "/src/pages/admin/AdminCourseDetail.tsx";
+import AdminCalendar from "/src/pages/admin/AdminCalendar.tsx";
+import Monitoring from "/src/pages/admin/Monitoring.tsx";
+import Settings from "/src/pages/admin/Settings.tsx";
+import HelpCenter from "/src/pages/admin/HelpCenter.tsx";
+import Notifications from "/src/pages/admin/Notifications.tsx";
+import TeacherDashboard from "/src/pages/teacher/Dashboard.tsx";
+import TeacherCourses from "/src/pages/teacher/Courses.tsx";
+import CourseDetail from "/src/pages/teacher/CourseDetail.tsx";
+import AssignmentCreate from "/src/pages/teacher/AssignmentCreate.tsx";
+import AssignmentReview from "/src/pages/teacher/AssignmentReview.tsx";
+import Attendance from "/src/pages/teacher/Attendance.tsx";
+import QuizEditor from "/src/pages/teacher/QuizEditor.tsx";
+import CourseGrades from "/src/pages/teacher/CourseGrades.tsx";
+import TeacherNotifications from "/src/pages/teacher/Notifications.tsx";
+import TeacherSettings from "/src/pages/teacher/Settings.tsx";
+import TeacherHelpCenter from "/src/pages/teacher/HelpCenter.tsx";
+import TeacherCalendar from "/src/pages/teacher/Calendar.tsx";
+import JsonCourseBuilder from "/src/pages/teacher/JsonCourseBuilder.tsx";
+import CertificatePrograms from "/src/pages/teacher/CertificatePrograms.tsx";
+import Leaderboard from "/src/pages/Leaderboard.tsx";
+import StudentDashboard from "/src/pages/student/Dashboard.tsx";
+import CoursePlayer from "/src/pages/student/CoursePlayer.tsx";
+import StudentCourses from "/src/pages/student/Courses.tsx";
+import StudentAssignments from "/src/pages/student/Assignments.tsx";
+import AssignmentSubmit from "/src/pages/student/AssignmentSubmit.tsx";
+import QuizPlayer from "/src/pages/student/QuizPlayer.tsx";
+import StudentGrades from "/src/pages/student/Grades.tsx";
+import StudentCalendar from "/src/pages/student/StudentCalendar.tsx";
+import StudentSettings from "/src/pages/student/Settings.tsx";
+import StudentHelpCenter from "/src/pages/student/HelpCenter.tsx";
+import StudentNotifications from "/src/pages/student/Notifications.tsx";
+import NotFound from "/src/pages/NotFound.tsx";
+import Profile from "/src/pages/Profile.tsx";
+import { ProtectedRoute } from "/src/components/ProtectedRoute.tsx";
+import LandingPage from "/src/pages/LandingPage.tsx";
+import Register from "/src/pages/Register.tsx";
+// Master Admin Imports
+import MasterLogin from "/src/pages/master/MasterLogin.tsx";
+import MasterDashboard from "/src/pages/master/MasterDashboard.tsx";
+import MasterColleges from "/src/pages/master/MasterColleges.tsx";
+import MasterCollegeDetail from "/src/pages/master/MasterCollegeDetail.tsx";
+import MasterBilling from "/src/pages/master/MasterBilling.tsx";
+import MasterAnalytics from "/src/pages/master/MasterAnalytics.tsx";
+import MasterMonitoring from "/src/pages/master/MasterMonitoring.tsx";
+import { NotificationProvider } from "/src/contexts/NotificationContext.tsx";
+const queryClient = new QueryClient();
+const App = ()=>/*#__PURE__*/ _jsxDEV(QueryClientProvider, {
+        client: queryClient,
+        children: /*#__PURE__*/ _jsxDEV(TooltipProvider, {
+            children: /*#__PURE__*/ _jsxDEV(NotificationProvider, {
+                children: [
+                    /*#__PURE__*/ _jsxDEV(Toaster, {}, void 0, false, {
+                        fileName: "D:/Orbitlms/src/App.tsx",
+                        lineNumber: 71,
+                        columnNumber: 9
+                    }, this),
+                    /*#__PURE__*/ _jsxDEV(Sonner, {}, void 0, false, {
+                        fileName: "D:/Orbitlms/src/App.tsx",
+                        lineNumber: 72,
+                        columnNumber: 9
+                    }, this),
+                    /*#__PURE__*/ _jsxDEV(BrowserRouter, {
+                        children: /*#__PURE__*/ _jsxDEV(Routes, {
+                            children: [
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/",
+                                    element: /*#__PURE__*/ _jsxDEV(LandingPage, {}, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 75,
+                                        columnNumber: 38
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 75,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/register",
+                                    element: /*#__PURE__*/ _jsxDEV(Register, {}, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 76,
+                                        columnNumber: 46
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 76,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/login",
+                                    element: /*#__PURE__*/ _jsxDEV(Login, {}, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 77,
+                                        columnNumber: 43
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 77,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/forgot-password",
+                                    element: /*#__PURE__*/ _jsxDEV(ForgotPassword, {}, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 78,
+                                        columnNumber: 53
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 78,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/reset-password",
+                                    element: /*#__PURE__*/ _jsxDEV(ResetPassword, {}, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 79,
+                                        columnNumber: 52
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 79,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/signup",
+                                    element: /*#__PURE__*/ _jsxDEV(Signup, {}, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 80,
+                                        columnNumber: 44
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 80,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/setup",
+                                    element: /*#__PURE__*/ _jsxDEV(Setup, {}, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 81,
+                                        columnNumber: 43
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 81,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/dashboard",
+                                    element: /*#__PURE__*/ _jsxDEV(Dashboard, {}, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 82,
+                                        columnNumber: 47
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 82,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/profile",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(Profile, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 83,
+                                            columnNumber: 61
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 83,
+                                        columnNumber: 45
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 83,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/admin",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(AdminDashboard, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 86,
+                                            columnNumber: 59
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 86,
+                                        columnNumber: 43
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 86,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/admin/users",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(UserManagement, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 87,
+                                            columnNumber: 65
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 87,
+                                        columnNumber: 49
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 87,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/admin/courses",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(CourseManagement, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 88,
+                                            columnNumber: 67
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 88,
+                                        columnNumber: 51
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 88,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/admin/courses/:id/edit",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(AdminCourseDetail, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 89,
+                                            columnNumber: 76
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 89,
+                                        columnNumber: 60
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 89,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/admin/monitoring",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(Monitoring, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 90,
+                                            columnNumber: 70
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 90,
+                                        columnNumber: 54
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 90,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/admin/leaderboard",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(Leaderboard, {
+                                            userRole: "admin"
+                                        }, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 91,
+                                            columnNumber: 71
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 91,
+                                        columnNumber: 55
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 91,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/admin/notifications",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(Notifications, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 92,
+                                            columnNumber: 73
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 92,
+                                        columnNumber: 57
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 92,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/admin/calendar",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(AdminCalendar, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 93,
+                                            columnNumber: 68
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 93,
+                                        columnNumber: 52
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 93,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/admin/settings",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(Settings, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 94,
+                                            columnNumber: 68
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 94,
+                                        columnNumber: 52
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 94,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/admin/help-center",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(HelpCenter, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 95,
+                                            columnNumber: 71
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 95,
+                                        columnNumber: 55
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 95,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/teacher",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(TeacherDashboard, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 98,
+                                            columnNumber: 61
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 98,
+                                        columnNumber: 45
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 98,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/teacher/courses",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(TeacherCourses, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 99,
+                                            columnNumber: 69
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 99,
+                                        columnNumber: 53
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 99,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/teacher/certificate-programs",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(CertificatePrograms, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 100,
+                                            columnNumber: 82
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 100,
+                                        columnNumber: 66
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 100,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/teacher/leaderboard",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(Leaderboard, {
+                                            userRole: "teacher"
+                                        }, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 101,
+                                            columnNumber: 73
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 101,
+                                        columnNumber: 57
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 101,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/teacher/courses/json-builder",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(JsonCourseBuilder, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 102,
+                                            columnNumber: 82
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 102,
+                                        columnNumber: 66
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 102,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/teacher/courses/:id",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(CourseDetail, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 103,
+                                            columnNumber: 73
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 103,
+                                        columnNumber: 57
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 103,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/teacher/assignments",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(AssignmentCreate, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 104,
+                                            columnNumber: 73
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 104,
+                                        columnNumber: 57
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 104,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/teacher/reviews",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(AssignmentReview, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 105,
+                                            columnNumber: 69
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 105,
+                                        columnNumber: 53
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 105,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/teacher/attendance",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(Attendance, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 106,
+                                            columnNumber: 72
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 106,
+                                        columnNumber: 56
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 106,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/teacher/courses/:courseId/quiz/:quizId",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(QuizEditor, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 107,
+                                            columnNumber: 92
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 107,
+                                        columnNumber: 76
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 107,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/teacher/courses/:id/grades",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(CourseGrades, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 108,
+                                            columnNumber: 80
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 108,
+                                        columnNumber: 64
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 108,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/teacher/notifications",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(TeacherNotifications, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 109,
+                                            columnNumber: 75
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 109,
+                                        columnNumber: 59
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 109,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/teacher/settings",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(TeacherSettings, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 110,
+                                            columnNumber: 70
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 110,
+                                        columnNumber: 54
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 110,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/teacher/help-center",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(TeacherHelpCenter, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 111,
+                                            columnNumber: 73
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 111,
+                                        columnNumber: 57
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 111,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/teacher/calendar",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(TeacherCalendar, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 112,
+                                            columnNumber: 70
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 112,
+                                        columnNumber: 54
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 112,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/student",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(StudentDashboard, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 115,
+                                            columnNumber: 61
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 115,
+                                        columnNumber: 45
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 115,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/student/courses",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(StudentCourses, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 116,
+                                            columnNumber: 69
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 116,
+                                        columnNumber: 53
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 116,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/student/leaderboard",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(Leaderboard, {
+                                            userRole: "student"
+                                        }, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 117,
+                                            columnNumber: 73
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 117,
+                                        columnNumber: 57
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 117,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/student/courses/:id/learn",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(CoursePlayer, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 118,
+                                            columnNumber: 79
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 118,
+                                        columnNumber: 63
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 118,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/student/assignments",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(StudentAssignments, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 119,
+                                            columnNumber: 73
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 119,
+                                        columnNumber: 57
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 119,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/student/assignments/:id",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(AssignmentSubmit, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 120,
+                                            columnNumber: 77
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 120,
+                                        columnNumber: 61
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 120,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/student/quiz/:id",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(QuizPlayer, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 121,
+                                            columnNumber: 70
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 121,
+                                        columnNumber: 54
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 121,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/student/grades",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(StudentGrades, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 122,
+                                            columnNumber: 68
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 122,
+                                        columnNumber: 52
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 122,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/student/calendar",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(StudentCalendar, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 123,
+                                            columnNumber: 70
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 123,
+                                        columnNumber: 54
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 123,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/student/settings",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(StudentSettings, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 124,
+                                            columnNumber: 70
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 124,
+                                        columnNumber: 54
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 124,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/student/help-center",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(StudentHelpCenter, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 125,
+                                            columnNumber: 73
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 125,
+                                        columnNumber: 57
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 125,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/student/notifications",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(StudentNotifications, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 126,
+                                            columnNumber: 75
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 126,
+                                        columnNumber: 59
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 126,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/master/login",
+                                    element: /*#__PURE__*/ _jsxDEV(MasterLogin, {}, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 129,
+                                        columnNumber: 50
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 129,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/master",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(MasterDashboard, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 130,
+                                            columnNumber: 60
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 130,
+                                        columnNumber: 44
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 130,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/master/colleges",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(MasterColleges, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 131,
+                                            columnNumber: 69
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 131,
+                                        columnNumber: 53
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 131,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/master/colleges/:id",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(MasterCollegeDetail, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 132,
+                                            columnNumber: 73
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 132,
+                                        columnNumber: 57
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 132,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/master/billing",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(MasterBilling, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 133,
+                                            columnNumber: 68
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 133,
+                                        columnNumber: 52
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 133,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/master/analytics",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(MasterAnalytics, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 134,
+                                            columnNumber: 70
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 134,
+                                        columnNumber: 54
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 134,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "/master/monitoring",
+                                    element: /*#__PURE__*/ _jsxDEV(ProtectedRoute, {
+                                        children: /*#__PURE__*/ _jsxDEV(MasterMonitoring, {}, void 0, false, {
+                                            fileName: "D:/Orbitlms/src/App.tsx",
+                                            lineNumber: 135,
+                                            columnNumber: 71
+                                        }, void 0)
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 135,
+                                        columnNumber: 55
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 135,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(Route, {
+                                    path: "*",
+                                    element: /*#__PURE__*/ _jsxDEV(NotFound, {}, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/App.tsx",
+                                        lineNumber: 138,
+                                        columnNumber: 38
+                                    }, void 0)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/App.tsx",
+                                    lineNumber: 138,
+                                    columnNumber: 13
+                                }, this)
+                            ]
+                        }, void 0, true, {
+                            fileName: "D:/Orbitlms/src/App.tsx",
+                            lineNumber: 74,
+                            columnNumber: 11
+                        }, this)
+                    }, void 0, false, {
+                        fileName: "D:/Orbitlms/src/App.tsx",
+                        lineNumber: 73,
+                        columnNumber: 9
+                    }, this)
+                ]
+            }, void 0, true, {
+                fileName: "D:/Orbitlms/src/App.tsx",
+                lineNumber: 70,
+                columnNumber: 7
+            }, this)
+        }, void 0, false, {
+            fileName: "D:/Orbitlms/src/App.tsx",
+            lineNumber: 69,
+            columnNumber: 5
+        }, this)
+    }, void 0, false, {
+        fileName: "D:/Orbitlms/src/App.tsx",
+        lineNumber: 68,
+        columnNumber: 3
+    }, this);
+_c = App;
+export default App;
+var _c;
+$RefreshReg$(_c, "App");
+
+
+if (import.meta.hot && !inWebWorker) {
+  window.$RefreshReg$ = prevRefreshReg;
+  window.$RefreshSig$ = prevRefreshSig;
+}
+
+
+if (import.meta.hot && !inWebWorker) {
+  RefreshRuntime.__hmr_import(import.meta.url).then((currentExports) => {
+    RefreshRuntime.registerExportsForReactRefresh("D:/Orbitlms/src/App.tsx", currentExports);
+    import.meta.hot.accept((nextExports) => {
+      if (!nextExports) return;
+      const invalidateMessage = RefreshRuntime.validateRefreshBoundaryAndEnqueueUpdate("D:/Orbitlms/src/App.tsx", currentExports, nextExports);
+      if (invalidateMessage) import.meta.hot.invalidate(invalidateMessage);
+    });
+  });
+}
+
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbIkFwcC50c3giXSwic291cmNlc0NvbnRlbnQiOlsiaW1wb3J0IHsgVG9hc3RlciB9IGZyb20gXCJAL2NvbXBvbmVudHMvdWkvdG9hc3RlclwiO1xyXG5pbXBvcnQgeyBUb2FzdGVyIGFzIFNvbm5lciB9IGZyb20gXCJAL2NvbXBvbmVudHMvdWkvc29ubmVyXCI7XHJcbmltcG9ydCB7IFRvb2x0aXBQcm92aWRlciB9IGZyb20gXCJAL2NvbXBvbmVudHMvdWkvdG9vbHRpcFwiO1xyXG5pbXBvcnQgeyBRdWVyeUNsaWVudCwgUXVlcnlDbGllbnRQcm92aWRlciB9IGZyb20gXCJAdGFuc3RhY2svcmVhY3QtcXVlcnlcIjtcclxuaW1wb3J0IHsgQnJvd3NlclJvdXRlciwgUm91dGVzLCBSb3V0ZSwgTmF2aWdhdGUgfSBmcm9tIFwicmVhY3Qtcm91dGVyLWRvbVwiO1xyXG5pbXBvcnQgTG9naW4gZnJvbSBcIi4vcGFnZXMvTG9naW5cIjtcclxuaW1wb3J0IEZvcmdvdFBhc3N3b3JkIGZyb20gXCIuL3BhZ2VzL0ZvcmdvdFBhc3N3b3JkXCI7XHJcbmltcG9ydCBSZXNldFBhc3N3b3JkIGZyb20gXCIuL3BhZ2VzL1Jlc2V0UGFzc3dvcmRcIjtcclxuaW1wb3J0IFNpZ251cCBmcm9tIFwiLi9wYWdlcy9TaWdudXBcIjtcclxuaW1wb3J0IFNldHVwIGZyb20gXCIuL3BhZ2VzL1NldHVwXCI7XHJcbmltcG9ydCBEYXNoYm9hcmQgZnJvbSBcIi4vcGFnZXMvRGFzaGJvYXJkXCI7XHJcbmltcG9ydCBBZG1pbkRhc2hib2FyZCBmcm9tIFwiLi9wYWdlcy9hZG1pbi9BZG1pbkRhc2hib2FyZFwiO1xyXG5pbXBvcnQgVXNlck1hbmFnZW1lbnQgZnJvbSBcIi4vcGFnZXMvYWRtaW4vVXNlck1hbmFnZW1lbnRcIjtcclxuaW1wb3J0IENvdXJzZU1hbmFnZW1lbnQgZnJvbSBcIi4vcGFnZXMvYWRtaW4vQ291cnNlTWFuYWdlbWVudFwiO1xyXG5pbXBvcnQgQWRtaW5Db3Vyc2VEZXRhaWwgZnJvbSBcIi4vcGFnZXMvYWRtaW4vQWRtaW5Db3Vyc2VEZXRhaWxcIjtcclxuaW1wb3J0IEFkbWluQ2FsZW5kYXIgZnJvbSBcIi4vcGFnZXMvYWRtaW4vQWRtaW5DYWxlbmRhclwiO1xyXG5pbXBvcnQgTW9uaXRvcmluZyBmcm9tIFwiLi9wYWdlcy9hZG1pbi9Nb25pdG9yaW5nXCI7XHJcbmltcG9ydCBTZXR0aW5ncyBmcm9tIFwiLi9wYWdlcy9hZG1pbi9TZXR0aW5nc1wiO1xyXG5pbXBvcnQgSGVscENlbnRlciBmcm9tIFwiLi9wYWdlcy9hZG1pbi9IZWxwQ2VudGVyXCI7XHJcbmltcG9ydCBOb3RpZmljYXRpb25zIGZyb20gXCIuL3BhZ2VzL2FkbWluL05vdGlmaWNhdGlvbnNcIjtcclxuaW1wb3J0IFRlYWNoZXJEYXNoYm9hcmQgZnJvbSBcIi4vcGFnZXMvdGVhY2hlci9EYXNoYm9hcmRcIjtcclxuaW1wb3J0IFRlYWNoZXJDb3Vyc2VzIGZyb20gXCIuL3BhZ2VzL3RlYWNoZXIvQ291cnNlc1wiO1xyXG5pbXBvcnQgQ291cnNlRGV0YWlsIGZyb20gXCIuL3BhZ2VzL3RlYWNoZXIvQ291cnNlRGV0YWlsXCI7XHJcbmltcG9ydCBBc3NpZ25tZW50Q3JlYXRlIGZyb20gXCIuL3BhZ2VzL3RlYWNoZXIvQXNzaWdubWVudENyZWF0ZVwiO1xyXG5pbXBvcnQgQXNzaWdubWVudFJldmlldyBmcm9tIFwiLi9wYWdlcy90ZWFjaGVyL0Fzc2lnbm1lbnRSZXZpZXdcIjtcclxuaW1wb3J0IEF0dGVuZGFuY2UgZnJvbSBcIi4vcGFnZXMvdGVhY2hlci9BdHRlbmRhbmNlXCI7XHJcbmltcG9ydCBRdWl6RWRpdG9yIGZyb20gXCIuL3BhZ2VzL3RlYWNoZXIvUXVpekVkaXRvclwiO1xyXG5pbXBvcnQgQ291cnNlR3JhZGVzIGZyb20gXCIuL3BhZ2VzL3RlYWNoZXIvQ291cnNlR3JhZGVzXCI7XHJcbmltcG9ydCBUZWFjaGVyTm90aWZpY2F0aW9ucyBmcm9tIFwiLi9wYWdlcy90ZWFjaGVyL05vdGlmaWNhdGlvbnNcIjtcclxuaW1wb3J0IFRlYWNoZXJTZXR0aW5ncyBmcm9tIFwiLi9wYWdlcy90ZWFjaGVyL1NldHRpbmdzXCI7XHJcbmltcG9ydCBUZWFjaGVySGVscENlbnRlciBmcm9tIFwiLi9wYWdlcy90ZWFjaGVyL0hlbHBDZW50ZXJcIjtcclxuaW1wb3J0IFRlYWNoZXJDYWxlbmRhciBmcm9tIFwiLi9wYWdlcy90ZWFjaGVyL0NhbGVuZGFyXCI7XHJcbmltcG9ydCBKc29uQ291cnNlQnVpbGRlciBmcm9tIFwiLi9wYWdlcy90ZWFjaGVyL0pzb25Db3Vyc2VCdWlsZGVyXCI7XHJcbmltcG9ydCBDZXJ0aWZpY2F0ZVByb2dyYW1zIGZyb20gXCIuL3BhZ2VzL3RlYWNoZXIvQ2VydGlmaWNhdGVQcm9ncmFtc1wiO1xyXG5pbXBvcnQgTGVhZGVyYm9hcmQgZnJvbSBcIi4vcGFnZXMvTGVhZGVyYm9hcmRcIjtcclxuaW1wb3J0IFN0dWRlbnREYXNoYm9hcmQgZnJvbSBcIi4vcGFnZXMvc3R1ZGVudC9EYXNoYm9hcmRcIjtcclxuaW1wb3J0IENvdXJzZVBsYXllciBmcm9tIFwiLi9wYWdlcy9zdHVkZW50L0NvdXJzZVBsYXllclwiO1xyXG5pbXBvcnQgU3R1ZGVudENvdXJzZXMgZnJvbSBcIi4vcGFnZXMvc3R1ZGVudC9Db3Vyc2VzXCI7XHJcbmltcG9ydCBTdHVkZW50QXNzaWdubWVudHMgZnJvbSBcIi4vcGFnZXMvc3R1ZGVudC9Bc3NpZ25tZW50c1wiO1xyXG5pbXBvcnQgQXNzaWdubWVudFN1Ym1pdCBmcm9tIFwiLi9wYWdlcy9zdHVkZW50L0Fzc2lnbm1lbnRTdWJtaXRcIjtcclxuaW1wb3J0IFF1aXpQbGF5ZXIgZnJvbSBcIi4vcGFnZXMvc3R1ZGVudC9RdWl6UGxheWVyXCI7XHJcbmltcG9ydCBTdHVkZW50R3JhZGVzIGZyb20gXCIuL3BhZ2VzL3N0dWRlbnQvR3JhZGVzXCI7XHJcbmltcG9ydCBTdHVkZW50Q2FsZW5kYXIgZnJvbSBcIi4vcGFnZXMvc3R1ZGVudC9TdHVkZW50Q2FsZW5kYXJcIjtcclxuaW1wb3J0IFN0dWRlbnRTZXR0aW5ncyBmcm9tIFwiLi9wYWdlcy9zdHVkZW50L1NldHRpbmdzXCI7XHJcbmltcG9ydCBTdHVkZW50SGVscENlbnRlciBmcm9tIFwiLi9wYWdlcy9zdHVkZW50L0hlbHBDZW50ZXJcIjtcclxuaW1wb3J0IFN0dWRlbnROb3RpZmljYXRpb25zIGZyb20gXCIuL3BhZ2VzL3N0dWRlbnQvTm90aWZpY2F0aW9uc1wiO1xyXG5pbXBvcnQgTm90Rm91bmQgZnJvbSBcIi4vcGFnZXMvTm90Rm91bmRcIjtcclxuaW1wb3J0IFByb2ZpbGUgZnJvbSBcIi4vcGFnZXMvUHJvZmlsZVwiO1xyXG5pbXBvcnQgeyBQcm90ZWN0ZWRSb3V0ZSB9IGZyb20gXCIuL2NvbXBvbmVudHMvUHJvdGVjdGVkUm91dGVcIjtcclxuaW1wb3J0IExhbmRpbmdQYWdlIGZyb20gXCIuL3BhZ2VzL0xhbmRpbmdQYWdlXCI7XHJcbmltcG9ydCBSZWdpc3RlciBmcm9tIFwiLi9wYWdlcy9SZWdpc3RlclwiO1xyXG5cclxuLy8gTWFzdGVyIEFkbWluIEltcG9ydHNcclxuaW1wb3J0IE1hc3RlckxvZ2luIGZyb20gXCIuL3BhZ2VzL21hc3Rlci9NYXN0ZXJMb2dpblwiO1xyXG5pbXBvcnQgTWFzdGVyRGFzaGJvYXJkIGZyb20gXCIuL3BhZ2VzL21hc3Rlci9NYXN0ZXJEYXNoYm9hcmRcIjtcclxuaW1wb3J0IE1hc3RlckNvbGxlZ2VzIGZyb20gXCIuL3BhZ2VzL21hc3Rlci9NYXN0ZXJDb2xsZWdlc1wiO1xyXG5pbXBvcnQgTWFzdGVyQ29sbGVnZURldGFpbCBmcm9tIFwiLi9wYWdlcy9tYXN0ZXIvTWFzdGVyQ29sbGVnZURldGFpbFwiO1xyXG5pbXBvcnQgTWFzdGVyQmlsbGluZyBmcm9tIFwiLi9wYWdlcy9tYXN0ZXIvTWFzdGVyQmlsbGluZ1wiO1xyXG5pbXBvcnQgTWFzdGVyQW5hbHl0aWNzIGZyb20gXCIuL3BhZ2VzL21hc3Rlci9NYXN0ZXJBbmFseXRpY3NcIjtcclxuaW1wb3J0IE1hc3Rlck1vbml0b3JpbmcgZnJvbSBcIi4vcGFnZXMvbWFzdGVyL01hc3Rlck1vbml0b3JpbmdcIjtcclxuXHJcbmltcG9ydCB7IEVycm9yQm91bmRhcnkgfSBmcm9tIFwiLi9jb21wb25lbnRzL0Vycm9yQm91bmRhcnlcIjtcclxuaW1wb3J0IHsgTm90aWZpY2F0aW9uUHJvdmlkZXIgfSBmcm9tIFwiQC9jb250ZXh0cy9Ob3RpZmljYXRpb25Db250ZXh0XCI7XHJcblxyXG5jb25zdCBxdWVyeUNsaWVudCA9IG5ldyBRdWVyeUNsaWVudCgpO1xyXG5cclxuY29uc3QgQXBwID0gKCkgPT4gKFxyXG4gIDxRdWVyeUNsaWVudFByb3ZpZGVyIGNsaWVudD17cXVlcnlDbGllbnR9PlxyXG4gICAgPFRvb2x0aXBQcm92aWRlcj5cclxuICAgICAgPE5vdGlmaWNhdGlvblByb3ZpZGVyPlxyXG4gICAgICAgIDxUb2FzdGVyIC8+XHJcbiAgICAgICAgPFNvbm5lciAvPlxyXG4gICAgICAgIDxCcm93c2VyUm91dGVyPlxyXG4gICAgICAgICAgPFJvdXRlcz5cclxuICAgICAgICAgICAgPFJvdXRlIHBhdGg9XCIvXCIgZWxlbWVudD17PExhbmRpbmdQYWdlIC8+fSAvPlxyXG4gICAgICAgICAgICA8Um91dGUgcGF0aD1cIi9yZWdpc3RlclwiIGVsZW1lbnQ9ezxSZWdpc3RlciAvPn0gLz5cclxuICAgICAgICAgICAgPFJvdXRlIHBhdGg9XCIvbG9naW5cIiBlbGVtZW50PXs8TG9naW4gLz59IC8+XHJcbiAgICAgICAgICAgIDxSb3V0ZSBwYXRoPVwiL2ZvcmdvdC1wYXNzd29yZFwiIGVsZW1lbnQ9ezxGb3Jnb3RQYXNzd29yZCAvPn0gLz5cclxuICAgICAgICAgICAgPFJvdXRlIHBhdGg9XCIvcmVzZXQtcGFzc3dvcmRcIiBlbGVtZW50PXs8UmVzZXRQYXNzd29yZCAvPn0gLz5cclxuICAgICAgICAgICAgPFJvdXRlIHBhdGg9XCIvc2lnbnVwXCIgZWxlbWVudD17PFNpZ251cCAvPn0gLz5cclxuICAgICAgICAgICAgPFJvdXRlIHBhdGg9XCIvc2V0dXBcIiBlbGVtZW50PXs8U2V0dXAgLz59IC8+XHJcbiAgICAgICAgICAgIDxSb3V0ZSBwYXRoPVwiL2Rhc2hib2FyZFwiIGVsZW1lbnQ9ezxEYXNoYm9hcmQgLz59IC8+XHJcbiAgICAgICAgICAgIDxSb3V0ZSBwYXRoPVwiL3Byb2ZpbGVcIiBlbGVtZW50PXs8UHJvdGVjdGVkUm91dGU+PFByb2ZpbGUgLz48L1Byb3RlY3RlZFJvdXRlPn0gLz5cclxuXHJcbiAgICAgICAgICAgIHsvKiBBZG1pbiBSb3V0ZXMgKi99XHJcbiAgICAgICAgICAgIDxSb3V0ZSBwYXRoPVwiL2FkbWluXCIgZWxlbWVudD17PFByb3RlY3RlZFJvdXRlPjxBZG1pbkRhc2hib2FyZCAvPjwvUHJvdGVjdGVkUm91dGU+fSAvPlxyXG4gICAgICAgICAgICA8Um91dGUgcGF0aD1cIi9hZG1pbi91c2Vyc1wiIGVsZW1lbnQ9ezxQcm90ZWN0ZWRSb3V0ZT48VXNlck1hbmFnZW1lbnQgLz48L1Byb3RlY3RlZFJvdXRlPn0gLz5cclxuICAgICAgICAgICAgPFJvdXRlIHBhdGg9XCIvYWRtaW4vY291cnNlc1wiIGVsZW1lbnQ9ezxQcm90ZWN0ZWRSb3V0ZT48Q291cnNlTWFuYWdlbWVudCAvPjwvUHJvdGVjdGVkUm91dGU+fSAvPlxyXG4gICAgICAgICAgICA8Um91dGUgcGF0aD1cIi9hZG1pbi9jb3Vyc2VzLzppZC9lZGl0XCIgZWxlbWVudD17PFByb3RlY3RlZFJvdXRlPjxBZG1pbkNvdXJzZURldGFpbCAvPjwvUHJvdGVjdGVkUm91dGU+fSAvPlxyXG4gICAgICAgICAgICA8Um91dGUgcGF0aD1cIi9hZG1pbi9tb25pdG9yaW5nXCIgZWxlbWVudD17PFByb3RlY3RlZFJvdXRlPjxNb25pdG9yaW5nIC8+PC9Qcm90ZWN0ZWRSb3V0ZT59IC8+XHJcbiAgICAgICAgICAgIDxSb3V0ZSBwYXRoPVwiL2FkbWluL2xlYWRlcmJvYXJkXCIgZWxlbWVudD17PFByb3RlY3RlZFJvdXRlPjxMZWFkZXJib2FyZCB1c2VyUm9sZT1cImFkbWluXCIgLz48L1Byb3RlY3RlZFJvdXRlPn0gLz5cclxuICAgICAgICAgICAgPFJvdXRlIHBhdGg9XCIvYWRtaW4vbm90aWZpY2F0aW9uc1wiIGVsZW1lbnQ9ezxQcm90ZWN0ZWRSb3V0ZT48Tm90aWZpY2F0aW9ucyAvPjwvUHJvdGVjdGVkUm91dGU+fSAvPlxyXG4gICAgICAgICAgICA8Um91dGUgcGF0aD1cIi9hZG1pbi9jYWxlbmRhclwiIGVsZW1lbnQ9ezxQcm90ZWN0ZWRSb3V0ZT48QWRtaW5DYWxlbmRhciAvPjwvUHJvdGVjdGVkUm91dGU+fSAvPlxyXG4gICAgICAgICAgICA8Um91dGUgcGF0aD1cIi9hZG1pbi9zZXR0aW5nc1wiIGVsZW1lbnQ9ezxQcm90ZWN0ZWRSb3V0ZT48U2V0dGluZ3MgLz48L1Byb3RlY3RlZFJvdXRlPn0gLz5cclxuICAgICAgICAgICAgPFJvdXRlIHBhdGg9XCIvYWRtaW4vaGVscC1jZW50ZXJcIiBlbGVtZW50PXs8UHJvdGVjdGVkUm91dGU+PEhlbHBDZW50ZXIgLz48L1Byb3RlY3RlZFJvdXRlPn0gLz5cclxuXHJcbiAgICAgICAgICAgIHsvKiBUZWFjaGVyIFJvdXRlcyAqL31cclxuICAgICAgICAgICAgPFJvdXRlIHBhdGg9XCIvdGVhY2hlclwiIGVsZW1lbnQ9ezxQcm90ZWN0ZWRSb3V0ZT48VGVhY2hlckRhc2hib2FyZCAvPjwvUHJvdGVjdGVkUm91dGU+fSAvPlxyXG4gICAgICAgICAgICA8Um91dGUgcGF0aD1cIi90ZWFjaGVyL2NvdXJzZXNcIiBlbGVtZW50PXs8UHJvdGVjdGVkUm91dGU+PFRlYWNoZXJDb3Vyc2VzIC8+PC9Qcm90ZWN0ZWRSb3V0ZT59IC8+XHJcbiAgICAgICAgICAgIDxSb3V0ZSBwYXRoPVwiL3RlYWNoZXIvY2VydGlmaWNhdGUtcHJvZ3JhbXNcIiBlbGVtZW50PXs8UHJvdGVjdGVkUm91dGU+PENlcnRpZmljYXRlUHJvZ3JhbXMgLz48L1Byb3RlY3RlZFJvdXRlPn0gLz5cclxuICAgICAgICAgICAgPFJvdXRlIHBhdGg9XCIvdGVhY2hlci9sZWFkZXJib2FyZFwiIGVsZW1lbnQ9ezxQcm90ZWN0ZWRSb3V0ZT48TGVhZGVyYm9hcmQgdXNlclJvbGU9XCJ0ZWFjaGVyXCIgLz48L1Byb3RlY3RlZFJvdXRlPn0gLz5cclxuICAgICAgICAgICAgPFJvdXRlIHBhdGg9XCIvdGVhY2hlci9jb3Vyc2VzL2pzb24tYnVpbGRlclwiIGVsZW1lbnQ9ezxQcm90ZWN0ZWRSb3V0ZT48SnNvbkNvdXJzZUJ1aWxkZXIgLz48L1Byb3RlY3RlZFJvdXRlPn0gLz5cclxuICAgICAgICAgICAgPFJvdXRlIHBhdGg9XCIvdGVhY2hlci9jb3Vyc2VzLzppZFwiIGVsZW1lbnQ9ezxQcm90ZWN0ZWRSb3V0ZT48Q291cnNlRGV0YWlsIC8+PC9Qcm90ZWN0ZWRSb3V0ZT59IC8+XHJcbiAgICAgICAgICAgIDxSb3V0ZSBwYXRoPVwiL3RlYWNoZXIvYXNzaWdubWVudHNcIiBlbGVtZW50PXs8UHJvdGVjdGVkUm91dGU+PEFzc2lnbm1lbnRDcmVhdGUgLz48L1Byb3RlY3RlZFJvdXRlPn0gLz5cclxuICAgICAgICAgICAgPFJvdXRlIHBhdGg9XCIvdGVhY2hlci9yZXZpZXdzXCIgZWxlbWVudD17PFByb3RlY3RlZFJvdXRlPjxBc3NpZ25tZW50UmV2aWV3IC8+PC9Qcm90ZWN0ZWRSb3V0ZT59IC8+XHJcbiAgICAgICAgICAgIDxSb3V0ZSBwYXRoPVwiL3RlYWNoZXIvYXR0ZW5kYW5jZVwiIGVsZW1lbnQ9ezxQcm90ZWN0ZWRSb3V0ZT48QXR0ZW5kYW5jZSAvPjwvUHJvdGVjdGVkUm91dGU+fSAvPlxyXG4gICAgICAgICAgICA8Um91dGUgcGF0aD1cIi90ZWFjaGVyL2NvdXJzZXMvOmNvdXJzZUlkL3F1aXovOnF1aXpJZFwiIGVsZW1lbnQ9ezxQcm90ZWN0ZWRSb3V0ZT48UXVpekVkaXRvciAvPjwvUHJvdGVjdGVkUm91dGU+fSAvPlxyXG4gICAgICAgICAgICA8Um91dGUgcGF0aD1cIi90ZWFjaGVyL2NvdXJzZXMvOmlkL2dyYWRlc1wiIGVsZW1lbnQ9ezxQcm90ZWN0ZWRSb3V0ZT48Q291cnNlR3JhZGVzIC8+PC9Qcm90ZWN0ZWRSb3V0ZT59IC8+XHJcbiAgICAgICAgICAgIDxSb3V0ZSBwYXRoPVwiL3RlYWNoZXIvbm90aWZpY2F0aW9uc1wiIGVsZW1lbnQ9ezxQcm90ZWN0ZWRSb3V0ZT48VGVhY2hlck5vdGlmaWNhdGlvbnMgLz48L1Byb3RlY3RlZFJvdXRlPn0gLz5cclxuICAgICAgICAgICAgPFJvdXRlIHBhdGg9XCIvdGVhY2hlci9zZXR0aW5nc1wiIGVsZW1lbnQ9ezxQcm90ZWN0ZWRSb3V0ZT48VGVhY2hlclNldHRpbmdzIC8+PC9Qcm90ZWN0ZWRSb3V0ZT59IC8+XHJcbiAgICAgICAgICAgIDxSb3V0ZSBwYXRoPVwiL3RlYWNoZXIvaGVscC1jZW50ZXJcIiBlbGVtZW50PXs8UHJvdGVjdGVkUm91dGU+PFRlYWNoZXJIZWxwQ2VudGVyIC8+PC9Qcm90ZWN0ZWRSb3V0ZT59IC8+XHJcbiAgICAgICAgICAgIDxSb3V0ZSBwYXRoPVwiL3RlYWNoZXIvY2FsZW5kYXJcIiBlbGVtZW50PXs8UHJvdGVjdGVkUm91dGU+PFRlYWNoZXJDYWxlbmRhciAvPjwvUHJvdGVjdGVkUm91dGU+fSAvPlxyXG5cclxuICAgICAgICAgICAgey8qIFN0dWRlbnQgUm91dGVzICovfVxyXG4gICAgICAgICAgICA8Um91dGUgcGF0aD1cIi9zdHVkZW50XCIgZWxlbWVudD17PFByb3RlY3RlZFJvdXRlPjxTdHVkZW50RGFzaGJvYXJkIC8+PC9Qcm90ZWN0ZWRSb3V0ZT59IC8+XHJcbiAgICAgICAgICAgIDxSb3V0ZSBwYXRoPVwiL3N0dWRlbnQvY291cnNlc1wiIGVsZW1lbnQ9ezxQcm90ZWN0ZWRSb3V0ZT48U3R1ZGVudENvdXJzZXMgLz48L1Byb3RlY3RlZFJvdXRlPn0gLz5cclxuICAgICAgICAgICAgPFJvdXRlIHBhdGg9XCIvc3R1ZGVudC9sZWFkZXJib2FyZFwiIGVsZW1lbnQ9ezxQcm90ZWN0ZWRSb3V0ZT48TGVhZGVyYm9hcmQgdXNlclJvbGU9XCJzdHVkZW50XCIgLz48L1Byb3RlY3RlZFJvdXRlPn0gLz5cclxuICAgICAgICAgICAgPFJvdXRlIHBhdGg9XCIvc3R1ZGVudC9jb3Vyc2VzLzppZC9sZWFyblwiIGVsZW1lbnQ9ezxQcm90ZWN0ZWRSb3V0ZT48Q291cnNlUGxheWVyIC8+PC9Qcm90ZWN0ZWRSb3V0ZT59IC8+XHJcbiAgICAgICAgICAgIDxSb3V0ZSBwYXRoPVwiL3N0dWRlbnQvYXNzaWdubWVudHNcIiBlbGVtZW50PXs8UHJvdGVjdGVkUm91dGU+PFN0dWRlbnRBc3NpZ25tZW50cyAvPjwvUHJvdGVjdGVkUm91dGU+fSAvPlxyXG4gICAgICAgICAgICA8Um91dGUgcGF0aD1cIi9zdHVkZW50L2Fzc2lnbm1lbnRzLzppZFwiIGVsZW1lbnQ9ezxQcm90ZWN0ZWRSb3V0ZT48QXNzaWdubWVudFN1Ym1pdCAvPjwvUHJvdGVjdGVkUm91dGU+fSAvPlxyXG4gICAgICAgICAgICA8Um91dGUgcGF0aD1cIi9zdHVkZW50L3F1aXovOmlkXCIgZWxlbWVudD17PFByb3RlY3RlZFJvdXRlPjxRdWl6UGxheWVyIC8+PC9Qcm90ZWN0ZWRSb3V0ZT59IC8+XHJcbiAgICAgICAgICAgIDxSb3V0ZSBwYXRoPVwiL3N0dWRlbnQvZ3JhZGVzXCIgZWxlbWVudD17PFByb3RlY3RlZFJvdXRlPjxTdHVkZW50R3JhZGVzIC8+PC9Qcm90ZWN0ZWRSb3V0ZT59IC8+XHJcbiAgICAgICAgICAgIDxSb3V0ZSBwYXRoPVwiL3N0dWRlbnQvY2FsZW5kYXJcIiBlbGVtZW50PXs8UHJvdGVjdGVkUm91dGU+PFN0dWRlbnRDYWxlbmRhciAvPjwvUHJvdGVjdGVkUm91dGU+fSAvPlxyXG4gICAgICAgICAgICA8Um91dGUgcGF0aD1cIi9zdHVkZW50L3NldHRpbmdzXCIgZWxlbWVudD17PFByb3RlY3RlZFJvdXRlPjxTdHVkZW50U2V0dGluZ3MgLz48L1Byb3RlY3RlZFJvdXRlPn0gLz5cclxuICAgICAgICAgICAgPFJvdXRlIHBhdGg9XCIvc3R1ZGVudC9oZWxwLWNlbnRlclwiIGVsZW1lbnQ9ezxQcm90ZWN0ZWRSb3V0ZT48U3R1ZGVudEhlbHBDZW50ZXIgLz48L1Byb3RlY3RlZFJvdXRlPn0gLz5cclxuICAgICAgICAgICAgPFJvdXRlIHBhdGg9XCIvc3R1ZGVudC9ub3RpZmljYXRpb25zXCIgZWxlbWVudD17PFByb3RlY3RlZFJvdXRlPjxTdHVkZW50Tm90aWZpY2F0aW9ucyAvPjwvUHJvdGVjdGVkUm91dGU+fSAvPlxyXG5cclxuICAgICAgICAgICAgey8qIE1hc3RlciBBZG1pbiBSb3V0ZXMgKi99XHJcbiAgICAgICAgICAgIDxSb3V0ZSBwYXRoPVwiL21hc3Rlci9sb2dpblwiIGVsZW1lbnQ9ezxNYXN0ZXJMb2dpbiAvPn0gLz5cclxuICAgICAgICAgICAgPFJvdXRlIHBhdGg9XCIvbWFzdGVyXCIgZWxlbWVudD17PFByb3RlY3RlZFJvdXRlPjxNYXN0ZXJEYXNoYm9hcmQgLz48L1Byb3RlY3RlZFJvdXRlPn0gLz5cclxuICAgICAgICAgICAgPFJvdXRlIHBhdGg9XCIvbWFzdGVyL2NvbGxlZ2VzXCIgZWxlbWVudD17PFByb3RlY3RlZFJvdXRlPjxNYXN0ZXJDb2xsZWdlcyAvPjwvUHJvdGVjdGVkUm91dGU+fSAvPlxyXG4gICAgICAgICAgICA8Um91dGUgcGF0aD1cIi9tYXN0ZXIvY29sbGVnZXMvOmlkXCIgZWxlbWVudD17PFByb3RlY3RlZFJvdXRlPjxNYXN0ZXJDb2xsZWdlRGV0YWlsIC8+PC9Qcm90ZWN0ZWRSb3V0ZT59IC8+XHJcbiAgICAgICAgICAgIDxSb3V0ZSBwYXRoPVwiL21hc3Rlci9iaWxsaW5nXCIgZWxlbWVudD17PFByb3RlY3RlZFJvdXRlPjxNYXN0ZXJCaWxsaW5nIC8+PC9Qcm90ZWN0ZWRSb3V0ZT59IC8+XHJcbiAgICAgICAgICAgIDxSb3V0ZSBwYXRoPVwiL21hc3Rlci9hbmFseXRpY3NcIiBlbGVtZW50PXs8UHJvdGVjdGVkUm91dGU+PE1hc3RlckFuYWx5dGljcyAvPjwvUHJvdGVjdGVkUm91dGU+fSAvPlxyXG4gICAgICAgICAgICA8Um91dGUgcGF0aD1cIi9tYXN0ZXIvbW9uaXRvcmluZ1wiIGVsZW1lbnQ9ezxQcm90ZWN0ZWRSb3V0ZT48TWFzdGVyTW9uaXRvcmluZyAvPjwvUHJvdGVjdGVkUm91dGU+fSAvPlxyXG5cclxuICAgICAgICAgICAgey8qIEFERCBBTEwgQ1VTVE9NIFJPVVRFUyBBQk9WRSBUSEUgQ0FUQ0gtQUxMIFwiKlwiIFJPVVRFICovfVxyXG4gICAgICAgICAgICA8Um91dGUgcGF0aD1cIipcIiBlbGVtZW50PXs8Tm90Rm91bmQgLz59IC8+XHJcbiAgICAgICAgICA8L1JvdXRlcz5cclxuICAgICAgICA8L0Jyb3dzZXJSb3V0ZXI+XHJcbiAgICAgIDwvTm90aWZpY2F0aW9uUHJvdmlkZXI+XHJcbiAgICA8L1Rvb2x0aXBQcm92aWRlcj5cclxuICA8L1F1ZXJ5Q2xpZW50UHJvdmlkZXI+XHJcbik7XHJcblxyXG5leHBvcnQgZGVmYXVsdCBBcHA7XHJcbiJdLCJuYW1lcyI6WyJUb2FzdGVyIiwiU29ubmVyIiwiVG9vbHRpcFByb3ZpZGVyIiwiUXVlcnlDbGllbnQiLCJRdWVyeUNsaWVudFByb3ZpZGVyIiwiQnJvd3NlclJvdXRlciIsIlJvdXRlcyIsIlJvdXRlIiwiTG9naW4iLCJGb3Jnb3RQYXNzd29yZCIsIlJlc2V0UGFzc3dvcmQiLCJTaWdudXAiLCJTZXR1cCIsIkRhc2hib2FyZCIsIkFkbWluRGFzaGJvYXJkIiwiVXNlck1hbmFnZW1lbnQiLCJDb3Vyc2VNYW5hZ2VtZW50IiwiQWRtaW5Db3Vyc2VEZXRhaWwiLCJBZG1pbkNhbGVuZGFyIiwiTW9uaXRvcmluZyIsIlNldHRpbmdzIiwiSGVscENlbnRlciIsIk5vdGlmaWNhdGlvbnMiLCJUZWFjaGVyRGFzaGJvYXJkIiwiVGVhY2hlckNvdXJzZXMiLCJDb3Vyc2VEZXRhaWwiLCJBc3NpZ25tZW50Q3JlYXRlIiwiQXNzaWdubWVudFJldmlldyIsIkF0dGVuZGFuY2UiLCJRdWl6RWRpdG9yIiwiQ291cnNlR3JhZGVzIiwiVGVhY2hlck5vdGlmaWNhdGlvbnMiLCJUZWFjaGVyU2V0dGluZ3MiLCJUZWFjaGVySGVscENlbnRlciIsIlRlYWNoZXJDYWxlbmRhciIsIkpzb25Db3Vyc2VCdWlsZGVyIiwiQ2VydGlmaWNhdGVQcm9ncmFtcyIsIkxlYWRlcmJvYXJkIiwiU3R1ZGVudERhc2hib2FyZCIsIkNvdXJzZVBsYXllciIsIlN0dWRlbnRDb3Vyc2VzIiwiU3R1ZGVudEFzc2lnbm1lbnRzIiwiQXNzaWdubWVudFN1Ym1pdCIsIlF1aXpQbGF5ZXIiLCJTdHVkZW50R3JhZGVzIiwiU3R1ZGVudENhbGVuZGFyIiwiU3R1ZGVudFNldHRpbmdzIiwiU3R1ZGVudEhlbHBDZW50ZXIiLCJTdHVkZW50Tm90aWZpY2F0aW9ucyIsIk5vdEZvdW5kIiwiUHJvZmlsZSIsIlByb3RlY3RlZFJvdXRlIiwiTGFuZGluZ1BhZ2UiLCJSZWdpc3RlciIsIk1hc3RlckxvZ2luIiwiTWFzdGVyRGFzaGJvYXJkIiwiTWFzdGVyQ29sbGVnZXMiLCJNYXN0ZXJDb2xsZWdlRGV0YWlsIiwiTWFzdGVyQmlsbGluZyIsIk1hc3RlckFuYWx5dGljcyIsIk1hc3Rlck1vbml0b3JpbmciLCJOb3RpZmljYXRpb25Qcm92aWRlciIsInF1ZXJ5Q2xpZW50IiwiQXBwIiwiY2xpZW50IiwicGF0aCIsImVsZW1lbnQiLCJ1c2VyUm9sZSJdLCJtYXBwaW5ncyI6Ijs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7QUFBQSxTQUFTQSxPQUFPLFFBQVEsMEJBQTBCO0FBQ2xELFNBQVNBLFdBQVdDLE1BQU0sUUFBUSx5QkFBeUI7QUFDM0QsU0FBU0MsZUFBZSxRQUFRLDBCQUEwQjtBQUMxRCxTQUFTQyxXQUFXLEVBQUVDLG1CQUFtQixRQUFRLHdCQUF3QjtBQUN6RSxTQUFTQyxhQUFhLEVBQUVDLE1BQU0sRUFBRUMsS0FBSyxRQUFrQixtQkFBbUI7QUFDMUUsT0FBT0MsV0FBVyxnQkFBZ0I7QUFDbEMsT0FBT0Msb0JBQW9CLHlCQUF5QjtBQUNwRCxPQUFPQyxtQkFBbUIsd0JBQXdCO0FBQ2xELE9BQU9DLFlBQVksaUJBQWlCO0FBQ3BDLE9BQU9DLFdBQVcsZ0JBQWdC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

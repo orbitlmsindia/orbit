@@ -38,8 +38,12 @@ import {
   Eye,
   Edit,
   Save,
+  Building2,
+  Trash2,
+  Sparkles,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useDepartments } from "@/hooks/useDepartments";
 
 interface NewUserData {
   userType: "student" | "teacher";
@@ -61,8 +65,13 @@ const initialNewUserState: NewUserData = {
 
 export default function UserManagement() {
   const { toast } = useToast();
+  const { departments, addDepartment, deleteDepartment } = useDepartments();
   const [activeTab, setActiveTab] = useState("students");
   const [addUserModalOpen, setAddUserModalOpen] = useState(false);
+  const [deptModalOpen, setDeptModalOpen] = useState(false);
+  const [newDeptName, setNewDeptName] = useState("");
+  const [newDeptCode, setNewDeptCode] = useState("");
+  const [newDeptDesc, setNewDeptDesc] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -89,7 +98,7 @@ export default function UserManagement() {
       setLoading(true);
       const { data, error } = await supabase
         .from('users')
-        .select('id, role, full_name, email, status, created_at, department, mobile_number, address, aadhar_number, courses(count), enrollments(count)');
+        .select('id, role, full_name, email, status, created_at, department, mobile_number, address, aadhar_number, aura_points, bonus_credits, custom_badge, courses(count), enrollments(count)');
 
       if (error) {
         console.error('Error fetching users:', error);
@@ -161,7 +170,7 @@ export default function UserManagement() {
     const fullName = `${newUser.firstName} ${newUser.lastName}`;
 
     try {
-      // Create User
+      // 1. Attempt standard Supabase auth signUp
       const { data, error } = await supabase.auth.signUp({
         email: newUser.email,
         password: newUser.password,
@@ -169,14 +178,95 @@ export default function UserManagement() {
           data: {
             full_name: fullName,
             role: newUser.userType,
-            // institute_id removed
+            department: newUser.userType === "teacher" ? newUser.department : undefined,
           }
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        // Handle case where user is already registered in auth.users
+        const errMsg = error.message.toLowerCase();
+        if (errMsg.includes("already registered") || errMsg.includes("already exists") || errMsg.includes("email rate limit")) {
+          console.log("User exists in Auth. Recovering/re-linking profile...");
+
+          // Check if public.users record exists
+          const { data: existingUsers } = await supabase
+            .from('users')
+            .select('id, email')
+            .eq('email', newUser.email);
+
+          if (existingUsers && existingUsers.length > 0) {
+            // Update existing user record in public.users
+            await supabase
+              .from('users')
+              .update({
+                full_name: fullName,
+                role: newUser.userType,
+                department: newUser.userType === "teacher" ? newUser.department : undefined,
+                status: 'active'
+              })
+              .eq('email', newUser.email);
+
+            setCreationSuccess({
+              email: newUser.email,
+              password: newUser.password || "(Existing password preserved)"
+            });
+            toast({
+              title: "User Profile Restored",
+              description: `User existed in Auth database. Profile activated successfully!`,
+            });
+            setRefreshTrigger(prev => prev + 1);
+            return;
+          } else {
+            // Record deleted from public.users but present in auth.users.
+            // Try signing in to obtain user ID if password matches
+            const { data: signInData } = await supabase.auth.signInWithPassword({
+              email: newUser.email,
+              password: newUser.password
+            });
+
+            const recoveredId = signInData?.user?.id;
+
+            const upsertPayload: any = {
+              email: newUser.email,
+              full_name: fullName,
+              role: newUser.userType,
+              status: 'active',
+              department: newUser.userType === "teacher" ? newUser.department : undefined
+            };
+
+            if (recoveredId) {
+              upsertPayload.id = recoveredId;
+            }
+
+            const { error: upsertErr } = await supabase
+              .from('users')
+              .upsert(upsertPayload, { onConflict: 'email' });
+
+            if (upsertErr) {
+              await supabase.from('users').insert([upsertPayload]);
+            }
+
+            setCreationSuccess({
+              email: newUser.email,
+              password: newUser.password || ""
+            });
+            toast({
+              title: "Account Sync Successful",
+              description: `Created user profile and synced credentials successfully.`,
+            });
+            setRefreshTrigger(prev => prev + 1);
+            return;
+          }
+        }
+        throw error;
+      }
 
       if (data.user) {
+        if (newUser.userType === 'teacher' && newUser.department) {
+          await supabase.from('users').update({ department: newUser.department }).eq('id', data.user.id);
+        }
+
         setCreationSuccess({
           email: newUser.email,
           password: newUser.password || ""
@@ -224,20 +314,20 @@ export default function UserManagement() {
   };
 
   const handleDeleteUser = async (userId: string) => {
+    // Check if target user is an Admin account
+    const targetUser = [...students, ...teachers].find(u => u.id === userId);
+    if (targetUser && (targetUser.role === 'admin' || targetUser.role === 'super_admin' || targetUser.email?.includes('admin'))) {
+      toast({
+        variant: "destructive",
+        title: "Protected Account",
+        description: "Administrator accounts cannot be deleted.",
+      });
+      return;
+    }
+
     if (!confirm("Are you sure you want to delete this user? This action cannot be undone.")) return;
 
     try {
-      // Delete from auth (if using edge functions, but client can't typically delete from auth directly without admin api).
-      // Since we are using client sdk, we might only be able to delete from public table if RLS allows, 
-      // OR we need a server-side function. 
-      // For this demo, assuming RLS allows DELETE on public.users for admins.
-      // NOTE: Deleting from public.users usually cascades to nothing if auth.users is the parent.
-      // Actually, auth.users is the parent. We can't delete auth users easily from client without an edge function.
-      // So we will just mark them as 'inactive' or 'deleted' for now, OR try to delete from public.users and hope for cascade?
-      // Actually, the request is to "approve". So let's stick to "reject/delete" from the public view.
-
-      // Let's implement a "Reject" which just updates status to 'inactive' or we call a backend function.
-      // For simplicity in this context, we will delete from public.users table.
       const { error } = await supabase.from('users').delete().eq('id', userId);
       if (error) throw error;
 
@@ -294,9 +384,13 @@ export default function UserManagement() {
       // We only want to update actual DB columns.
       const updates: any = {
         full_name: viewingUser.full_name,
+        role: viewingUser.role,
         status: viewingUser.status,
         mobile_number: viewingUser.mobile_number,
         address: viewingUser.address,
+        aura_points: parseInt(viewingUser.aura_points) || 0,
+        bonus_credits: parseInt(viewingUser.bonus_credits) || 0,
+        custom_badge: viewingUser.custom_badge || null
       };
 
       if (viewingUser.role === 'teacher') {
@@ -345,6 +439,24 @@ export default function UserManagement() {
       ),
     },
     {
+      key: "credits",
+      header: "Credits",
+      cell: (row: any) => (
+        <Badge variant="outline" className="font-mono text-xs text-primary bg-primary/5 border-primary/20">
+          🎓 {row.bonus_credits ? `+${row.bonus_credits}` : 0}
+        </Badge>
+      ),
+    },
+    {
+      key: "aura",
+      header: "Aura XP",
+      cell: (row: any) => (
+        <Badge variant="outline" className="font-mono text-xs text-amber-500 bg-amber-500/5 border-amber-500/20">
+          ✨ {row.aura_points || 0}
+        </Badge>
+      ),
+    },
+    {
       key: "status",
       header: "Status",
       cell: (row: any) => (
@@ -365,14 +477,27 @@ export default function UserManagement() {
     },
     {
       key: "actions",
-      header: "",
+      header: "Actions",
       cell: (row: any) => (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {row.status === 'pending' && (
             <Button variant="ghost" size="icon" className="text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-900/20" onClick={() => handleApproveUser(row.id)} title="Approve User">
               <Check className="h-4 w-4" />
             </Button>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setViewingUser(row);
+              setIsEditing(true);
+              setViewUserModalOpen(true);
+            }}
+            className="gap-1 text-xs font-semibold border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+            title="Master Admin Points & Credits Override"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Edit Points
+          </Button>
           <Button variant="ghost" size="icon" onClick={() => handleViewUser(row)} title="View Details">
             <Eye className="h-4 w-4" />
           </Button>
@@ -384,7 +509,7 @@ export default function UserManagement() {
           </Button>
         </div>
       ),
-      className: "w-28",
+      className: "w-48",
     },
   ];
 
@@ -407,6 +532,16 @@ export default function UserManagement() {
       ),
     },
     {
+      key: "department",
+      header: "Department",
+      cell: (row: any) => (
+        <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">
+          <Building2 className="h-3 w-3 mr-1" />
+          {row.department || "General"}
+        </Badge>
+      ),
+    },
+    {
       key: "status",
       header: "Status",
       cell: (row: any) => (
@@ -443,6 +578,19 @@ export default function UserManagement() {
     },
   ];
 
+  const handleCreateDepartment = async () => {
+    if (!newDeptName.trim()) {
+      toast({ variant: "destructive", title: "Error", description: "Department name is required." });
+      return;
+    }
+    const success = await addDepartment(newDeptName, newDeptCode, newDeptDesc);
+    if (success) {
+      setNewDeptName("");
+      setNewDeptCode("");
+      setNewDeptDesc("");
+    }
+  };
+
   return (
     <AdminLayout>
       <div className="space-y-6 animate-fade-in">
@@ -460,6 +608,11 @@ export default function UserManagement() {
             <Button variant="outline" className="gap-2" onClick={() => setRefreshTrigger(p => p + 1)}>
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               Refresh
+            </Button>
+
+            <Button variant="outline" className="gap-2" onClick={() => setDeptModalOpen(true)}>
+              <Building2 className="h-4 w-4" />
+              Departments ({departments.length})
             </Button>
 
             <Dialog open={addUserModalOpen} onOpenChange={open => {
@@ -600,10 +753,11 @@ export default function UserManagement() {
                             <SelectValue placeholder="Select department" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="Computer Science">Computer Science</SelectItem>
-                            <SelectItem value="Design">Design</SelectItem>
-                            <SelectItem value="Business">Business</SelectItem>
-                            <SelectItem value="Marketing">Marketing</SelectItem>
+                            {departments.map((dept) => (
+                              <SelectItem key={dept.id} value={dept.name}>
+                                {dept.name} {dept.code ? `(${dept.code})` : ""}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
@@ -808,10 +962,11 @@ export default function UserManagement() {
                             <SelectValue placeholder="Select Department" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="Computer Science">Computer Science</SelectItem>
-                            <SelectItem value="Design">Design</SelectItem>
-                            <SelectItem value="Business">Business</SelectItem>
-                            <SelectItem value="Marketing">Marketing</SelectItem>
+                            {departments.map((dept) => (
+                              <SelectItem key={dept.id} value={dept.name}>
+                                {dept.name} {dept.code ? `(${dept.code})` : ""}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       ) : (
@@ -835,6 +990,77 @@ export default function UserManagement() {
                     </div>
                   )}
 
+                  {/* Master Admin Controls: Role, Aura Points, Credits, Badges */}
+                  <div className="col-span-2 p-3 bg-primary/5 rounded-xl border border-primary/20 space-y-3">
+                    <h4 className="font-bold text-xs text-primary flex items-center gap-1.5 uppercase tracking-wider">
+                      <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Master Admin Points Override (Credits & Aura XP Glitch Fix)
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">System Role</Label>
+                        {isEditing ? (
+                          <Select
+                            value={viewingUser.role || "student"}
+                            onValueChange={(val) => setViewingUser({ ...viewingUser, role: val })}
+                          >
+                            <SelectTrigger className="h-8 text-xs bg-background">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="student">Student</SelectItem>
+                              <SelectItem value="teacher">Teacher</SelectItem>
+                              <SelectItem value="admin">Administrator</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Badge variant="outline" className="capitalize text-xs">{viewingUser.role}</Badge>
+                        )}
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-xs text-amber-500 font-semibold">✨ Aura Points (XP)</Label>
+                        {isEditing ? (
+                          <Input
+                            type="number"
+                            value={viewingUser.aura_points !== undefined ? viewingUser.aura_points : 0}
+                            onChange={(e) => setViewingUser({ ...viewingUser, aura_points: parseInt(e.target.value) || 0 })}
+                            className="h-8 text-xs bg-background font-mono font-bold text-amber-500"
+                          />
+                        ) : (
+                          <div className="font-mono text-xs font-bold text-amber-500">✨ {viewingUser.aura_points || 0} pts</div>
+                        )}
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-xs text-primary font-semibold">🎓 Bonus Credits Override</Label>
+                        {isEditing ? (
+                          <Input
+                            type="number"
+                            value={viewingUser.bonus_credits !== undefined ? viewingUser.bonus_credits : 0}
+                            onChange={(e) => setViewingUser({ ...viewingUser, bonus_credits: parseInt(e.target.value) || 0 })}
+                            className="h-8 text-xs bg-background font-mono font-bold text-primary"
+                          />
+                        ) : (
+                          <div className="font-mono text-xs font-bold text-primary">🎓 +{viewingUser.bonus_credits || 0} credits</div>
+                        )}
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-xs">Custom Rank / Badge</Label>
+                        {isEditing ? (
+                          <Input
+                            value={viewingUser.custom_badge || ""}
+                            onChange={(e) => setViewingUser({ ...viewingUser, custom_badge: e.target.value })}
+                            placeholder="e.g. 🏆 Gold Scholar"
+                            className="h-8 text-xs bg-background"
+                          />
+                        ) : (
+                          <div className="text-xs">{viewingUser.custom_badge || "Standard Badge"}</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
                 </div>
               </div>
             )}
@@ -855,6 +1081,101 @@ export default function UserManagement() {
                   </div>
                 </>
               )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Manage Departments Dialog */}
+        <Dialog open={deptModalOpen} onOpenChange={setDeptModalOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Building2 className="h-5 w-5 text-primary" /> Manage Departments
+              </DialogTitle>
+              <DialogDescription>
+                Create new academic departments and manage existing ones for teacher assignments.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-6 py-2">
+              {/* Form to Add New Department */}
+              <div className="p-4 bg-muted/40 rounded-lg border space-y-3">
+                <h4 className="font-semibold text-sm flex items-center gap-1.5">
+                  <Plus className="h-4 w-4 text-primary" /> Create New Department
+                </h4>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="col-span-2 space-y-1">
+                    <Label htmlFor="deptName" className="text-xs">Department Name</Label>
+                    <Input
+                      id="deptName"
+                      placeholder="e.g. Mechanical Engineering"
+                      value={newDeptName}
+                      onChange={(e) => setNewDeptName(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="deptCode" className="text-xs">Code (Optional)</Label>
+                    <Input
+                      id="deptCode"
+                      placeholder="e.g. ME"
+                      value={newDeptCode}
+                      onChange={(e) => setNewDeptCode(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="deptDesc" className="text-xs">Description (Optional)</Label>
+                  <Input
+                    id="deptDesc"
+                    placeholder="Short description of department..."
+                    value={newDeptDesc}
+                    onChange={(e) => setNewDeptDesc(e.target.value)}
+                  />
+                </div>
+                <Button className="w-full gap-2 mt-2" size="sm" onClick={handleCreateDepartment}>
+                  <Plus className="h-4 w-4" /> Add Department
+                </Button>
+              </div>
+
+              {/* Existing Departments List */}
+              <div className="space-y-3">
+                <h4 className="font-semibold text-sm">Active Departments ({departments.length})</h4>
+                <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
+                  {departments.map((dept) => (
+                    <div
+                      key={dept.id}
+                      className="flex items-center justify-between p-3 bg-card rounded-md border shadow-sm"
+                    >
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm">{dept.name}</span>
+                          {dept.code && (
+                            <Badge variant="outline" className="text-[10px] uppercase">
+                              {dept.code}
+                            </Badge>
+                          )}
+                        </div>
+                        {dept.description && (
+                          <p className="text-xs text-muted-foreground line-clamp-1">{dept.description}</p>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-muted-foreground hover:text-destructive shrink-0"
+                        onClick={() => deleteDepartment(dept.id)}
+                        title="Delete department"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button onClick={() => setDeptModalOpen(false)}>Done</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

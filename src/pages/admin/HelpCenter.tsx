@@ -210,13 +210,13 @@ export default function HelpCenter() {
                     <Card>
                         <CardHeader>
                             <CardTitle className="text-lg flex items-center gap-2">
-                                <GraduationCap className="h-5 w-5 text-primary" /> JIET College
+                                <GraduationCap className="h-5 w-5 text-primary" /> Orbit LMS Academy
                             </CardTitle>
-                            <CardDescription>Academic Collaboration</CardDescription>
+                            <CardDescription>Academic Excellence</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <p className="text-sm text-muted-foreground">
-                                In association with Jodhpur Institute of Engineering and Technology (JIET) to foster academic growth.
+                                Empowering modern educational institutions to foster digital academic growth.
                             </p>
                         </CardContent>
                     </Card>

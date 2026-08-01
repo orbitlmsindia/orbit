@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { StudentLayout } from "@/components/layout/StudentLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import {
     User,
     Bell,
@@ -13,7 +14,8 @@ import {
     Palette,
     Save,
     Sun,
-    Moon
+    Moon,
+    Sparkles
 } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 import { useToast } from "@/hooks/use-toast";
@@ -21,15 +23,36 @@ import { supabase } from "@/lib/supabase";
 
 import { useNavigate } from "react-router-dom";
 
+import { StudentIdCardModal } from "@/components/idcard/StudentIdCardModal";
+import { ShieldCheck } from "lucide-react";
+
 export default function StudentSettings() {
     const navigate = useNavigate();
     const { theme, setTheme } = useTheme();
     const { toast } = useToast();
+    const [idCardOpen, setIdCardOpen] = useState(false);
+    const [currentUserObj, setCurrentUserObj] = useState<any>(null);
     const [profile, setProfile] = useState({
         name: "Student User",
         email: "student@example.com",
         bio: "Computer Science Student",
     });
+
+    useEffect(() => {
+        fetchCurrentUser();
+    }, []);
+
+    const fetchCurrentUser = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            setCurrentUserObj({
+                id: user.id,
+                name: user.user_metadata?.full_name || "Student User",
+                email: user.email || "",
+                avatar: user.user_metadata?.avatar_url || ""
+            });
+        }
+    };
 
     const [notifications, setNotifications] = useState({
         email: true,
@@ -131,9 +154,18 @@ export default function StudentSettings() {
                     {/* Profile Tab */}
                     <TabsContent value="profile">
                         <Card>
-                            <CardHeader>
-                                <CardTitle>Profile Information</CardTitle>
-                                <CardDescription>Update your public profile details.</CardDescription>
+                            <CardHeader className="flex flex-row items-center justify-between">
+                                <div>
+                                    <CardTitle>Profile & Identification Credential</CardTitle>
+                                    <CardDescription>Update your public profile and inspect your verified digital student ID card.</CardDescription>
+                                </div>
+                                <Button
+                                    type="button"
+                                    onClick={() => setIdCardOpen(true)}
+                                    className="gap-2 bg-primary text-primary-foreground font-bold shrink-0"
+                                >
+                                    <ShieldCheck className="h-4 w-4" /> View Digital Student ID Card
+                                </Button>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="space-y-2">
@@ -205,6 +237,22 @@ export default function StudentSettings() {
                                             <div className="text-sm text-muted-foreground">Dark Mode</div>
                                         </div>
                                         {theme === 'dark' && <div className="ml-auto w-3 h-3 rounded-full bg-primary" />}
+                                    </div>
+
+                                    <div
+                                        className={`border-2 rounded-xl p-4 cursor-pointer flex items-center gap-4 transition-all hover:bg-muted/50 ${theme === 'doomsday' ? 'border-emerald-500 bg-emerald-500/10 shadow-lg shadow-emerald-500/20' : 'border-border'}`}
+                                        onClick={() => setTheme("doomsday")}
+                                    >
+                                        <div className="h-10 w-10 rounded-full bg-emerald-950 border border-emerald-500 flex items-center justify-center text-emerald-400 font-bold">
+                                            <Sparkles className="h-6 w-6" />
+                                        </div>
+                                        <div>
+                                            <div className="font-bold flex items-center gap-1.5 text-foreground">
+                                                Doomsday Matrix <Badge variant="outline" className="bg-emerald-500/20 text-emerald-400 border-emerald-500/40 text-[10px]">EPIC</Badge>
+                                            </div>
+                                            <div className="text-xs text-emerald-500 dark:text-emerald-400 font-mono">Bio-Green Matrix & Crisp White</div>
+                                        </div>
+                                        {theme === 'doomsday' && <div className="ml-auto w-3.5 h-3.5 rounded-full bg-emerald-500 shadow-sm" />}
                                     </div>
                                 </div>
                             </CardContent>
@@ -294,6 +342,12 @@ export default function StudentSettings() {
                         </Card>
                     </TabsContent>
                 </Tabs>
+
+                <StudentIdCardModal
+                    open={idCardOpen}
+                    onOpenChange={setIdCardOpen}
+                    student={currentUserObj}
+                />
             </div>
         </StudentLayout>
     );

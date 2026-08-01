@@ -14,7 +14,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       <div className="min-h-screen flex w-full">
         <AdminSidebar />
         <SidebarInset className="flex-1 flex flex-col">
-          <TopBar userName="Admin User" userEmail="admin@orbit-jiet.edu" />
+          <TopBar userName="Admin User" userEmail="admin@orbitlms.edu" />
           <main className="flex-1 p-4 lg:p-6 overflow-auto bg-background pb-20 lg:pb-6">
             {children}
           </main>

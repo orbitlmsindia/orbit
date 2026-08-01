@@ -1,21 +1,22 @@
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useToast } from '@/hooks/use-toast';
 
 interface Notification {
-    id: number;
+    id: number | string;
     title: string;
     message: string;
     is_read: boolean;
     created_at: string;
     user_id: string;
-    // Add other fields as needed
+    notification_type?: string;
 }
 
 interface NotificationContextType {
     notifications: Notification[];
     unreadCount: number;
-    markAsRead: (id: number) => Promise<void>;
+    markAsRead: (id: number | string) => Promise<void>;
     markAllAsRead: () => Promise<void>;
     refetchInfo: () => void;
 }
@@ -31,8 +32,10 @@ export const useNotifications = () => {
 };
 
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const { toast } = useToast();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
+    const prevUnreadCountRef = useRef(0);
 
     const fetchNotifications = async () => {
         try {
@@ -41,10 +44,10 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
             const { data: notifs, error } = await supabase
                 .from('notifications')
-                .select('id, title, message, is_read, created_at, user_id')
+                .select('id, title, message, is_read, created_at, user_id, notification_type')
                 .eq('user_id', user.id)
                 .order('created_at', { ascending: false })
-                .limit(20); // Limit to recent 20 for UI
+                .limit(30);
 
             if (error) {
                 console.error('Error fetching notifications:', error);
@@ -53,7 +56,20 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
             if (notifs) {
                 setNotifications(notifs);
-                setUnreadCount(notifs.filter((n: Notification) => !n.is_read).length);
+                const currentUnread = notifs.filter((n: Notification) => !n.is_read).length;
+                
+                // If new unread notification arrived, trigger toast alert!
+                if (currentUnread > prevUnreadCountRef.current && prevUnreadCountRef.current > 0) {
+                    const newest = notifs[0];
+                    if (newest && !newest.is_read) {
+                        toast({
+                            title: `🔔 ${newest.title || "New Notification"}`,
+                            description: newest.message
+                        });
+                    }
+                }
+                prevUnreadCountRef.current = currentUnread;
+                setUnreadCount(currentUnread);
             }
         } catch (err) {
             console.error('Error in fetchNotifications:', err);
@@ -63,21 +79,56 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     useEffect(() => {
         fetchNotifications();
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        let channel: any = null;
+
+        const setupRealtime = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            channel = supabase
+                .channel(`realtime-notifications-${user.id}`)
+                .on(
+                    'postgres_changes',
+                    {
+                        event: 'INSERT',
+                        schema: 'public',
+                        table: 'notifications',
+                        filter: `user_id=eq.${user.id}`
+                    },
+                    (payload) => {
+                        const newNotif = payload.new as Notification;
+                        if (newNotif) {
+                            toast({
+                                title: `🔔 ${newNotif.title || "New Notification"}`,
+                                description: newNotif.message
+                            });
+                            fetchNotifications();
+                        }
+                    }
+                )
+                .subscribe();
+        };
+
+        setupRealtime();
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
             if (event === 'SIGNED_IN') {
                 fetchNotifications();
+                setupRealtime();
             } else if (event === 'SIGNED_OUT') {
                 setNotifications([]);
                 setUnreadCount(0);
+                if (channel) supabase.removeChannel(channel);
             }
         });
 
-        // Simple polling for now
-        const interval = setInterval(fetchNotifications, 60000); // Poll every minute
+        // Fast 5-second polling fallback for guaranteed instant notification updates
+        const interval = setInterval(fetchNotifications, 5000);
 
         return () => {
             clearInterval(interval);
             subscription.unsubscribe();
+            if (channel) supabase.removeChannel(channel);
         };
     }, []);
 

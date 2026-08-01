@@ -9,7 +9,8 @@ import {
     Bell,
     Settings,
     HelpCircle,
-    LogOut
+    LogOut,
+    Trophy
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -35,6 +36,7 @@ import { Button } from "@/components/ui/button";
 const studentNavItems = [
     { title: "Dashboard", url: "/student", icon: Home },
     { title: "My Courses", url: "/student/courses", icon: BookOpen },
+    { title: "Leaderboard", url: "/student/leaderboard", icon: Trophy },
     { title: "Assignments", url: "/student/assignments", icon: Clock },
     { title: "Grades & Results", url: "/student/grades", icon: Award },
     { title: "Calendar", url: "/student/calendar", icon: Calendar },

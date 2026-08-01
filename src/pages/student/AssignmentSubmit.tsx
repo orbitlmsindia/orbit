@@ -41,7 +41,7 @@ export default function AssignmentSubmit() {
             const { data: assign, error: assignError } = await supabase
                 .from('assignments')
                 .select(`
-                    id, title, points, due_date, description,
+                    id, title, points, due_date, description, teacher_drive_url, submission_mode,
                     course:courses(title)
                 `)
                 .eq('id', id)
@@ -69,21 +69,37 @@ export default function AssignmentSubmit() {
         }
     };
 
+    const validateAndSetFile = (selectedFile: File) => {
+        const maxBytes = 10 * 1024 * 1024; // 10MB limit
+        if (selectedFile.size > maxBytes) {
+            toast({
+                variant: "destructive",
+                title: "File Size Exceeds 10MB Limit",
+                description: "Direct LMS uploads cannot exceed 10MB. Please upload your file to Google Drive and paste the link below.",
+            });
+            setFile(null);
+            return;
+        }
+        setFile(selectedFile);
+    };
+
     const handleFileDrop = (e: React.DragEvent) => {
         e.preventDefault();
         const droppedFile = e.dataTransfer.files[0];
-        if (droppedFile) setFile(droppedFile);
+        if (droppedFile) validateAndSetFile(droppedFile);
     };
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
-            setFile(e.target.files[0]);
+            validateAndSetFile(e.target.files[0]);
         }
     };
 
+    const [driveUrl, setDriveUrl] = useState("");
+
     const handleSubmit = async () => {
-        if (!file && !textContent.trim()) {
-            toast({ variant: "destructive", title: "Empty Submission", description: "Please upload a file or write a response." });
+        if (!file && !driveUrl.trim() && !textContent.trim()) {
+            toast({ variant: "destructive", title: "Empty Submission", description: "Please upload a file (<=10MB), provide a Google Drive link, or write a text response." });
             return;
         }
 
@@ -120,7 +136,7 @@ export default function AssignmentSubmit() {
             const payload = {
                 assignment_id: id,
                 student_id: user.id,
-                file_url: fileUrl,
+                file_url: fileUrl || (driveUrl.trim() ? driveUrl.trim() : null),
                 text_content: textContent,
                 status: 'submitted',
                 submitted_at: new Date().toISOString()
@@ -247,37 +263,78 @@ export default function AssignmentSubmit() {
                         <CardDescription>Upload your project files or write your response.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                        {/* File Upload Area */}
-                        <div
-                            className={`border-2 border-dashed rounded-xl p-8 transition-colors flex flex-col items-center justify-center text-center cursor-pointer ${file ? 'bg-primary/5 border-primary/20' : 'hover:bg-muted/50 border-muted'}`}
-                            onDragOver={(e) => e.preventDefault()}
-                            onDrop={handleFileDrop}
-                            onClick={() => document.getElementById('file-upload')?.click()}
-                        >
-                            <input type="file" id="file-upload" className="hidden" onChange={handleFileSelect} />
-
-                            {file ? (
-                                <div className="flex items-center gap-4">
-                                    <div className="h-12 w-12 bg-background rounded-lg flex items-center justify-center border shadow-sm">
-                                        <File className="h-6 w-6 text-primary" />
-                                    </div>
-                                    <div className="text-left">
-                                        <p className="font-medium text-sm">{file.name}</p>
-                                        <p className="text-xs text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
-                                    </div>
-                                    <Button size="icon" variant="ghost" className="ml-2 hover:text-destructive" onClick={(e) => { e.stopPropagation(); setFile(null); }}>
-                                        <X className="h-4 w-4" />
-                                    </Button>
+                        {/* Teacher Google Drive Submission Folder Option */}
+                        {assignment.teacher_drive_url && (
+                            <div className="p-5 rounded-xl bg-primary/10 border-2 border-primary/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm animate-fade-in">
+                                <div>
+                                    <h4 className="font-bold text-base text-primary flex items-center gap-2">
+                                        📁 Upload directly to Sir's Google Drive
+                                    </h4>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                        Your teacher provided a dedicated Google Drive folder for this assignment. Click below to upload your file to Sir's Drive, then paste your file link below to submit for evaluation!
+                                    </p>
                                 </div>
-                            ) : (
-                                <>
-                                    <div className="h-12 w-12 bg-muted rounded-full flex items-center justify-center mb-4">
-                                        <UploadCloud className="h-6 w-6 text-muted-foreground" />
+                                <a
+                                    href={assignment.teacher_drive_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="shrink-0"
+                                >
+                                    <Button type="button" size="lg" className="gap-2 font-bold shadow-md bg-primary hover:bg-primary/90 text-primary-foreground">
+                                        Upload to Sir's Drive ↗
+                                    </Button>
+                                </a>
+                            </div>
+                        )}
+
+                        {/* File Upload Area (Shown ONLY when Teacher Drive URL is NOT configured) */}
+                        {!assignment.teacher_drive_url && (
+                            <div
+                                className={`border-2 border-dashed rounded-xl p-8 transition-colors flex flex-col items-center justify-center text-center cursor-pointer ${file ? 'bg-primary/5 border-primary/20' : 'hover:bg-muted/50 border-muted'}`}
+                                onDragOver={(e) => e.preventDefault()}
+                                onDrop={handleFileDrop}
+                                onClick={() => document.getElementById('file-upload')?.click()}
+                            >
+                                <input type="file" id="file-upload" className="hidden" onChange={handleFileSelect} />
+
+                                {file ? (
+                                    <div className="flex items-center gap-4">
+                                        <div className="h-12 w-12 bg-background rounded-lg flex items-center justify-center border shadow-sm">
+                                            <File className="h-6 w-6 text-primary" />
+                                        </div>
+                                        <div className="text-left">
+                                            <p className="font-medium text-sm">{file.name}</p>
+                                            <p className="text-xs text-emerald-600 font-semibold">{(file.size / 1024 / 1024).toFixed(2)} MB (Max 10MB)</p>
+                                        </div>
+                                        <Button size="icon" variant="ghost" className="ml-2 hover:text-destructive" onClick={(e) => { e.stopPropagation(); setFile(null); }}>
+                                            <X className="h-4 w-4" />
+                                        </Button>
                                     </div>
-                                    <p className="font-medium">Click to upload or drag and drop</p>
-                                    <p className="text-xs text-muted-foreground mt-1">PDF, ZIP, PNG, JPG (max. 10MB)</p>
-                                </>
-                            )}
+                                ) : (
+                                    <>
+                                        <div className="h-12 w-12 bg-muted rounded-full flex items-center justify-center mb-4">
+                                            <UploadCloud className="h-6 w-6 text-muted-foreground" />
+                                        </div>
+                                        <p className="font-medium">Click to upload or drag and drop</p>
+                                        <p className="text-xs text-muted-foreground mt-1">PDF, ZIP, PNG, JPG (strictly Max. 10MB)</p>
+                                    </>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Google Drive Link Alternative (For Files > 10MB) */}
+                        <div className="space-y-2">
+                            <Label className="flex items-center justify-between text-sm font-medium">
+                                <span>Google Drive / Public File Link <span className="text-muted-foreground text-xs">(Required for files &gt; 10MB)</span></span>
+                            </Label>
+                            <Input
+                                type="url"
+                                placeholder="https://drive.google.com/file/d/..."
+                                value={driveUrl}
+                                onChange={(e) => setDriveUrl(e.target.value)}
+                                className="bg-background"
+                            />
+                            <p className="text-xs text-muted-foreground">If your assignment file is larger than 10MB, paste your shared Google Drive link here.</p>
                         </div>
 
                         <div className="space-y-2">
@@ -291,7 +348,7 @@ export default function AssignmentSubmit() {
                         </div>
 
                         <div className="pt-4 flex justify-end">
-                            <Button size="lg" onClick={handleSubmit} disabled={submitting || (!file && !textContent.trim())}>
+                            <Button size="lg" onClick={handleSubmit} disabled={submitting || (!file && !driveUrl.trim() && !textContent.trim())}>
                                 {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 {submitting ? "Submitting..." : "Submit Assignment"}
                             </Button>

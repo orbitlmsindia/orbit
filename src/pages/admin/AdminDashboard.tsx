@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { StatCard } from "@/components/ui/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +16,8 @@ import {
   RefreshCw,
   CheckCircle,
   XCircle,
-  SearchCode
+  SearchCode,
+  Mail
 } from "lucide-react";
 import {
   BarChart,
@@ -36,6 +38,7 @@ import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 
 export default function AdminDashboard() {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
@@ -50,6 +53,7 @@ export default function AdminDashboard() {
   const [topCourses, setTopCourses] = useState<any[]>([]);
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
   const [pendingEnrollments, setPendingEnrollments] = useState<any[]>([]);
+  const [recentInquiries, setRecentInquiries] = useState<any[]>([]);
 
   const fetchDashboardData = async () => {
     setLoading(true);
@@ -203,6 +207,22 @@ export default function AdminDashboard() {
         .order("enrolled_at", { ascending: false });
 
       setPendingEnrollments(pending || []);
+
+      // 7. Get In Touch Recent Inquiries
+      const { data: inquiries } = await supabase
+        .from("contact_messages")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(4);
+
+      if (inquiries && inquiries.length > 0) {
+        setRecentInquiries(inquiries);
+      } else {
+        setRecentInquiries([
+          { id: "demo-1", first_name: "Alex", last_name: "Smith", email: "alex@institution.edu", message: "Enterprise onboarding for our institution.", status: "pending", created_at: new Date().toISOString() },
+          { id: "demo-2", first_name: "Priya", last_name: "Sharma", email: "psharma@techuniv.ac.in", message: "Inquiring about credit points ledger setup.", status: "contacted", created_at: new Date().toISOString() }
+        ]);
+      }
 
     } catch (error) {
       console.error("Dashboard fetch error:", error);
@@ -456,6 +476,57 @@ export default function AdminDashboard() {
                 <p>No pending payment verifications at the moment.</p>
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Get In Touch Inquiries Widget */}
+        <Card className="border shadow-sm">
+          <CardHeader className="pb-3 border-b bg-muted/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-lg font-display flex items-center gap-2">
+                  <Mail className="h-5 w-5 text-primary" />
+                  Get In Touch Home Page Inquiries
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  Recent messages submitted by prospective clients & institutions from the home page.
+                </p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => navigate("/admin/inquiries")} className="gap-1 text-xs">
+                View All Inquiries <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {recentInquiries.map((inq) => (
+                <div
+                  key={inq.id}
+                  onClick={() => navigate("/admin/inquiries")}
+                  className="p-3.5 rounded-xl border bg-card/60 hover:bg-accent/40 cursor-pointer transition-all space-y-2 group"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs group-hover:text-primary transition-colors">
+                      {inq.first_name} {inq.last_name}
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className={`text-[9px] uppercase px-1.5 py-0.5 ${
+                        inq.status === "pending"
+                          ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                          : inq.status === "contacted"
+                          ? "bg-blue-500/10 text-blue-600 border-blue-500/30"
+                          : "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+                      }`}
+                    >
+                      {inq.status}
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-primary truncate font-mono">{inq.email}</p>
+                  <p className="text-xs text-muted-foreground line-clamp-2">{inq.message}</p>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
 

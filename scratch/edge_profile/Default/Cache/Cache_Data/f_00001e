@@ -1,0 +1,565 @@
+import { createHotContext as __vite__createHotContext } from "/@vite/client";import.meta.hot = __vite__createHotContext("/src/pages/teacher/QuizEditor.tsx");import * as RefreshRuntime from "/@react-refresh";
+const inWebWorker = typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope;
+
+let prevRefreshReg;
+let prevRefreshSig;
+
+if (import.meta.hot && !inWebWorker) {
+  if (!window.$RefreshReg$) {
+    throw new Error(
+      "@vitejs/plugin-react-swc can't detect preamble. Something is wrong."
+    );
+  }
+
+  prevRefreshReg = window.$RefreshReg$;
+  prevRefreshSig = window.$RefreshSig$;
+  window.$RefreshReg$ = RefreshRuntime.getRefreshReg("D:/Orbitlms/src/pages/teacher/QuizEditor.tsx");
+  window.$RefreshSig$ = RefreshRuntime.createSignatureFunctionForTransform;
+}
+
+import __vite__cjsImport2_react_jsxDevRuntime from "/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=88ed5bfa"; const _jsxDEV = __vite__cjsImport2_react_jsxDevRuntime["jsxDEV"];
+var _s = $RefreshSig$();
+import __vite__cjsImport3_react from "/node_modules/.vite/deps/react.js?v=88ed5bfa"; const useState = __vite__cjsImport3_react["useState"]; const useEffect = __vite__cjsImport3_react["useEffect"];
+import { useParams, useNavigate } from "/node_modules/.vite/deps/react-router-dom.js?v=88ed5bfa";
+import { TeacherLayout } from "/src/components/layout/TeacherLayout.tsx";
+import { Button } from "/src/components/ui/button.tsx";
+import { Input } from "/src/components/ui/input.tsx";
+import { Label } from "/src/components/ui/label.tsx";
+import { Card, CardContent } from "/src/components/ui/card.tsx";
+import { RadioGroup, RadioGroupItem } from "/src/components/ui/radio-group.tsx";
+import { Trash2, Plus, Save, ChevronLeft, Loader2 } from "/node_modules/.vite/deps/lucide-react.js?v=88ed5bfa";
+import { supabase } from "/src/lib/supabase.ts";
+import { useToast } from "/src/hooks/use-toast.ts";
+export default function QuizEditor() {
+    _s();
+    const { courseId, quizId } = useParams();
+    const navigate = useNavigate();
+    const { toast } = useToast();
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [quiz, setQuiz] = useState(null);
+    const [questions, setQuestions] = useState([]);
+    useEffect(()=>{
+        if (quizId) fetchQuizData();
+    }, [
+        quizId
+    ]);
+    const fetchQuizData = async ()=>{
+        try {
+            setLoading(true);
+            // Fetch Quiz Assignment Details
+            const { data: quizData, error: quizError } = await supabase.from('assignments').select('id, title').eq('id', quizId).single();
+            if (quizError) throw quizError;
+            setQuiz(quizData);
+            // Fetch Questions
+            const { data: questionsData, error: questionsError } = await supabase.from('assignment_questions').select('id, type, question_text, points, options, correct_answer').eq('assignment_id', quizId).order('order_index', {
+                ascending: true
+            });
+            if (questionsError) throw questionsError;
+            setQuestions(questionsData || []);
+        } catch (error) {
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "Failed to load quiz data"
+            });
+            console.error(error);
+        } finally{
+            setLoading(false);
+        }
+    };
+    const handleAddQuestion = ()=>{
+        setQuestions([
+            ...questions,
+            {
+                id: `temp-${Date.now()}`,
+                type: 'mcq',
+                question_text: '',
+                points: 1,
+                options: [
+                    "Option 1",
+                    "Option 2",
+                    "Option 3",
+                    "Option 4"
+                ],
+                correct_answer: "Option 1"
+            }
+        ]);
+    };
+    const handleRemoveQuestion = async (id, index)=>{
+        // If it's a temp question, just remove from state
+        if (id.toString().startsWith('temp-')) {
+            const newQuestions = [
+                ...questions
+            ];
+            newQuestions.splice(index, 1);
+            setQuestions(newQuestions);
+            return;
+        }
+        // If it's existing, delete from DB
+        try {
+            const { error } = await supabase.from('assignment_questions').delete().eq('id', id);
+            if (error) throw error;
+            const newQuestions = [
+                ...questions
+            ];
+            newQuestions.splice(index, 1);
+            setQuestions(newQuestions);
+        } catch (error) {
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "Failed to delete question"
+            });
+        }
+    };
+    const handleQuestionChange = (index, field, value)=>{
+        const newQuestions = [
+            ...questions
+        ];
+        newQuestions[index] = {
+            ...newQuestions[index],
+            [field]: value
+        };
+        setQuestions(newQuestions);
+    };
+    const handleOptionChange = (qIndex, optIndex, value)=>{
+        const newQuestions = [
+            ...questions
+        ];
+        const oldOptionValue = newQuestions[qIndex].options[optIndex];
+        // Update the option text
+        newQuestions[qIndex].options[optIndex] = value;
+        // If this option was the correct answer, update the correct_answer field to match the new text
+        if (newQuestions[qIndex].correct_answer === oldOptionValue) {
+            newQuestions[qIndex].correct_answer = value;
+        }
+        setQuestions(newQuestions);
+    };
+    const saveQuiz = async ()=>{
+        try {
+            setSaving(true);
+            // 1. Update Quiz Details (optional, if we added fields)
+            // 2. Upsert Questions
+            const upsertPayload = questions.map((q, idx)=>{
+                const payload = {
+                    assignment_id: quizId,
+                    question_text: q.question_text,
+                    type: q.type,
+                    options: q.options,
+                    correct_answer: q.correct_answer,
+                    points: q.points,
+                    order_index: idx
+                };
+                if (q.id && !q.id.startsWith('temp-')) {
+                    payload.id = q.id;
+                }
+                return payload;
+            });
+            const { error } = await supabase.from('assignment_questions').upsert(upsertPayload);
+            if (error) throw error;
+            toast({
+                title: "Success",
+                description: "Quiz saved successfully"
+            });
+            fetchQuizData(); // Refresh to get real IDs for new questions
+        } catch (error) {
+            console.error(error);
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: error.message
+            });
+        } finally{
+            setSaving(false);
+        }
+    };
+    if (loading) {
+        return /*#__PURE__*/ _jsxDEV(TeacherLayout, {
+            children: /*#__PURE__*/ _jsxDEV("div", {
+                className: "flex h-[50vh] items-center justify-center",
+                children: /*#__PURE__*/ _jsxDEV(Loader2, {
+                    className: "h-8 w-8 animate-spin text-primary"
+                }, void 0, false, {
+                    fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                    lineNumber: 163,
+                    columnNumber: 21
+                }, this)
+            }, void 0, false, {
+                fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                lineNumber: 162,
+                columnNumber: 17
+            }, this)
+        }, void 0, false, {
+            fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+            lineNumber: 161,
+            columnNumber: 13
+        }, this);
+    }
+    return /*#__PURE__*/ _jsxDEV(TeacherLayout, {
+        children: [
+            /*#__PURE__*/ _jsxDEV("div", {
+                className: "flex items-center gap-4 mb-6 animate-fade-in",
+                children: [
+                    /*#__PURE__*/ _jsxDEV(Button, {
+                        variant: "ghost",
+                        size: "icon",
+                        onClick: ()=>navigate(-1),
+                        children: /*#__PURE__*/ _jsxDEV(ChevronLeft, {
+                            className: "h-5 w-5"
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                            lineNumber: 173,
+                            columnNumber: 21
+                        }, this)
+                    }, void 0, false, {
+                        fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                        lineNumber: 172,
+                        columnNumber: 17
+                    }, this),
+                    /*#__PURE__*/ _jsxDEV("div", {
+                        className: "flex-1",
+                        children: [
+                            /*#__PURE__*/ _jsxDEV("h1", {
+                                className: "text-2xl font-display font-bold",
+                                children: [
+                                    "Edit Quiz: ",
+                                    quiz.title
+                                ]
+                            }, void 0, true, {
+                                fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                                lineNumber: 176,
+                                columnNumber: 21
+                            }, this),
+                            /*#__PURE__*/ _jsxDEV("p", {
+                                className: "text-muted-foreground text-sm",
+                                children: "Add questions and configure settings."
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                                lineNumber: 177,
+                                columnNumber: 21
+                            }, this)
+                        ]
+                    }, void 0, true, {
+                        fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                        lineNumber: 175,
+                        columnNumber: 17
+                    }, this),
+                    /*#__PURE__*/ _jsxDEV(Button, {
+                        onClick: saveQuiz,
+                        disabled: saving,
+                        className: "gap-2",
+                        children: [
+                            saving ? /*#__PURE__*/ _jsxDEV(Loader2, {
+                                className: "h-4 w-4 animate-spin"
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                                lineNumber: 180,
+                                columnNumber: 31
+                            }, this) : /*#__PURE__*/ _jsxDEV(Save, {
+                                className: "h-4 w-4"
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                                lineNumber: 180,
+                                columnNumber: 78
+                            }, this),
+                            "Save Changes"
+                        ]
+                    }, void 0, true, {
+                        fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                        lineNumber: 179,
+                        columnNumber: 17
+                    }, this)
+                ]
+            }, void 0, true, {
+                fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                lineNumber: 171,
+                columnNumber: 13
+            }, this),
+            /*#__PURE__*/ _jsxDEV("div", {
+                className: "space-y-6 max-w-4xl mx-auto pb-10",
+                children: [
+                    questions.map((q, index)=>/*#__PURE__*/ _jsxDEV(Card, {
+                            className: "relative overflow-hidden",
+                            children: [
+                                /*#__PURE__*/ _jsxDEV("div", {
+                                    className: "absolute left-0 top-0 bottom-0 w-1 bg-primary"
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                                    lineNumber: 188,
+                                    columnNumber: 25
+                                }, this),
+                                /*#__PURE__*/ _jsxDEV(CardContent, {
+                                    className: "pt-6 space-y-4",
+                                    children: /*#__PURE__*/ _jsxDEV("div", {
+                                        className: "flex items-start gap-4",
+                                        children: [
+                                            /*#__PURE__*/ _jsxDEV("span", {
+                                                className: "font-mono text-xl font-bold text-muted-foreground/50",
+                                                children: [
+                                                    "#",
+                                                    index + 1
+                                                ]
+                                            }, void 0, true, {
+                                                fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                                                lineNumber: 191,
+                                                columnNumber: 33
+                                            }, this),
+                                            /*#__PURE__*/ _jsxDEV("div", {
+                                                className: "flex-1 space-y-4",
+                                                children: [
+                                                    /*#__PURE__*/ _jsxDEV("div", {
+                                                        className: "flex gap-4",
+                                                        children: [
+                                                            /*#__PURE__*/ _jsxDEV("div", {
+                                                                className: "flex-1",
+                                                                children: [
+                                                                    /*#__PURE__*/ _jsxDEV(Label, {
+                                                                        children: "Question Text"
+                                                                    }, void 0, false, {
+                                                                        fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                                                                        lineNumber: 195,
+                                                                        columnNumber: 45
+                                                                    }, this),
+                                                                    /*#__PURE__*/ _jsxDEV(Input, {
+                                                                        className: "mt-1",
+                                                                        placeholder: "Enter question...",
+                                                                        value: q.question_text,
+                                                                        onChange: (e)=>handleQuestionChange(index, 'question_text', e.target.value)
+                                                                    }, void 0, false, {
+                                                                        fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                                                                        lineNumber: 196,
+                                                                        columnNumber: 45
+                                                                    }, this)
+                                                                ]
+                                                            }, void 0, true, {
+                                                                fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                                                                lineNumber: 194,
+                                                                columnNumber: 41
+                                                            }, this),
+                                                            /*#__PURE__*/ _jsxDEV("div", {
+                                                                className: "w-[120px]",
+                                                                children: [
+                                                                    /*#__PURE__*/ _jsxDEV(Label, {
+                                                                        children: "Points"
+                                                                    }, void 0, false, {
+                                                                        fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                                                                        lineNumber: 204,
+                                                                        columnNumber: 45
+                                                                    }, this),
+                                                                    /*#__PURE__*/ _jsxDEV(Input, {
+                                                                        type: "number",
+                                                                        className: "mt-1",
+                                                                        value: q.points,
+                                                                        onChange: (e)=>handleQuestionChange(index, 'points', parseInt(e.target.value))
+                                                                    }, void 0, false, {
+                                                                        fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                                                                        lineNumber: 205,
+                                                                        columnNumber: 45
+                                                                    }, this)
+                                                                ]
+                                                            }, void 0, true, {
+                                                                fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                                                                lineNumber: 203,
+                                                                columnNumber: 41
+                                                            }, this)
+                                                        ]
+                                                    }, void 0, true, {
+                                                        fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                                                        lineNumber: 193,
+                                                        columnNumber: 37
+                                                    }, this),
+                                                    /*#__PURE__*/ _jsxDEV("div", {
+                                                        className: "pl-4 border-l-2 border-muted space-y-3",
+                                                        children: [
+                                                            /*#__PURE__*/ _jsxDEV(Label, {
+                                                                className: "text-xs text-muted-foreground uppercase tracking-wider",
+                                                                children: "Answer Options"
+                                                            }, void 0, false, {
+                                                                fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                                                                lineNumber: 215,
+                                                                columnNumber: 41
+                                                            }, this),
+                                                            /*#__PURE__*/ _jsxDEV(RadioGroup, {
+                                                                value: q.correct_answer,
+                                                                onValueChange: (val)=>handleQuestionChange(index, 'correct_answer', val),
+                                                                children: q.options?.map((opt, optIdx)=>/*#__PURE__*/ _jsxDEV("div", {
+                                                                        className: "flex items-center gap-2",
+                                                                        children: [
+                                                                            /*#__PURE__*/ _jsxDEV(RadioGroupItem, {
+                                                                                value: opt,
+                                                                                id: `q${index}-opt${optIdx}`
+                                                                            }, void 0, false, {
+                                                                                fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                                                                                lineNumber: 222,
+                                                                                columnNumber: 53
+                                                                            }, this),
+                                                                            /*#__PURE__*/ _jsxDEV(Input, {
+                                                                                value: opt,
+                                                                                onChange: (e)=>handleOptionChange(index, optIdx, e.target.value),
+                                                                                className: `h-9 ${q.correct_answer === opt ? 'border-success ring-1 ring-success' : ''}`
+                                                                            }, void 0, false, {
+                                                                                fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                                                                                lineNumber: 223,
+                                                                                columnNumber: 53
+                                                                            }, this),
+                                                                            q.correct_answer === opt && /*#__PURE__*/ _jsxDEV(CheckCircleIcon, {
+                                                                                className: "h-4 w-4 text-success"
+                                                                            }, void 0, false, {
+                                                                                fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                                                                                lineNumber: 228,
+                                                                                columnNumber: 82
+                                                                            }, this)
+                                                                        ]
+                                                                    }, optIdx, true, {
+                                                                        fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                                                                        lineNumber: 221,
+                                                                        columnNumber: 49
+                                                                    }, this))
+                                                            }, void 0, false, {
+                                                                fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                                                                lineNumber: 216,
+                                                                columnNumber: 41
+                                                            }, this)
+                                                        ]
+                                                    }, void 0, true, {
+                                                        fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                                                        lineNumber: 214,
+                                                        columnNumber: 37
+                                                    }, this)
+                                                ]
+                                            }, void 0, true, {
+                                                fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                                                lineNumber: 192,
+                                                columnNumber: 33
+                                            }, this),
+                                            /*#__PURE__*/ _jsxDEV(Button, {
+                                                variant: "ghost",
+                                                size: "icon",
+                                                className: "text-muted-foreground hover:text-destructive",
+                                                onClick: ()=>handleRemoveQuestion(q.id, index),
+                                                children: /*#__PURE__*/ _jsxDEV(Trash2, {
+                                                    className: "h-4 w-4"
+                                                }, void 0, false, {
+                                                    fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                                                    lineNumber: 235,
+                                                    columnNumber: 37
+                                                }, this)
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                                                lineNumber: 234,
+                                                columnNumber: 33
+                                            }, this)
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                                        lineNumber: 190,
+                                        columnNumber: 29
+                                    }, this)
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                                    lineNumber: 189,
+                                    columnNumber: 25
+                                }, this)
+                            ]
+                        }, q.id || index, true, {
+                            fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                            lineNumber: 187,
+                            columnNumber: 21
+                        }, this)),
+                    /*#__PURE__*/ _jsxDEV(Button, {
+                        onClick: handleAddQuestion,
+                        variant: "outline",
+                        className: "w-full py-8 border-dashed gap-2 hover:bg-muted/50",
+                        children: [
+                            /*#__PURE__*/ _jsxDEV(Plus, {
+                                className: "h-4 w-4"
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                                lineNumber: 243,
+                                columnNumber: 21
+                            }, this),
+                            " Add Question"
+                        ]
+                    }, void 0, true, {
+                        fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                        lineNumber: 242,
+                        columnNumber: 17
+                    }, this)
+                ]
+            }, void 0, true, {
+                fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                lineNumber: 185,
+                columnNumber: 13
+            }, this)
+        ]
+    }, void 0, true, {
+        fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+        lineNumber: 170,
+        columnNumber: 9
+    }, this);
+}
+_s(QuizEditor, "UEmIYQQpWUTkM4BBbzGviM8c2jk=", false, function() {
+    return [
+        useParams,
+        useNavigate,
+        useToast
+    ];
+});
+_c = QuizEditor;
+function CheckCircleIcon({ className }) {
+    return /*#__PURE__*/ _jsxDEV("svg", {
+        xmlns: "http://www.w3.org/2000/svg",
+        viewBox: "0 0 24 24",
+        fill: "none",
+        stroke: "currentColor",
+        strokeWidth: "2",
+        strokeLinecap: "round",
+        strokeLinejoin: "round",
+        className: className,
+        children: [
+            /*#__PURE__*/ _jsxDEV("path", {
+                d: "M22 11.08V12a10 10 0 1 1-5.93-9.14"
+            }, void 0, false, {
+                fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                lineNumber: 253,
+                columnNumber: 13
+            }, this),
+            /*#__PURE__*/ _jsxDEV("polyline", {
+                points: "22 4 12 14.01 9 11.01"
+            }, void 0, false, {
+                fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+                lineNumber: 254,
+                columnNumber: 13
+            }, this)
+        ]
+    }, void 0, true, {
+        fileName: "D:/Orbitlms/src/pages/teacher/QuizEditor.tsx",
+        lineNumber: 252,
+        columnNumber: 9
+    }, this);
+}
+_c1 = CheckCircleIcon;
+var _c, _c1;
+$RefreshReg$(_c, "QuizEditor");
+$RefreshReg$(_c1, "CheckCircleIcon");
+
+
+if (import.meta.hot && !inWebWorker) {
+  window.$RefreshReg$ = prevRefreshReg;
+  window.$RefreshSig$ = prevRefreshSig;
+}
+
+
+if (import.meta.hot && !inWebWorker) {
+  RefreshRuntime.__hmr_import(import.meta.url).then((currentExports) => {
+    RefreshRuntime.registerExportsForReactRefresh("D:/Orbitlms/src/pages/teacher/QuizEditor.tsx", currentExports);
+    import.meta.hot.accept((nextExports) => {
+      if (!nextExports) return;
+      const invalidateMessage = RefreshRuntime.validateRefreshBoundaryAndEnqueueUpdate("D:/Orbitlms/src/pages/teacher/QuizEditor.tsx", currentExports, nextExports);
+      if (invalidateMessage) import.meta.hot.invalidate(invalidateMessage);
+    });
+  });
+}
+
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbIlF1aXpFZGl0b3IudHN4Il0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7IHVzZVN0YXRlLCB1c2VFZmZlY3QgfSBmcm9tIFwicmVhY3RcIjtcclxuaW1wb3J0IHsgdXNlUGFyYW1zLCB1c2VOYXZpZ2F0ZSB9IGZyb20gXCJyZWFjdC1yb3V0ZXItZG9tXCI7XHJcbmltcG9ydCB7IFRlYWNoZXJMYXlvdXQgfSBmcm9tIFwiQC9jb21wb25lbnRzL2xheW91dC9UZWFjaGVyTGF5b3V0XCI7XHJcbmltcG9ydCB7IEJ1dHRvbiB9IGZyb20gXCJAL2NvbXBvbmVudHMvdWkvYnV0dG9uXCI7XHJcbmltcG9ydCB7IElucHV0IH0gZnJvbSBcIkAvY29tcG9uZW50cy91aS9pbnB1dFwiO1xyXG5pbXBvcnQgeyBMYWJlbCB9IGZyb20gXCJAL2NvbXBvbmVudHMvdWkvbGFiZWxcIjtcclxuaW1wb3J0IHsgQ2FyZCwgQ2FyZENvbnRlbnQsIENhcmRIZWFkZXIsIENhcmRUaXRsZSB9IGZyb20gXCJAL2NvbXBvbmVudHMvdWkvY2FyZFwiO1xyXG5pbXBvcnQgeyBTZWxlY3QsIFNlbGVjdENvbnRlbnQsIFNlbGVjdEl0ZW0sIFNlbGVjdFRyaWdnZXIsIFNlbGVjdFZhbHVlIH0gZnJvbSBcIkAvY29tcG9uZW50cy91aS9zZWxlY3RcIjtcclxuaW1wb3J0IHsgUmFkaW9Hcm91cCwgUmFkaW9Hcm91cEl0ZW0gfSBmcm9tIFwiQC9jb21wb25lbnRzL3VpL3JhZGlvLWdyb3VwXCI7XHJcbmltcG9ydCB7IFRyYXNoMiwgUGx1cywgU2F2ZSwgQ2hldnJvbkxlZnQsIExvYWRlcjIgfSBmcm9tIFwibHVjaWRlLXJlYWN0XCI7XHJcbmltcG9ydCB7IHN1cGFiYXNlIH0gZnJvbSBcIkAvbGliL3N1cGFiYXNlXCI7XHJcbmltcG9ydCB7IHVzZVRvYXN0IH0gZnJvbSBcIkAvaG9va3MvdXNlLXRvYXN0XCI7XHJcblxyXG5leHBvcnQgZGVmYXVsdCBmdW5jdGlvbiBRdWl6RWRpdG9yKCkge1xyXG4gICAgY29uc3QgeyBjb3Vyc2VJZCwgcXVpeklkIH0gPSB1c2VQYXJhbXMoKTtcclxuICAgIGNvbnN0IG5hdmlnYXRlID0gdXNlTmF2aWdhdGUoKTtcclxuICAgIGNvbnN0IHsgdG9hc3QgfSA9IHVzZVRvYXN0KCk7XHJcbiAgICBjb25zdCBbbG9hZGluZywgc2V0TG9hZGluZ10gPSB1c2VTdGF0ZSh0cnVlKTtcclxuICAgIGNvbnN0IFtzYXZpbmcsIHNldFNhdmluZ10gPSB1c2VTdGF0ZShmYWxzZSk7XHJcblxyXG4gICAgY29uc3QgW3F1aXosIHNldFF1aXpdID0gdXNlU3RhdGU8YW55PihudWxsKTtcclxuICAgIGNvbnN0IFtxdWVzdGlvbnMsIHNldFF1ZXN0aW9uc10gPSB1c2VTdGF0ZTxhbnlbXT4oW10pO1xyXG5cclxuICAgIHVzZUVmZmVjdCgoKSA9PiB7XHJcbiAgICAgICAgaWYgKHF1aXpJZCkgZmV0Y2hRdWl6RGF0YSgpO1xyXG4gICAgfSwgW3F1aXpJZF0pO1xyXG5cclxuICAgIGNvbnN0IGZldGNoUXVpekRhdGEgPSBhc3luYyAoKSA9PiB7XHJcbiAgICAgICAgdHJ5IHtcclxuICAgICAgICAgICAgc2V0TG9hZGluZyh0cnVlKTtcclxuICAgICAgICAgICAgLy8gRmV0Y2ggUXVpeiBBc3NpZ25tZW50IERldGFpbHNcclxuICAgICAgICAgICAgY29uc3QgeyBkYXRhOiBxdWl6RGF0YSwgZXJyb3I6IHF1aXpFcnJvciB9ID0gYXdhaXQgc3VwYWJhc2VcclxuICAgICAgICAgICAgICAgIC5mcm9tKCdhc3NpZ25tZW50cycpXHJcbiAgICAgICAgICAgICAgICAuc2VsZWN0KCdpZCwgdGl0bGUnKVxyXG4gICAgICAgICAgICAgICAgLmVxKCdpZCcsIHF1aXpJZClcclxuICAgICAgICAgICAgICAgIC5zaW5nbGUoKTtcclxuXHJcbiAgICAgICAgICAgIGlmIChxdWl6RXJyb3IpIHRocm93IHF1aXpFcnJvcjtcclxuICAgICAgICAgICAgc2V0UXVpeihxdWl6RGF0YSk7XHJcblxyXG4gICAgICAgICAgICAvLyBGZXRjaCBRdWVzdGlvbnNcclxuICAgICAgICAgICAgY29uc3QgeyBkYXRhOiBxdWVzdGlvbnNEYXRhLCBlcnJvcjogcXVlc3Rpb25zRXJyb3IgfSA9IGF3YWl0IHN1cGFiYXNlXHJcbiAgICAgICAgICAgICAgICAuZnJvbSgnYXNzaWdubWVudF9xdWVzdGlvbnMnKVxyXG4gICAgICAgICAgICAgICAgLnNlbGVjdCgnaWQsIHR5cGUsIHF1ZXN0aW9uX3RleHQsIHBvaW50cywgb3B0aW9ucywgY29ycmVjdF9hbnN3ZXInKVxyXG4gICAgICAgICAgICAgICAgLmVxKCdhc3NpZ25tZW50X2lkJywgcXVpeklkKVxyXG4gICAgICAgICAgICAgICAgLm9yZGVyKCdvcmRlcl9pbmRleCcsIHsgYXNjZW5kaW5nOiB0cnVlIH0pO1xyXG5cclxuICAgICAgICAgICAgaWYgKHF1ZXN0aW9uc0Vycm9yKSB0aHJvdyBxdWVzdGlvbnNFcnJvcjtcclxuICAgICAgICAgICAgc2V0UXVlc3Rpb25zKHF1ZXN0aW9uc0RhdGEgfHwgW10pO1xyXG5cclxuICAgICAgICB9IGNhdGNoIChlcnJvcjogYW55KSB7XHJcbiAgICAgICAgICAgIHRvYXN0KHsgdmFyaWFudDogXCJkZXN0cnVjdGl2ZVwiLCB0aXRsZTogXCJFcnJvclwiLCBkZXNjcmlwdGlvbjogXCJGYWlsZWQgdG8gbG9hZCBxdWl6IGRhdGFcIiB9KTtcclxuICAgICAgICAgICAgY29uc29sZS5lcnJvcihlcnJvcik7XHJcbiAgICAgICAgfSBmaW5hbGx5IHtcclxuICAgICAgICAgICAgc2V0TG9hZGluZyhmYWxzZSk7XHJcbiAgICAgICAgfVxyXG4gICAgfTtcclxuXHJcbiAgICBjb25zdCBoYW5kbGVBZGRRdWVzdGlvbiA9ICgpID0+IHtcclxuICAgICAgICBzZXRRdWVzdGlvbnMoW1xyXG4gICAgICAgICAgICAuLi5xdWVzdGlvbnMsXHJcbiAgICAgICAgICAgIHtcclxuICAgICAgICAgICAgICAgIGlkOiBgdGVtcC0ke0RhdGUubm93KCl9YCxcclxuICAgICAgICAgICAgICAgIHR5cGU6ICdtY3EnLFxyXG4gICAgICAgICAgICAgICAgcXVlc3Rpb25fdGV4dDogJycsXHJcbiAgICAgICAgICAgICAgICBwb2ludHM6IDEsXHJcbiAgICAgICAgICAgICAgICBvcHRpb25zOiBbXCJPcHRpb24gMVwiLCBcIk9wdGlvbiAyXCIsIFwiT3B0aW9uIDNcIiwgXCJPcHRpb24gNFwiXSxcclxuICAgICAgICAgICAgICAgIGNvcnJlY3RfYW5zd2VyOiBcIk9wdGlvbiAxXCJcclxuICAgICAgICAgICAgfVxyXG4gICAgICAgIF0pO1xyXG4gICAgfTtcclxuXHJcbiAgICBjb25zdCBoYW5kbGVSZW1vdmVRdWVzdGlvbiA9IGFzeW5jIChpZDogc3RyaW5nLCBpbmRleDogbnVtYmVyKSA9PiB7XHJcbiAgICAgICAgLy8gSWYgaXQncyBhIHRlbXAgcXVlc3Rpb24sIGp1c3QgcmVtb3ZlIGZyb20gc3RhdGVcclxuICAgICAgICBpZiAoaWQudG9TdHJpbmcoKS5zdGFydHNXaXRoKCd0ZW1wLScpKSB7XHJcbiAgICAgICAgICAgIGNvbnN0IG5ld1F1ZXN0aW9ucyA9IFsuLi5xdWVzdGlvbnNdO1xyXG4gICAgICAgICAgICBuZXdRdWVzdGlvbnMuc3BsaWNlKGluZGV4LCAxKTtcclxuICAgICAgICAgICAgc2V0UXVlc3Rpb25zKG5ld1F1ZXN0aW9ucyk7XHJcbiAgICAgICAgICAgIHJldHVybjtcclxuICAgICAgICB9XHJcblxyXG4gICAgICAgIC8vIElmIGl0J3MgZXhpc3RpbmcsIGRlbGV0ZSBmcm9tIERCXHJcbiAgICAgICAgdHJ5IHtcclxuICAgICAgICAgICAgY29uc3QgeyBlcnJvciB9ID0gYXdhaXQgc3VwYWJhc2VcclxuICAgICAgICAgICAgICAgIC5mcm9tKCdhc3NpZ25tZW50X3F1ZXN0aW9ucycpXHJcbiAgICAgICAgICAgICAgICAuZGVsZXRlKClcclxuICAgICAgICAgICAgICAgIC5lcSgnaWQnLCBpZCk7XHJcblxyXG4gICAgICAgICAgICBpZiAoZXJyb3IpIHRocm93IGVycm9yO1xyXG5cclxuICAgICAgICAgICAgY29uc3QgbmV3UXVlc3Rpb25zID0gWy4uLnF1ZXN0aW9uc107XHJcbiAgICAgICAgICAgIG5ld1F1ZXN0aW9ucy5zcGxpY2UoaW5kZXgsIDEpO1xyXG4gICAgICAgICAgICBzZXRRdWVzdGlvbnMobmV3UXVlc3Rpb25zKTtcclxuICAgICAgICB9IGNhdGNoIChlcnJvcjogYW55KSB7XHJcbiAgICAgICAgICAgIHRvYXN0KHsgdmFyaWFudDogXCJkZXN0cnVjdGl2ZVwiLCB0aXRsZTogXCJFcnJvclwiLCBkZXNjcmlwdGlvbjogXCJGYWlsZWQgdG8gZGVsZXRlIHF1ZXN0aW9uXCIgfSk7XHJcbiAgICAgICAgfVxyXG4gICAgfTtcclxuXHJcbiAgICBjb25zdCBoYW5kbGVRdWVzdGlvbkNoYW5nZSA9IChpbmRleDogbnVtYmVyLCBmaWVsZDogc3RyaW5nLCB2YWx1ZTogYW55KSA9PiB7XHJcbiAgICAgICAgY29uc3QgbmV3UXVlc3Rpb25zID0gWy4uLnF1ZXN0aW9uc107XHJcbiAgICAgICAgbmV3UXVlc3Rpb25zW2luZGV4XSA9IHsgLi4ubmV3UXVlc3Rpb25zW2luZGV4XSwgW2ZpZWxkXTogdmFsdWUgfTtcclxuICAgICAgICBzZXRRdWVzdGlvbnMobmV3UXVlc3Rpb25zKTtcclxuICAgIH07XHJcblxyXG4gICAgY29uc3QgaGFuZGxlT3B0aW9uQ2hhbmdlID0gKHFJbmRleDogbnVtYmVyLCBvcHRJbmRleDogbnVtYmVyLCB2YWx1ZTogc3RyaW5nKSA9PiB7XHJcbiAgICAgICAgY29uc3QgbmV3UXVlc3Rpb25zID0gWy4uLnF1ZXN0aW9uc107XHJcbiAgICAgICAgY29uc3Qgb2xkT3B0aW9uVmFsdWUgPSBuZXdRdWVzdGlvbnNbcUluZGV4XS5vcHRpb25zW29wdEluZGV4XTtcclxuXHJcbiAgICAgICAgLy8gVXBkYXRlIHRoZSBvcHRpb24gdGV4dFxyXG4gICAgICAgIG5ld1F1ZXN0aW9uc1txSW5kZXhdLm9wdGlvbnNbb3B0SW5kZXhdID0gdmFsdWU7XHJcblxyXG4gICAgICAgIC8vIElmIHRoaXMgb3B0aW9uIHdhcyB0aGUgY29ycmVjdCBhbnN3ZXIsIHVwZGF0ZSB0aGUgY29ycmVjdF9hbnN3ZXIgZmllbGQgdG8gbWF0Y2ggdGhlIG5ldyB0ZXh0XHJcbiAgICAgICAgaWYgKG5ld1F1ZXN0aW9uc1txSW5kZXhdLmNvcnJlY3RfYW5zd2VyID09PSBvbGRPcHRpb25WYWx1ZSkge1xyXG4gICAgICAgICAgICBuZXdRdWVzdGlvbnNbcUluZGV4XS5jb3JyZWN0X2Fuc3dlciA9IHZhbHVlO1xyXG4gICAgICAgIH1cclxuXHJcbiAgICAgICAgc2V0UXVlc3Rpb25zKG5ld1F1ZXN0aW9ucyk7XHJcbiAgICB9O1xyXG5cclxuICAgIGNvbnN0IHNhdmVRdWl6ID0gYXN5bmMgKCkgPT4ge1xyXG4gICAgICAgIHRyeSB7XHJcbiAgICAgICAgICAgIHNldFNhdmluZyh0cnVlKTtcclxuXHJcbiAgICAgICAgICAgIC8vIDEuIFVwZGF0ZSBRdWl6IERldGFpbHMgKG9wdGlvbmFsLCBpZiB3ZSBhZGRlZCBmaWVsZHMpXHJcblxyXG4gICAgICAgICAgICAvLyAyLiBVcHNlcnQgUXVlc3Rpb25zXHJcbiAgICAgICAgICAgIGNvbnN0IHVwc2VydFBheWxvYWQgPSBxdWVzdGlvbnMubWFwKChxLCBpZHgpID0+IHtcclxuICAgICAgICAgICAgICAgIGNvbnN0IHBheWxvYWQ6IGFueSA9IHtcclxuICAgICAgICAgICAgICAgICAgICBhc3NpZ25tZW50X2lkOiBxdWl6SWQsXHJcbiAgICAgICAgICAgICAgICAgICAgcXVlc3Rpb25fdGV4dDogcS5xdWVzdGlvbl90ZXh0LFxyXG4gICAgICAgICAgICAgICAgICAgIHR5cGU6IHEudHlwZSxcclxuICAgICAgICAgICAgICAgICAgICBvcHRpb25zOiBxLm9wdGlvbnMsXHJcbiAgICAgICAgICAgICAgICAgICAgY29ycmVjdF9hbnN3ZXI6IHEuY29ycmVjdF9hbnN3ZXIsXHJcbiAgICAgICAgICAgICAgICAgICAgcG9pbnRzOiBxLnBvaW50cyxcclxuICAgICAgICAgICAgICAgICAgICBvcmRlcl9pbmRleDogaWR4XHJcbiAgICAgICAgICAgICAgICB9O1xyXG4gICAgICAgICAgICAgICAgaWYgKHEuaWQgJiYgIXEuaWQuc3RhcnRzV2l0aCgndGVtcC0nKSkge1xyXG4gICAgICAgICAgICAgICAgICAgIHBheWxvYWQuaWQgPSBxLmlkO1xyXG4gICAgICAgICAgICAgICAgfVxyXG4gICAgICAgICAgICAgICAgcmV0dXJuIHBheWxvYWQ7XHJcbiAgICAgICAgICAgIH0pO1xyXG5cclxuICAgICAgICAgICAgY29uc3QgeyBlcnJvciB9ID0gYXdhaXQgc3VwYWJhc2VcclxuICAgICAgICAgICAgICAgIC5mcm9tKCdhc3NpZ25tZW50X3F1ZXN0aW9ucycpXHJcbiAgICAgICAgICAgICAgICAudXBzZXJ0KHVwc2VydFBheWxvYWQpO1xyXG5cclxuICAgICAgICAgICAgaWYgKGVycm9yKSB0aHJvdyBlcnJvcjtcclxuXHJcbiAgICAgICAgICAgIHRvYXN0KHsgdGl0bGU6IFwiU3VjY2Vzc1wiLCBkZXNjcmlwdGlvbjogXCJRdWl6IHNhdmVkIHN1Y2Nlc3NmdWxseVwiIH0pO1xyXG4gICAgICAgICAgICBmZXRjaFF1aXpEYXRhKCk7IC8vIFJlZnJlc2ggdG8gZ2V0IHJlYWwgSURzIGZvciBuZXcgcXVlc3Rpb25zXHJcbiAgICAgICAgfSBjYXRjaCAoZXJyb3I6IGFueSkge1xyXG4gICAgICAgICAgICBjb25zb2xlLmVycm9yKGVycm9yKTtcclxuICAgICAgICAgICAgdG9hc3QoeyB2YXJpYW50OiBcImRlc3RydWN0aXZlXCIsIHRpdGxlOiBcIkVycm9yXCIsIGRlc2NyaXB0aW9uOiBlcnJvci5tZXNzYWdlIH0pO1xyXG4gICAgICAgIH0gZmluYWxseSB7XHJcbiAgICAgICAgICAgIHNldFNhdmluZyhmYWxzZSk7XHJcbiAgICAgICAgfVxyXG4gICAgfTtcclxuXHJcbiAgICBpZiAobG9hZGluZykge1xyXG4gICAgICAgIHJldHVybiAoXHJcbiAgICAgICAgICAgIDxUZWFjaGVyTGF5b3V0PlxyXG4gICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJmbGV4IGgtWzUwdmhdIGl0ZW1zLWNlbnRlciBqdXN0aWZ5LWNlbnRlclwiPlxyXG4gICAgICAgICAgICAgICAgICAgIDxMb2FkZXIyIGNsYXNzTmFtZT1cImgtOCB3LTggYW5pbWF0ZS1zcGluIHRleHQtcHJpbWFyeVwiIC8+XHJcbiAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgPC9UZWFjaGVyTGF5b3V0PlxyXG4gICAgICAgICk7XHJcbiAgICB9XHJcblxyXG4gICAgcmV0dXJuIChcclxuICAgICAgICA8VGVhY2hlckxheW91dD5cclxuICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJmbGV4IGl0ZW1zLWNlbnRlciBnYXAtNCBtYi02IGFuaW1hdGUtZmFkZS1pblwiPlxyXG4gICAgICAgICAgICAgICAgPEJ1dHRvbiB2YXJpYW50PVwiZ2hvc3RcIiBzaXplPVwiaWNvblwiIG9uQ2xpY2s9eygpID0+IG5hdmlnYXRlKC0xKX0+XHJcbiAgICAgICAgICAgICAgICAgICAgPENoZXZyb25MZWZ0IGNsYXNzTmFtZT1cImgtNSB3LTVcIiAvPlxyXG4gICAgICAgICAgICAgICAgPC9CdXR0b24+XHJcbiAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImZsZXgtMVwiPlxyXG4gICAgICAgICAgICAgICAgICAgIDxoMSBjbGFzc05hbWU9XCJ0ZXh0LTJ4bCBmb250LWRpc3BsYXkgZm9udC1ib2xkXCI+RWRpdCBRdWl6OiB7cXVpei50aXRsZX08L2gxPlxyXG4gICAgICAgICAgICAgICAgICAgIDxwIGNsYXNzTmFtZT1cInRleHQtbXV0ZWQtZm9yZWdyb3VuZCB0ZXh0LXNtXCI+QWRkIHF1ZXN0aW9ucyBhbmQgY29uZmlndXJlIHNldHRpbmdzLjwvcD5cclxuICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgPEJ1dHRvbiBvbkNsaWNrPXtzYXZlUXVpen0gZGlzYWJsZWQ9e3NhdmluZ30gY2xhc3NOYW1lPVwiZ2FwLTJcIj5cclxuICAgICAgICAgICAgICAgICAgICB7c2F2aW5nID8gPExvYWRlcjIgY2xhc3NOYW1lPVwiaC00IHctNCBhbmltYXRlLXNwaW5cIiAvPiA6IDxTYXZlIGNsYXNzTmFtZT1cImgtNCB3LTRcIiAvPn1cclxuICAgICAgICAgICAgICAgICAgICBTYXZlIENoYW5nZXNcclxuICAgICAgICAgICAgICAgIDwvQnV0dG9uPlxyXG4gICAgICAgICAgICA8L2Rpdj5cclxuXHJcbiAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwic3BhY2UteS02IG1heC13LTR4bCBteC1hdXRvIHBiLTEwXCI+XHJcbiAgICAgICAgICAgICAgICB7cXVlc3Rpb25zLm1hcCgocSwgaW5kZXgpID0+IChcclxuICAgICAgICAgICAgICAgICAgICA8Q2FyZCBrZXk9e3EuaWQgfHwgaW5kZXh9IGNsYXNzTmFtZT1cInJlbGF0aXZlIG92ZXJmbG93LWhpZGRlblwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImFic29sdXRlIGxlZnQtMCB0b3AtMCBib3R0b20tMCB3LTEgYmctcHJpbWFyeVwiIC8+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgIDxDYXJkQ29udGVudCBjbGFzc05hbWU9XCJwdC02IHNwYWNlLXktNFwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJmbGV4IGl0ZW1zLXN0YXJ0IGdhcC00XCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPHNwYW4gY2xhc3NOYW1lPVwiZm9udC1tb25vIHRleHQteGwgZm9udC1ib2xkIHRleHQtbXV0ZWQtZm9yZWdyb3VuZC81MFwiPiN7aW5kZXggKyAxfTwvc3Bhbj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImZsZXgtMSBzcGFjZS15LTRcIj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJmbGV4IGdhcC00XCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImZsZXgtMVwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxMYWJlbD5RdWVzdGlvbiBUZXh0PC9MYWJlbD5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8SW5wdXRcclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgY2xhc3NOYW1lPVwibXQtMVwiXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHBsYWNlaG9sZGVyPVwiRW50ZXIgcXVlc3Rpb24uLi5cIlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB2YWx1ZT17cS5xdWVzdGlvbl90ZXh0fVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBvbkNoYW5nZT17KGUpID0+IGhhbmRsZVF1ZXN0aW9uQ2hhbmdlKGluZGV4LCAncXVlc3Rpb25fdGV4dCcsIGUudGFyZ2V0LnZhbHVlKX1cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAvPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInctWzEyMHB4XVwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxMYWJlbD5Qb2ludHM8L0xhYmVsPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxJbnB1dFxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB0eXBlPVwibnVtYmVyXCJcclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgY2xhc3NOYW1lPVwibXQtMVwiXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHZhbHVlPXtxLnBvaW50c31cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgb25DaGFuZ2U9eyhlKSA9PiBoYW5kbGVRdWVzdGlvbkNoYW5nZShpbmRleCwgJ3BvaW50cycsIHBhcnNlSW50KGUudGFyZ2V0LnZhbHVlKSl9XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgLz5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwicGwtNCBib3JkZXItbC0yIGJvcmRlci1tdXRlZCBzcGFjZS15LTNcIj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxMYWJlbCBjbGFzc05hbWU9XCJ0ZXh0LXhzIHRleHQtbXV0ZWQtZm9yZWdyb3VuZCB1cHBlcmNhc2UgdHJhY2tpbmctd2lkZXJcIj5BbnN3ZXIgT3B0aW9uczwvTGFiZWw+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8UmFkaW9Hcm91cFxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHZhbHVlPXtxLmNvcnJlY3RfYW5zd2VyfVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIG9uVmFsdWVDaGFuZ2U9eyh2YWwpID0+IGhhbmRsZVF1ZXN0aW9uQ2hhbmdlKGluZGV4LCAnY29ycmVjdF9hbnN3ZXInLCB2YWwpfVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHtxLm9wdGlvbnM/Lm1hcCgob3B0OiBzdHJpbmcsIG9wdElkeDogbnVtYmVyKSA9PiAoXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxkaXYga2V5PXtvcHRJZHh9IGNsYXNzTmFtZT1cImZsZXggaXRlbXMtY2VudGVyIGdhcC0yXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8UmFkaW9Hcm91cEl0ZW0gdmFsdWU9e29wdH0gaWQ9e2BxJHtpbmRleH0tb3B0JHtvcHRJZHh9YH0gLz5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxJbnB1dFxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHZhbHVlPXtvcHR9XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgb25DaGFuZ2U9eyhlKSA9PiBoYW5kbGVPcHRpb25DaGFuZ2UoaW5kZXgsIG9wdElkeCwgZS50YXJnZXQudmFsdWUpfVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGNsYXNzTmFtZT17YGgtOSAke3EuY29ycmVjdF9hbnN3ZXIgPT09IG9wdCA/ICdib3JkZXItc3VjY2VzcyByaW5nLTEgcmluZy1zdWNjZXNzJyA6ICcnfWB9XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAvPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAge3EuY29ycmVjdF9hbnN3ZXIgPT09IG9wdCAmJiA8Q2hlY2tDaXJjbGVJY29uIGNsYXNzTmFtZT1cImgtNCB3LTQgdGV4dC1zdWNjZXNzXCIgLz59XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICkpfVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPC9SYWRpb0dyb3VwPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8QnV0dG9uIHZhcmlhbnQ9XCJnaG9zdFwiIHNpemU9XCJpY29uXCIgY2xhc3NOYW1lPVwidGV4dC1tdXRlZC1mb3JlZ3JvdW5kIGhvdmVyOnRleHQtZGVzdHJ1Y3RpdmVcIiBvbkNsaWNrPXsoKSA9PiBoYW5kbGVSZW1vdmVRdWVzdGlvbihxLmlkLCBpbmRleCl9PlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8VHJhc2gyIGNsYXNzTmFtZT1cImgtNCB3LTRcIiAvPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvQnV0dG9uPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgIDwvQ2FyZENvbnRlbnQ+XHJcbiAgICAgICAgICAgICAgICAgICAgPC9DYXJkPlxyXG4gICAgICAgICAgICAgICAgKSl9XHJcblxyXG4gICAgICAgICAgICAgICAgPEJ1dHRvbiBvbkNsaWNrPXtoYW5kbGVBZGRRdWVzdGlvbn0gdmFyaWFudD1cIm91dGxpbmVcIiBjbGFzc05hbWU9XCJ3LWZ1bGwgcHktOCBib3JkZXItZGFzaGVkIGdhcC0yIGhvdmVyOmJnLW11dGVkLzUwXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgPFBsdXMgY2xhc3NOYW1lPVwiaC00IHctNFwiIC8+IEFkZCBRdWVzdGlvblxyXG4gICAgICAgICAgICAgICAgPC9CdXR0b24+XHJcbiAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgIDwvVGVhY2hlckxheW91dD5cclxuICAgICk7XHJcbn1cclxuXHJcbmZ1bmN0aW9uIENoZWNrQ2lyY2xlSWNvbih7IGNsYXNzTmFtZSB9OiB7IGNsYXNzTmFtZT86IHN0cmluZyB9KSB7XHJcbiAgICByZXR1cm4gKFxyXG4gICAgICAgIDxzdmcgeG1sbnM9XCJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2Z1wiIHZpZXdCb3g9XCIwIDAgMjQgMjRcIiBmaWxsPVwibm9uZVwiIHN0cm9rZT1cImN1cnJlbnRDb2xvclwiIHN0cm9rZVdpZHRoPVwiMlwiIHN0cm9rZUxpbmVjYXA9XCJyb3VuZFwiIHN0cm9rZUxpbmVqb2luPVwicm91bmRcIiBjbGFzc05hbWU9e2NsYXNzTmFtZX0+XHJcbiAgICAgICAgICAgIDxwYXRoIGQ9XCJNMjIgMTEuMDhWMTJhMTAgMTAgMCAxIDEtNS45My05LjE0XCIgLz5cclxuICAgICAgICAgICAgPHBvbHlsaW5lIHBvaW50cz1cIjIyIDQgMTIgMTQuMDEgOSAxMS4wMVwiIC8+XHJcbiAgICAgICAgPC9zdmc+XHJcbiAgICApXHJcbn1cclxuIl0sIm5hbWVzIjpbInVzZVN0YXRlIiwidXNlRWZmZWN0IiwidXNlUGFyYW1zIiwidXNlTmF2aWdhdGUiLCJUZWFjaGVyTGF5b3V0IiwiQnV0dG9uIiwiSW5wdXQiLCJMYWJlbCIsIkNhcmQiLCJDYXJkQ29udGVudCIsIlJhZGlvR3JvdXAiLCJSYWRpb0dyb3VwSXRlbSIsIlRyYXNoMiIsIlBsdXMiLCJTYXZlIiwiQ2hldnJvbkxlZnQiLCJMb2FkZXIyIiwic3VwYWJhc2UiLCJ1c2VUb2FzdCIsIlF1aXpFZGl0b3IiLCJjb3Vyc2VJZCIsInF1aXpJZCIsIm5hdmlnYXRlIiwidG9hc3QiLCJsb2FkaW5nIiwic2V0TG9hZGluZyIsInNhdmluZyIsInNldFNhdmluZyIsInF1aXoiLCJzZXRRdWl6IiwicXVlc3Rpb25zIiwic2V0UXVlc3Rpb25zIiwiZmV0Y2hRdWl6RGF0YSIsImRhdGEiLCJxdWl6RGF0YSIsImVycm9yIiwicXVpekVycm9yIiwiZnJvbSIsInNlbGVjdCIsImVxIiwic2luZ2xlIiwicXVlc3Rpb25zRGF0YSIsInF1ZXN0aW9uc0Vycm9yIiwib3JkZXIiLCJhc2NlbmRpbmciLCJ2YXJpYW50IiwidGl0bGUiLCJkZXNjcmlwdGlvbiIsImNvbnNvbGUiLCJoYW5kbGVBZGRRdWVzdGlvbiIsImlkIiwiRGF0ZSIsIm5vdyIsInR5cGUiLCJxdWVzdGlvbl90ZXh0IiwicG9pbnRzIiwib3B0aW9ucyIsImNvcnJlY3RfYW5zd2VyIiwiaGFuZGxlUmVtb3ZlUXVlc3Rpb24iLCJpbmRleCIsInRvU3RyaW5nIiwic3RhcnRzV2l0aCIsIm5ld1F1ZXN0aW9ucyIsInNwbGljZSIsImRlbGV0ZSIsImhhbmRsZVF1ZXN0aW9uQ2hhbmdlIiwiZmllbGQiLCJ2YWx1ZSIsImhhbmRsZU9wdGlvbkNoYW5nZSIsInFJbmRleCIsIm9wdEluZGV4Iiwib2xkT3B0aW9uVmFsdWUiLCJzYXZlUXVpeiIsInVwc2VydFBheWxvYWQiLCJtYXAiLCJxIiwiaWR4IiwicGF5bG9hZCIsImFzc2lnbm1lbnRfaWQiLCJvcmRlcl9pbmRleCIsInVwc2VydCIsIm1lc3NhZ2UiLCJkaXYiLCJjbGFzc05hbWUiLCJzaXplIiwib25DbGljayIsImgxIiwicCIsImRpc2FibGVkIiwic3BhbiIsInBsYWNlaG9sZGVyIiwib25DaGFuZ2UiLCJlIiwidGFyZ2V0IiwicGFyc2VJbnQiLCJvblZhbHVlQ2hhbmdlIiwidmFsIiwib3B0Iiwib3B0SWR4IiwiQ2hlY2tDaXJjbGVJY29uIiwic3ZnIiwieG1sbnMiLCJ2aWV3Qm94IiwiZmlsbCIsInN0cm9rZSIsInN0cm9rZVdpZHRoIiwic3Ryb2tlTGluZWNhcCIsInN0cm9rZUxpbmVqb2luIiwicGF0aCIsImQiLCJwb2x5bGluZSJdLCJtYXBwaW5ncyI6Ijs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7O0FBQUEsU0FBU0EsUUFBUSxFQUFFQyxTQUFTLFFBQVEsUUFBUTtBQUM1QyxTQUFTQyxTQUFTLEVBQUVDLFdBQVcsUUFBUSxtQkFBbUI7QUFDMUQsU0FBU0MsYUFBYSxRQUFRLG9DQUFvQztBQUNsRSxTQUFTQyxNQUFNLFFBQVEseUJBQXlCO0FBQ2hELFNBQVNDLEtBQUssUUFBUSx3QkFBd0I7QUFDOUMsU0FBU0MsS0FBSyxRQUFRLHdCQUF3QjtBQUM5QyxTQUFTQyxJQUFJLEVBQUVDLFdBQVcsUUFBK0IsdUJBQXVCO0FBRWhGLFNBQVNDLFVBQVUsRUFBRUMsY0FBYyxRQUFRLDhCQUE4QjtBQUN6RSxTQUFTQyxNQUFNLEVBQUVDLElBQUksRUFBRUMsSUFBSSxFQUFFQyxXQUFXLEVBQUVDLE9BQU8sUUFBUSxlQUFlO0FBQ3hFLFNBQVNDLFFBQVEsUUFBUSxpQkFBaUI7QUFDMUMsU0FBU0MsUUFBUSxRQUFRLG9CQUFvQjtBQUU3QyxlQUFlLFNBQVNDOztJQUNwQixNQUFNLEVBQUVDLFFBQVEsRUFBRUMsTUFBTSxFQUFFLEdBQUduQjtJQUM3QixNQUFNb0IsV0FBV25CO0lBQ2pCLE1BQU0sRUFBRW9CLEtBQUssRUFBRSxHQUFHTDtJQUNsQixNQUFNLENBQUNNLFNBQVNDLFdBQVcsR0FBR3pCLFNBQVM7SUFDdkMsTUFBTSxDQUFDMEIsUUFBUUMsVUFBVSxHQUFHM0IsU0FBUztJQUVyQyxNQUFNLENBQUM0QixNQUFNQyxRQUFRLEdBQUc3QixTQUFjO0lBQ3RDLE1BQU0sQ0FBQzhCLFdBQVdDLGFBQWEsR0FBRy9CLFNBQWdCLEVBQUU7SUFFcERDLFVBQVU7UUFDTixJQUFJb0IsUUFBUVc7SUFDaEIsR0FBRztR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

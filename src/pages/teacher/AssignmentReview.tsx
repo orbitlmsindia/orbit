@@ -10,9 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Download, ExternalLink, CheckCircle, Search, Loader2, BrainCircuit, Eye } from "lucide-react";
+import { FileText, Download, ExternalLink, CheckCircle, Search, Loader2, BrainCircuit, Eye, FileSpreadsheet } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
+import { BulkGradeImporterModal } from "@/components/grading/BulkGradeImporterModal";
 
 export default function AssignmentReview() {
     const { toast } = useToast();
@@ -21,6 +22,7 @@ export default function AssignmentReview() {
     const [quizAttempts, setQuizAttempts] = useState<any[]>([]);
     const [assignments, setAssignments] = useState<any[]>([]);
     const [activeTab, setActiveTab] = useState("manual");
+    const [bulkModalOpen, setBulkModalOpen] = useState(false);
 
     // Filters
     const [statusFilter, setStatusFilter] = useState("all");
@@ -147,6 +149,14 @@ export default function AssignmentReview() {
                 <div>
                     <h1 className="text-3xl font-display font-bold">Review & Grading</h1>
                     <p className="text-muted-foreground">Grade quiz attempts and manual assignment submissions.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Button
+                        onClick={() => setBulkModalOpen(true)}
+                        className="gap-2 font-bold shadow-sm bg-primary hover:bg-primary/90 text-primary-foreground"
+                    >
+                        <FileSpreadsheet className="h-4 w-4" /> Bulk Grade Import (CSV / Excel)
+                    </Button>
                 </div>
             </div>
 
@@ -364,6 +374,12 @@ export default function AssignmentReview() {
                     </div>
                 </TabsContent>
             </Tabs>
+            <BulkGradeImporterModal
+                open={bulkModalOpen}
+                onOpenChange={setBulkModalOpen}
+                existingSubmissions={submissions}
+                onSuccess={fetchData}
+            />
         </TeacherLayout>
     );
 }
@@ -409,8 +425,8 @@ function ReviewSheet({ submission, onSave }: { submission: any, onSave: (id: str
                             </div>
                             {submission.file_url && (
                                 <a href={submission.file_url} target="_blank" rel="noreferrer">
-                                    <Button variant="ghost" size="sm" className="gap-2">
-                                        <Download className="h-4 w-4" /> Download File
+                                    <Button variant="outline" size="sm" className="gap-2 bg-primary/10 hover:bg-primary/20 text-primary border-primary/30 font-semibold shadow-xs">
+                                        <ExternalLink className="h-4 w-4 text-primary" /> Open Student Drive Submission ↗
                                     </Button>
                                 </a>
                             )}
@@ -487,26 +503,52 @@ function ReviewSheet({ submission, onSave }: { submission: any, onSave: (id: str
 function QuizAttemptSheet({ attempt }: { attempt: any }) {
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [answers, setAnswers] = useState<any[]>([]);
+    const [questionDetails, setQuestionDetails] = useState<any[]>([]);
 
     const fetchAttemptDetails = async () => {
         if (!open) return;
 
         try {
             setLoading(true);
-            const { data, error } = await supabase
-                .from('quiz_answers')
-                .select(`
-                    *,
-                    question:assignment_questions!question_id(question_text, correct_answer, points, type, options)
-                `)
-                .eq('attempt_id', attempt.id)
-                .order('created_at', { ascending: true });
+            
+            // 1. Fetch all questions for this assignment
+            const { data: questions, error: qError } = await supabase
+                .from('assignment_questions')
+                .select('*')
+                .eq('assignment_id', attempt.assignment_id)
+                .order('order_index', { ascending: true });
 
-            if (error) throw error;
-            setAnswers(data || []);
+            if (qError) throw qError;
+
+            // 2. Fetch all student answers for this attempt
+            const { data: answers, error: aError } = await supabase
+                .from('quiz_answers')
+                .select('*')
+                .eq('attempt_id', attempt.id);
+
+            if (aError) throw aError;
+
+            const answersMap = new Map((answers || []).map(a => [a.question_id, a]));
+
+            // Combine questions with student responses
+            const combined = (questions || []).map(q => {
+                const ans = answersMap.get(q.id);
+                const options = q.options && Array.isArray(q.options) && q.options.length > 0 
+                    ? q.options 
+                    : (q.type === 'boolean' ? ["True", "False"] : []);
+                    
+                return {
+                    ...q,
+                    options,
+                    studentAnswer: ans?.answer_text || "No Answer",
+                    isCorrect: ans?.is_correct || false,
+                    pointsAwarded: ans?.points_awarded || 0
+                };
+            });
+
+            setQuestionDetails(combined);
         } catch (error) {
-            console.error(error);
+            console.error("Error fetching attempt details:", error);
         } finally {
             setLoading(false);
         }
@@ -557,35 +599,76 @@ function QuizAttemptSheet({ attempt }: { attempt: any }) {
 
                         {/* Questions and Answers */}
                         <div className="space-y-4">
-                            <h3 className="font-semibold text-lg">Responses</h3>
-                            {answers.map((ans, idx) => (
-                                <div key={ans.id} className={`p-4 rounded-lg border-2 ${ans.is_correct ? 'border-green-500/30 bg-green-50/50' : 'border-red-500/30 bg-red-50/50'}`}>
-                                    <div className="flex items-start justify-between mb-3">
-                                        <div className="flex-1">
-                                            <p className="font-medium text-sm text-muted-foreground mb-1">Question {idx + 1}</p>
-                                            <p className="font-semibold">{ans.question?.question_text}</p>
+                            <h3 className="font-semibold text-lg">Question Breakdown & Responses ({questionDetails.length})</h3>
+                            {questionDetails.map((q, idx) => (
+                                <div key={q.id || idx} className="p-5 rounded-xl border bg-card space-y-3">
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div>
+                                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Question {idx + 1}</span>
+                                            <h4 className="font-semibold text-base text-foreground mt-0.5">{q.question_text}</h4>
                                         </div>
-                                        <Badge variant={ans.is_correct ? "success" : "destructive"}>
-                                            {ans.is_correct ? `+${ans.points_awarded}` : '0'} pts
+                                        <Badge variant={q.isCorrect ? "success" : "destructive"} className="shrink-0 font-mono text-xs">
+                                            {q.isCorrect ? `+${q.pointsAwarded} pts` : `0 / ${q.points} pts`}
                                         </Badge>
                                     </div>
 
-                                    <div className="space-y-2 mt-3">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-sm font-medium text-muted-foreground">Student Answer:</span>
-                                            <span className={`font-medium ${ans.is_correct ? 'text-green-700' : 'text-red-700'}`}>
-                                                {ans.answer_text}
-                                            </span>
-                                        </div>
-                                        {!ans.is_correct && (
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-sm font-medium text-muted-foreground">Correct Answer:</span>
-                                                <span className="font-medium text-green-700">
-                                                    {ans.question?.correct_answer}
-                                                </span>
+                                    {/* Options List for MCQ & Boolean */}
+                                    {q.options && q.options.length > 0 ? (
+                                        <div className="space-y-2 pt-2">
+                                            <p className="text-xs font-semibold text-muted-foreground">Options:</p>
+                                            <div className="grid gap-2">
+                                                {q.options.map((opt: string, optIdx: number) => {
+                                                    const isCorrect = String(opt).trim().toLowerCase() === String(q.correct_answer).trim().toLowerCase();
+                                                    const isSelected = String(opt).trim().toLowerCase() === String(q.studentAnswer).trim().toLowerCase();
+
+                                                    let optionStyle = "border-border/60 bg-muted/20 text-muted-foreground";
+                                                    if (isCorrect) {
+                                                        optionStyle = "border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-semibold";
+                                                    } else if (isSelected && !isCorrect) {
+                                                        optionStyle = "border-rose-500/50 bg-rose-500/10 text-rose-700 dark:text-rose-300 font-semibold";
+                                                    }
+
+                                                    return (
+                                                        <div key={optIdx} className={`p-3 rounded-lg border flex items-center justify-between text-xs transition-colors ${optionStyle}`}>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="font-mono text-[11px] opacity-70">Option {String.fromCharCode(65 + optIdx)}:</span>
+                                                                <span>{opt}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                                {isCorrect && (
+                                                                    <Badge className="bg-emerald-600 text-white border-none text-[10px]">
+                                                                        ✓ Correct Answer
+                                                                    </Badge>
+                                                                )}
+                                                                {isSelected && !isCorrect && (
+                                                                    <Badge variant="destructive" className="text-[10px]">
+                                                                        ✗ Student Answer
+                                                                    </Badge>
+                                                                )}
+                                                                {isSelected && isCorrect && (
+                                                                    <Badge className="bg-emerald-600 text-white border-none text-[10px]">
+                                                                        (Student Selected)
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
-                                        )}
-                                    </div>
+                                        </div>
+                                    ) : (
+                                        /* Text-based Question Response */
+                                        <div className="space-y-2 pt-2 text-xs">
+                                            <div className="p-3 rounded-lg border bg-muted/20 space-y-1">
+                                                <span className="font-semibold text-muted-foreground">Student Submitted Answer:</span>
+                                                <p className="font-medium text-foreground whitespace-pre-wrap">{q.studentAnswer}</p>
+                                            </div>
+                                            <div className="p-3 rounded-lg border bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300 space-y-1">
+                                                <span className="font-semibold">Model / Correct Answer:</span>
+                                                <p className="font-medium whitespace-pre-wrap">{q.correct_answer || "N/A"}</p>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>

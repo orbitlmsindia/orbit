@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
+import { getTopicRelatedThumbnail } from "@/lib/thumbnailUtils";
 import { TeacherLayout } from "@/components/layout/TeacherLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Users, MoreVertical, Loader2, BookOpen, Trash2, Pencil } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Plus, Search, Users, MoreVertical, Loader2, BookOpen, Trash2, Pencil, Sparkles, Ticket, IndianRupee } from "lucide-react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -12,24 +13,65 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import CouponManager from "@/components/teacher/CouponManager";
 
 export default function TeacherCourses() {
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const activeTab = searchParams.get("tab") || "courses";
     const { toast } = useToast();
     const [loading, setLoading] = useState(true);
+    const [teacherId, setTeacherId] = useState<string>("");
     const [courses, setCourses] = useState<any[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [addCourseModalOpen, setAddCourseModalOpen] = useState(false);
-    const [newCourse, setNewCourse] = useState({ title: "", description: "", visibility: true });
+    const [newCourse, setNewCourse] = useState({
+        title: "",
+        description: "",
+        domain: "Software Engineering",
+        instructor_intro: "",
+        instructor_video_url: "",
+        instructor_qualifications: "",
+        exam_policy: "",
+        visibility: true,
+        thumbnail_url: "",
+        price: "",
+        original_price: "",
+        organization_name: "",
+        organization_logo_url: ""
+    });
 
     useEffect(() => {
         fetchCourses();
+        fetchTeacherDefaults();
     }, []);
+
+    const fetchTeacherDefaults = async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+            const { data } = await supabase
+                .from('users')
+                .select('bio, qualifications, instructor_video_url')
+                .eq('id', user.id)
+                .single();
+
+            if (data) {
+                setNewCourse(prev => ({
+                    ...prev,
+                    instructor_intro: data.bio || "",
+                    instructor_qualifications: data.qualifications || "",
+                    instructor_video_url: data.instructor_video_url || ""
+                }));
+            }
+        } catch (e) {}
+    };
 
     const fetchCourses = async () => {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
+            setTeacherId(user.id);
 
             const { data: profile } = await supabase
                 .from('users')
@@ -42,7 +84,9 @@ export default function TeacherCourses() {
                 .select(`
                     id,
                     title,
+                    domain,
                     is_published,
+                    is_deletion_requested,
                     created_at,
                     thumbnail_url,
                     enrollments (count)
@@ -60,11 +104,11 @@ export default function TeacherCourses() {
             const formatted = data.map((c: any) => ({
                 id: c.id,
                 title: c.title,
-                category: "General", // Placeholder
+                category: c.domain || "Software Engineering",
                 students: c.enrollments?.[0]?.count || 0,
                 modules: 0, // Placeholder until we count sections
                 status: c.is_published ? "Published" : "Draft",
-                image: c.thumbnail_url || "https://images.unsplash.com/photo-1593720213428-28a5b9e94613?auto=format&fit=crop&q=80&w=500"
+                image: c.thumbnail_url || getTopicRelatedThumbnail(c.title, c.id)
             }));
 
             setCourses(formatted);
@@ -85,12 +129,32 @@ export default function TeacherCourses() {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error("Not authenticated");
 
-            const payload = {
+            const payload: any = {
                 title: newCourse.title,
                 description: newCourse.description,
+                domain: newCourse.domain || "Software Engineering",
+                instructor_intro: newCourse.instructor_intro || null,
+                instructor_video_url: newCourse.instructor_video_url || null,
+                instructor_qualifications: newCourse.instructor_qualifications || null,
+                exam_policy: newCourse.exam_policy || null,
                 is_published: newCourse.visibility,
                 teacher_id: user.id
             };
+
+            if (newCourse.thumbnail_url.trim()) {
+                payload.thumbnail_url = newCourse.thumbnail_url.trim();
+            }
+            if (newCourse.price && parseFloat(newCourse.price) > 0) {
+                payload.price = parseFloat(newCourse.price);
+            }
+            if (newCourse.original_price && parseFloat(newCourse.original_price) > 0) {
+                payload.original_price = parseFloat(newCourse.original_price);
+            }
+            const savedInst = localStorage.getItem("orbit_institute_settings");
+            const defaultInst = savedInst ? JSON.parse(savedInst) : {};
+
+            payload.organization_name = newCourse.organization_name.trim() || defaultInst.name || "Orbit LMS Innovation Academy";
+            payload.organization_logo_url = newCourse.organization_logo_url.trim() || defaultInst.logoUrl || "https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=150&auto=format&fit=crop&q=80";
 
             const { data, error } = await supabase
                 .from('courses')
@@ -134,15 +198,18 @@ export default function TeacherCourses() {
         }
     };
 
-    const handleDeleteCourse = async (id: string, e: React.MouseEvent) => {
+    const handleRequestDeleteCourse = async (id: string, title: string, e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
-        if (!confirm("Are you sure you want to permanently delete this draft course?")) return;
-        const { error } = await supabase.from('courses').delete().eq('id', id);
+        if (!confirm(`Are you sure you want to request deletion of "${title}"?\n\nThis will send a request to Admin. The course will remain accessible until Admin approves.`)) return;
+        const { error } = await supabase.from('courses').update({
+            is_deletion_requested: true,
+            deletion_requested_at: new Date().toISOString()
+        }).eq('id', id);
         if (error) {
             toast({ variant: "destructive", title: "Error", description: error.message });
         } else {
-            toast({ title: "Deleted Permanently" });
+            toast({ title: "Deletion Request Sent ⏳", description: "Admin approval is required to permanently delete this course." });
             fetchCourses();
         }
     };
@@ -168,12 +235,25 @@ export default function TeacherCourses() {
                     <h1 className="text-3xl font-display font-bold">My Courses</h1>
                     <p className="text-muted-foreground">Manage your assigned courses and content.</p>
                 </div>
-                <Dialog open={addCourseModalOpen} onOpenChange={setAddCourseModalOpen}>
-                    <DialogTrigger asChild>
-                        <Button className="gap-2">
-                            <Plus className="h-4 w-4" /> Create Course
+                <div className="flex gap-2">
+                    <Link to="/teacher/courses/json-builder">
+                        <Button variant="outline" className="gap-2 border-primary/20 hover:bg-primary/5 text-primary">
+                            <Sparkles className="h-4 w-4" /> JSON Importer
                         </Button>
-                    </DialogTrigger>
+                    </Link>
+                    <Button
+                        variant={activeTab === "coupons" ? "default" : "outline"}
+                        onClick={() => setSearchParams({ tab: activeTab === "coupons" ? "courses" : "coupons" })}
+                        className={`gap-2 ${activeTab === "coupons" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "border-emerald-500/30 hover:bg-emerald-500/5 text-emerald-600"}`}
+                    >
+                        <Ticket className="h-4 w-4" /> {activeTab === "coupons" ? "My Courses" : "Manage Coupons"}
+                    </Button>
+                    <Dialog open={addCourseModalOpen} onOpenChange={setAddCourseModalOpen}>
+                        <DialogTrigger asChild>
+                            <Button className="gap-2">
+                                <Plus className="h-4 w-4" /> Create Course
+                            </Button>
+                        </DialogTrigger>
                     <DialogContent className="sm:max-w-lg">
                         <DialogHeader>
                             <DialogTitle>Create New Course</DialogTitle>
@@ -192,6 +272,16 @@ export default function TeacherCourses() {
                                 />
                             </div>
                             <div className="space-y-2">
+                                <Label>Domain / Category</Label>
+                                <Input
+                                    value={newCourse.domain}
+                                    onChange={(e) => setNewCourse({ ...newCourse, domain: e.target.value })}
+                                    placeholder="e.g. Software Engineering, Data Science & AI, Web Development"
+                                />
+                                <p className="text-xs text-muted-foreground">Students can filter courses by domain on their dashboard.</p>
+                            </div>
+
+                            <div className="space-y-2">
                                 <Label>Description</Label>
                                 <Textarea
                                     value={newCourse.description}
@@ -200,12 +290,97 @@ export default function TeacherCourses() {
                                 />
                             </div>
 
+                            <div className="space-y-2">
+                                <Label>Instructor Introduction & Bio <span className="text-muted-foreground text-xs">(Customizable per course)</span></Label>
+                                <Textarea
+                                    className="min-h-[80px]"
+                                    value={newCourse.instructor_intro}
+                                    onChange={(e) => setNewCourse({ ...newCourse, instructor_intro: e.target.value })}
+                                    placeholder="Welcome message to students for this course..."
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div className="space-y-2">
+                                    <Label>Instructor Intro Video URL <span className="text-muted-foreground text-xs">(YouTube/Drive)</span></Label>
+                                    <Input
+                                        value={newCourse.instructor_video_url}
+                                        onChange={(e) => setNewCourse({ ...newCourse, instructor_video_url: e.target.value })}
+                                        placeholder="https://youtube.com/watch?v=..."
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Qualifications & Credentials</Label>
+                                    <Input
+                                        value={newCourse.instructor_qualifications}
+                                        onChange={(e) => setNewCourse({ ...newCourse, instructor_qualifications: e.target.value })}
+                                        placeholder="e.g. Ph.D. in Computer Science"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>Thumbnail URL <span className="text-muted-foreground text-xs">(optional)</span></Label>
+                                <Input
+                                    value={newCourse.thumbnail_url}
+                                    onChange={(e) => setNewCourse({ ...newCourse, thumbnail_url: e.target.value })}
+                                    placeholder="https://images.unsplash.com/photo-... (auto-generated if empty)"
+                                />
+                                <p className="text-xs text-muted-foreground">Leave empty for an auto-generated topic-based thumbnail.</p>
+                            </div>
+
                             <div className="flex items-center gap-2 pt-2">
                                 <Switch
                                     checked={newCourse.visibility}
                                     onCheckedChange={(c) => setNewCourse({ ...newCourse, visibility: c })}
                                 />
                                 <Label>Visible to students (Published)</Label>
+                            </div>
+
+                            {/* Pricing & Organization Fields */}
+                            <div className="pt-2 border-t border-border space-y-4">
+                                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                    <IndianRupee className="h-3.5 w-3.5" /> Pricing & Organization
+                                </p>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-2">
+                                        <Label>Course Price (₹) <span className="text-muted-foreground text-xs">(0 = Free)</span></Label>
+                                        <Input
+                                            type="number"
+                                            value={newCourse.price}
+                                            onChange={(e) => setNewCourse({ ...newCourse, price: e.target.value })}
+                                            placeholder="e.g. 999"
+                                            min="0"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Original/MRP Price (₹) <span className="text-muted-foreground text-xs">(optional)</span></Label>
+                                        <Input
+                                            type="number"
+                                            value={newCourse.original_price}
+                                            onChange={(e) => setNewCourse({ ...newCourse, original_price: e.target.value })}
+                                            placeholder="e.g. 1499"
+                                            min="0"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Organization / Institution Name <span className="text-muted-foreground text-xs">(who is launching this course)</span></Label>
+                                    <Input
+                                        value={newCourse.organization_name}
+                                        onChange={(e) => setNewCourse({ ...newCourse, organization_name: e.target.value })}
+                                        placeholder="e.g. Google, Microsoft, Orbit Academy"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Organization Logo URL <span className="text-muted-foreground text-xs">(optional)</span></Label>
+                                    <Input
+                                        value={newCourse.organization_logo_url}
+                                        onChange={(e) => setNewCourse({ ...newCourse, organization_logo_url: e.target.value })}
+                                        placeholder="https://logo.clearbit.com/google.com"
+                                    />
+                                    <p className="text-xs text-muted-foreground">Logo will appear alongside the course card for students.</p>
+                                </div>
                             </div>
                         </div>
 
@@ -217,21 +392,27 @@ export default function TeacherCourses() {
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
-            </div>
-
-            <div className="flex items-center gap-4 mb-6 animate-fade-in delay-75">
-                <div className="relative flex-1 max-w-sm">
-                    <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        placeholder="Search courses..."
-                        className="pl-9"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
                 </div>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 animate-fade-in delay-100">
+            {/* TAB CONTENT */}
+            {activeTab === "coupons" ? (
+                <CouponManager teacherId={teacherId} courses={courses} />
+            ) : (
+                <>
+                    <div className="flex items-center gap-4 mb-6 animate-fade-in delay-75">
+                        <div className="relative flex-1 max-w-sm">
+                            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Search courses..."
+                                className="pl-9"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 animate-fade-in delay-100">
                 {filteredCourses.length > 0 ? (
                     filteredCourses.map((course) => (
                         <Link key={course.id} to={`/teacher/courses/${course.id}`}>
@@ -249,10 +430,15 @@ export default function TeacherCourses() {
                                             (e.target as HTMLImageElement).style.opacity = '0';
                                         }}
                                     />
-                                    <div className="absolute top-3 right-3">
+                                    <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
                                         <Badge variant={course.status === "Published" ? "success" : "secondary"}>
                                             {course.status}
                                         </Badge>
+                                        {course.is_deletion_requested && (
+                                            <Badge className="bg-amber-500/20 text-amber-600 border-amber-500/40 text-[10px]">
+                                                Deletion Requested ⏳
+                                            </Badge>
+                                        )}
                                     </div>
                                 </div>
 
@@ -279,16 +465,14 @@ export default function TeacherCourses() {
                                                         <BookOpen className="h-4 w-4" /> Unpublish
                                                     </DropdownMenuItem>
                                                 ) : (
-                                                    <>
-                                                        <DropdownMenuItem className="gap-2 text-primary" onClick={(e) => handlePublishCourse(course.id, e)}>
-                                                            <BookOpen className="h-4 w-4" /> Publish Course
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuSeparator />
-                                                        <DropdownMenuItem className="gap-2 text-destructive" onClick={(e) => handleDeleteCourse(course.id, e)}>
-                                                            <Trash2 className="h-4 w-4" /> Delete Permanently
-                                                        </DropdownMenuItem>
-                                                    </>
+                                                    <DropdownMenuItem className="gap-2 text-primary" onClick={(e) => handlePublishCourse(course.id, e)}>
+                                                        <BookOpen className="h-4 w-4" /> Publish Course
+                                                    </DropdownMenuItem>
                                                 )}
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem className="gap-2 text-amber-600 dark:text-amber-400 font-semibold" onClick={(e) => handleRequestDeleteCourse(course.id, course.title, e)}>
+                                                    <Trash2 className="h-4 w-4" /> Request Delete ⏳
+                                                </DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </div>
@@ -310,6 +494,8 @@ export default function TeacherCourses() {
                     </div>
                 )}
             </div>
+            </>
+            )}
         </TeacherLayout>
     );
 }

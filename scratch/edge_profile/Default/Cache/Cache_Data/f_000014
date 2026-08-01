@@ -1,0 +1,1591 @@
+import { createHotContext as __vite__createHotContext } from "/@vite/client";import.meta.hot = __vite__createHotContext("/src/pages/admin/AdminCourseDetail.tsx");import * as RefreshRuntime from "/@react-refresh";
+const inWebWorker = typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope;
+
+let prevRefreshReg;
+let prevRefreshSig;
+
+if (import.meta.hot && !inWebWorker) {
+  if (!window.$RefreshReg$) {
+    throw new Error(
+      "@vitejs/plugin-react-swc can't detect preamble. Something is wrong."
+    );
+  }
+
+  prevRefreshReg = window.$RefreshReg$;
+  prevRefreshSig = window.$RefreshSig$;
+  window.$RefreshReg$ = RefreshRuntime.getRefreshReg("D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx");
+  window.$RefreshSig$ = RefreshRuntime.createSignatureFunctionForTransform;
+}
+
+import __vite__cjsImport2_react_jsxDevRuntime from "/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=88ed5bfa"; const _jsxDEV = __vite__cjsImport2_react_jsxDevRuntime["jsxDEV"]; const _Fragment = __vite__cjsImport2_react_jsxDevRuntime["Fragment"];
+var _s = $RefreshSig$(), _s1 = $RefreshSig$(), _s2 = $RefreshSig$();
+import __vite__cjsImport3_react from "/node_modules/.vite/deps/react.js?v=88ed5bfa"; const useState = __vite__cjsImport3_react["useState"]; const useEffect = __vite__cjsImport3_react["useEffect"];
+import { useParams, Link, useSearchParams } from "/node_modules/.vite/deps/react-router-dom.js?v=88ed5bfa";
+import { AdminLayout } from "/src/components/layout/AdminLayout.tsx";
+import { Button } from "/src/components/ui/button.tsx";
+import { Input } from "/src/components/ui/input.tsx";
+import { Textarea } from "/src/components/ui/textarea.tsx";
+import { Label } from "/src/components/ui/label.tsx";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "/src/components/ui/accordion.tsx";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "/src/components/ui/dialog.tsx";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "/src/components/ui/tabs.tsx";
+import { Card, CardContent } from "/src/components/ui/card.tsx";
+import { Badge } from "/src/components/ui/badge.tsx";
+import { useToast } from "/src/hooks/use-toast.ts";
+import { supabase } from "/src/lib/supabase.ts";
+import { Plus, Video, FileText, Type, Edit2, Trash2, UploadCloud, ChevronLeft, Loader2, CheckCircle, XCircle, Download, Eye } from "/node_modules/.vite/deps/lucide-react.js?v=88ed5bfa";
+export default function AdminCourseDetail() {
+    _s();
+    const { id } = useParams();
+    const [searchParams] = useSearchParams();
+    const { toast } = useToast();
+    const [course, setCourse] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "curriculum");
+    const [sections, setSections] = useState([]);
+    const [enrollments, setEnrollments] = useState([]);
+    useEffect(()=>{
+        if (id) fetchCourseData();
+    }, [
+        id
+    ]);
+    const fetchCourseData = async ()=>{
+        setLoading(true);
+        // Fetch course details
+        const { data: courseData, error: courseError } = await supabase.from('courses').select('id, title, description').eq('id', id).single();
+        if (courseError) {
+            console.error(courseError);
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "Failed to load course"
+            });
+            setLoading(false);
+            return;
+        }
+        setCourse(courseData);
+        // Fetch enrollments with student details
+        const { data: enrollmentData } = await supabase.from('enrollments').select(`
+                *,
+                student:users!student_id(full_name, email, avatar_url)
+            `).eq('course_id', id);
+        if (enrollmentData) {
+            setEnrollments(enrollmentData);
+        }
+        // Fetch sections and content
+        const { data: sectionData, error: sectionError } = await supabase.from('course_sections').select(`
+                id, title, order_index,
+                section_contents (id, title, video_url, pdf_url, content_text, order_index)
+            `).eq('course_id', id).order('order_index', {
+            ascending: true
+        });
+        if (sectionError) console.error(sectionError);
+        // Sort contents manually if needed, or rely on fetch order if we add order logic to query
+        const sortedSections = sectionData?.map((section)=>({
+                ...section,
+                items: section.section_contents?.sort((a, b)=>a.order_index - b.order_index) || []
+            })) || [];
+        setSections(sortedSections);
+        setLoading(false);
+    };
+    const handleCreateSection = async (title)=>{
+        const { error } = await supabase.from('course_sections').insert([
+            {
+                course_id: id,
+                title,
+                order_index: sections.length
+            }
+        ]);
+        if (error) {
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: error.message
+            });
+        } else {
+            toast({
+                title: "Section added"
+            });
+            fetchCourseData();
+        }
+    };
+    const handleApproveEnrollment = async (enrollmentId)=>{
+        try {
+            const { error } = await supabase.from('enrollments').update({
+                status: 'approved'
+            }).eq('id', enrollmentId);
+            if (error) throw error;
+            toast({
+                title: "Enrollment Approved",
+                description: "The student now has access to the course."
+            });
+            fetchCourseData(); // Refresh list
+        } catch (error) {
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: error.message || "Failed to approve enrollment."
+            });
+        }
+    };
+    const handleDeclineEnrollment = async (enrollmentId)=>{
+        try {
+            const { error } = await supabase.from('enrollments').update({
+                status: 'rejected'
+            }).eq('id', enrollmentId);
+            if (error) throw error;
+            toast({
+                title: "Enrollment Declined",
+                description: "The student's enrollment request has been declined."
+            });
+            fetchCourseData(); // Refresh list
+        } catch (error) {
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: error.message || "Failed to decline enrollment."
+            });
+        }
+    };
+    const handleDeleteEnrollment = async (enrollmentId)=>{
+        if (!confirm("Are you sure you want to remove this student from the course?")) return;
+        try {
+            const { error } = await supabase.from('enrollments').delete().eq('id', enrollmentId);
+            if (error) throw error;
+            toast({
+                title: "Student Removed",
+                description: "The student has been removed from this course."
+            });
+            fetchCourseData(); // Refresh list
+        } catch (error) {
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: error.message || "Failed to remove student."
+            });
+        }
+    };
+    const exportToCSV = ()=>{
+        if (!enrollments.length) {
+            toast({
+                description: "No students to export."
+            });
+            return;
+        }
+        const csvRows = [];
+        const headers = [
+            "Student Name",
+            "Email",
+            "Course Enrolled",
+            "Date of Request",
+            "UPI / Transaction ID",
+            "Status"
+        ];
+        csvRows.push(headers.join(','));
+        enrollments.forEach((enrollment)=>{
+            const row = [
+                `"${(enrollment.student?.full_name || 'Unknown Student').replace(/"/g, '""')}"`,
+                `"${(enrollment.student?.email || 'N/A').replace(/"/g, '""')}"`,
+                `"${(course?.title || 'Unknown Course').replace(/"/g, '""')}"`,
+                `"${new Date(enrollment.enrolled_at).toLocaleDateString()}"`,
+                `"${(enrollment.transaction_id || 'N/A').replace(/"/g, '""')}"`,
+                `"${enrollment.status}"`
+            ];
+            csvRows.push(row.join(','));
+        });
+        const csvData = csvRows.join('\n');
+        const blob = new Blob([
+            csvData
+        ], {
+            type: 'text/csv'
+        });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.setAttribute('hidden', '');
+        a.setAttribute('href', url);
+        a.setAttribute('download', `${(course?.title || 'course').replace(/\s+/g, '_')}_enrollments.csv`);
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    };
+    if (loading) return /*#__PURE__*/ _jsxDEV(AdminLayout, {
+        children: /*#__PURE__*/ _jsxDEV("div", {
+            className: "flex h-screen items-center justify-center",
+            children: /*#__PURE__*/ _jsxDEV(Loader2, {
+                className: "animate-spin"
+            }, void 0, false, {
+                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                lineNumber: 196,
+                columnNumber: 97
+            }, this)
+        }, void 0, false, {
+            fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+            lineNumber: 196,
+            columnNumber: 38
+        }, this)
+    }, void 0, false, {
+        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+        lineNumber: 196,
+        columnNumber: 25
+    }, this);
+    return /*#__PURE__*/ _jsxDEV(AdminLayout, {
+        children: [
+            /*#__PURE__*/ _jsxDEV("div", {
+                className: "flex items-center gap-4 mb-6 animate-fade-in p-6 pb-0",
+                children: [
+                    /*#__PURE__*/ _jsxDEV(Link, {
+                        to: "/admin/courses",
+                        children: /*#__PURE__*/ _jsxDEV(Button, {
+                            variant: "ghost",
+                            size: "icon",
+                            children: /*#__PURE__*/ _jsxDEV(ChevronLeft, {
+                                className: "h-5 w-5"
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                lineNumber: 203,
+                                columnNumber: 25
+                            }, this)
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                            lineNumber: 202,
+                            columnNumber: 21
+                        }, this)
+                    }, void 0, false, {
+                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                        lineNumber: 201,
+                        columnNumber: 17
+                    }, this),
+                    /*#__PURE__*/ _jsxDEV("div", {
+                        className: "flex-1",
+                        children: [
+                            /*#__PURE__*/ _jsxDEV("h1", {
+                                className: "text-2xl font-display font-bold",
+                                children: course.title
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                lineNumber: 207,
+                                columnNumber: 21
+                            }, this),
+                            /*#__PURE__*/ _jsxDEV("p", {
+                                className: "text-muted-foreground text-sm",
+                                children: course.description
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                lineNumber: 208,
+                                columnNumber: 21
+                            }, this)
+                        ]
+                    }, void 0, true, {
+                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                        lineNumber: 206,
+                        columnNumber: 17
+                    }, this),
+                    /*#__PURE__*/ _jsxDEV("div", {
+                        className: "flex gap-2",
+                        children: /*#__PURE__*/ _jsxDEV(Link, {
+                            to: `/student/courses/${id}/learn`,
+                            target: "_blank",
+                            children: /*#__PURE__*/ _jsxDEV(Button, {
+                                variant: "secondary",
+                                className: "gap-1.5 font-bold text-primary bg-primary/10 hover:bg-primary/20 border border-primary/30 shadow-xs",
+                                children: [
+                                    /*#__PURE__*/ _jsxDEV(Eye, {
+                                        className: "h-4 w-4"
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                        lineNumber: 213,
+                                        columnNumber: 29
+                                    }, this),
+                                    " Preview Student View ↗"
+                                ]
+                            }, void 0, true, {
+                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                lineNumber: 212,
+                                columnNumber: 25
+                            }, this)
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                            lineNumber: 211,
+                            columnNumber: 21
+                        }, this)
+                    }, void 0, false, {
+                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                        lineNumber: 210,
+                        columnNumber: 17
+                    }, this)
+                ]
+            }, void 0, true, {
+                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                lineNumber: 200,
+                columnNumber: 13
+            }, this),
+            /*#__PURE__*/ _jsxDEV(Tabs, {
+                value: activeTab,
+                onValueChange: setActiveTab,
+                className: "animate-fade-in delay-75 p-6 pt-0",
+                children: [
+                    /*#__PURE__*/ _jsxDEV(TabsList, {
+                        className: "mb-6",
+                        children: [
+                            /*#__PURE__*/ _jsxDEV(TabsTrigger, {
+                                value: "curriculum",
+                                children: "Curriculum"
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                lineNumber: 221,
+                                columnNumber: 21
+                            }, this),
+                            /*#__PURE__*/ _jsxDEV(TabsTrigger, {
+                                value: "overview",
+                                children: "Details"
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                lineNumber: 222,
+                                columnNumber: 21
+                            }, this),
+                            /*#__PURE__*/ _jsxDEV(TabsTrigger, {
+                                value: "students",
+                                children: "Enrolled Students"
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                lineNumber: 223,
+                                columnNumber: 21
+                            }, this)
+                        ]
+                    }, void 0, true, {
+                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                        lineNumber: 220,
+                        columnNumber: 17
+                    }, this),
+                    /*#__PURE__*/ _jsxDEV(TabsContent, {
+                        value: "curriculum",
+                        className: "space-y-6",
+                        children: [
+                            /*#__PURE__*/ _jsxDEV("div", {
+                                className: "flex justify-between items-center",
+                                children: [
+                                    /*#__PURE__*/ _jsxDEV("h2", {
+                                        className: "text-lg font-semibold",
+                                        children: "Modules & Content"
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                        lineNumber: 228,
+                                        columnNumber: 25
+                                    }, this),
+                                    /*#__PURE__*/ _jsxDEV(AddSectionDialog, {
+                                        onCreate: handleCreateSection
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                        lineNumber: 229,
+                                        columnNumber: 25
+                                    }, this)
+                                ]
+                            }, void 0, true, {
+                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                lineNumber: 227,
+                                columnNumber: 21
+                            }, this),
+                            /*#__PURE__*/ _jsxDEV(Accordion, {
+                                type: "multiple",
+                                className: "space-y-4",
+                                children: sections.map((section)=>/*#__PURE__*/ _jsxDEV(AccordionItem, {
+                                        value: section.id,
+                                        className: "border rounded-xl bg-card px-4",
+                                        children: [
+                                            /*#__PURE__*/ _jsxDEV("div", {
+                                                className: "flex items-center py-4",
+                                                children: [
+                                                    /*#__PURE__*/ _jsxDEV(AccordionTrigger, {
+                                                        className: "hover:no-underline flex-1 py-0",
+                                                        children: /*#__PURE__*/ _jsxDEV("span", {
+                                                            className: "font-semibold text-lg",
+                                                            children: section.title
+                                                        }, void 0, false, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                            lineNumber: 237,
+                                                            columnNumber: 41
+                                                        }, this)
+                                                    }, void 0, false, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                        lineNumber: 236,
+                                                        columnNumber: 37
+                                                    }, this),
+                                                    /*#__PURE__*/ _jsxDEV("div", {
+                                                        className: "flex items-center gap-2 ml-4",
+                                                        children: [
+                                                            /*#__PURE__*/ _jsxDEV(AddContentDialog, {
+                                                                sectionId: section.id,
+                                                                onAdded: fetchCourseData
+                                                            }, void 0, false, {
+                                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                lineNumber: 240,
+                                                                columnNumber: 41
+                                                            }, this),
+                                                            /*#__PURE__*/ _jsxDEV(Button, {
+                                                                variant: "ghost",
+                                                                size: "icon",
+                                                                className: "h-8 w-8",
+                                                                children: /*#__PURE__*/ _jsxDEV(Edit2, {
+                                                                    className: "h-4 w-4"
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                    lineNumber: 242,
+                                                                    columnNumber: 45
+                                                                }, this)
+                                                            }, void 0, false, {
+                                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                lineNumber: 241,
+                                                                columnNumber: 41
+                                                            }, this)
+                                                        ]
+                                                    }, void 0, true, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                        lineNumber: 239,
+                                                        columnNumber: 37
+                                                    }, this)
+                                                ]
+                                            }, void 0, true, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                lineNumber: 235,
+                                                columnNumber: 33
+                                            }, this),
+                                            /*#__PURE__*/ _jsxDEV(AccordionContent, {
+                                                className: "pt-2 pb-4 space-y-2",
+                                                children: [
+                                                    section.items.map((item)=>/*#__PURE__*/ _jsxDEV("div", {
+                                                            className: "flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted transition-colors group",
+                                                            children: [
+                                                                /*#__PURE__*/ _jsxDEV("div", {
+                                                                    className: "flex items-center gap-3",
+                                                                    children: [
+                                                                        /*#__PURE__*/ _jsxDEV("div", {
+                                                                            className: "h-8 w-8 rounded bg-background flex items-center justify-center border text-muted-foreground",
+                                                                            children: [
+                                                                                item.video_url && /*#__PURE__*/ _jsxDEV(Video, {
+                                                                                    className: "h-4 w-4 text-blue-500"
+                                                                                }, void 0, false, {
+                                                                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                                    lineNumber: 251,
+                                                                                    columnNumber: 72
+                                                                                }, this),
+                                                                                item.pdf_url && /*#__PURE__*/ _jsxDEV(FileText, {
+                                                                                    className: "h-4 w-4 text-red-500"
+                                                                                }, void 0, false, {
+                                                                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                                    lineNumber: 252,
+                                                                                    columnNumber: 70
+                                                                                }, this),
+                                                                                item.content_text && /*#__PURE__*/ _jsxDEV(Type, {
+                                                                                    className: "h-4 w-4 text-green-500"
+                                                                                }, void 0, false, {
+                                                                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                                    lineNumber: 253,
+                                                                                    columnNumber: 75
+                                                                                }, this),
+                                                                                !item.video_url && !item.pdf_url && !item.content_text && /*#__PURE__*/ _jsxDEV(FileText, {
+                                                                                    className: "h-4 w-4"
+                                                                                }, void 0, false, {
+                                                                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                                    lineNumber: 254,
+                                                                                    columnNumber: 112
+                                                                                }, this)
+                                                                            ]
+                                                                        }, void 0, true, {
+                                                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                            lineNumber: 250,
+                                                                            columnNumber: 49
+                                                                        }, this),
+                                                                        /*#__PURE__*/ _jsxDEV("div", {
+                                                                            children: [
+                                                                                /*#__PURE__*/ _jsxDEV("p", {
+                                                                                    className: "font-medium text-sm",
+                                                                                    children: item.title
+                                                                                }, void 0, false, {
+                                                                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                                    lineNumber: 257,
+                                                                                    columnNumber: 53
+                                                                                }, this),
+                                                                                /*#__PURE__*/ _jsxDEV("div", {
+                                                                                    className: "flex gap-2 text-[10px] text-muted-foreground",
+                                                                                    children: [
+                                                                                        item.video_url && /*#__PURE__*/ _jsxDEV("span", {
+                                                                                            className: "flex items-center gap-0.5",
+                                                                                            children: [
+                                                                                                /*#__PURE__*/ _jsxDEV(Video, {
+                                                                                                    className: "h-3 w-3"
+                                                                                                }, void 0, false, {
+                                                                                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                                                    lineNumber: 259,
+                                                                                                    columnNumber: 120
+                                                                                                }, this),
+                                                                                                " Video"
+                                                                                            ]
+                                                                                        }, void 0, true, {
+                                                                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                                            lineNumber: 259,
+                                                                                            columnNumber: 76
+                                                                                        }, this),
+                                                                                        item.pdf_url && /*#__PURE__*/ _jsxDEV("span", {
+                                                                                            className: "flex items-center gap-0.5",
+                                                                                            children: [
+                                                                                                /*#__PURE__*/ _jsxDEV(FileText, {
+                                                                                                    className: "h-3 w-3"
+                                                                                                }, void 0, false, {
+                                                                                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                                                    lineNumber: 260,
+                                                                                                    columnNumber: 118
+                                                                                                }, this),
+                                                                                                " PDF"
+                                                                                            ]
+                                                                                        }, void 0, true, {
+                                                                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                                            lineNumber: 260,
+                                                                                            columnNumber: 74
+                                                                                        }, this),
+                                                                                        item.content_text && /*#__PURE__*/ _jsxDEV("span", {
+                                                                                            className: "flex items-center gap-0.5",
+                                                                                            children: [
+                                                                                                /*#__PURE__*/ _jsxDEV(Type, {
+                                                                                                    className: "h-3 w-3"
+                                                                                                }, void 0, false, {
+                                                                                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                                                    lineNumber: 261,
+                                                                                                    columnNumber: 123
+                                                                                                }, this),
+                                                                                                " Text"
+                                                                                            ]
+                                                                                        }, void 0, true, {
+                                                                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                                            lineNumber: 261,
+                                                                                            columnNumber: 79
+                                                                                        }, this)
+                                                                                    ]
+                                                                                }, void 0, true, {
+                                                                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                                    lineNumber: 258,
+                                                                                    columnNumber: 53
+                                                                                }, this)
+                                                                            ]
+                                                                        }, void 0, true, {
+                                                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                            lineNumber: 256,
+                                                                            columnNumber: 49
+                                                                        }, this)
+                                                                    ]
+                                                                }, void 0, true, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                    lineNumber: 249,
+                                                                    columnNumber: 45
+                                                                }, this),
+                                                                /*#__PURE__*/ _jsxDEV("div", {
+                                                                    className: "opacity-0 group-hover:opacity-100 transition-opacity flex gap-1",
+                                                                    children: /*#__PURE__*/ _jsxDEV(Button, {
+                                                                        variant: "ghost",
+                                                                        size: "icon",
+                                                                        className: "h-8 w-8 text-destructive",
+                                                                        children: /*#__PURE__*/ _jsxDEV(Trash2, {
+                                                                            className: "h-3 w-3"
+                                                                        }, void 0, false, {
+                                                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                            lineNumber: 267,
+                                                                            columnNumber: 53
+                                                                        }, this)
+                                                                    }, void 0, false, {
+                                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                        lineNumber: 266,
+                                                                        columnNumber: 49
+                                                                    }, this)
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                    lineNumber: 265,
+                                                                    columnNumber: 45
+                                                                }, this)
+                                                            ]
+                                                        }, item.id, true, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                            lineNumber: 248,
+                                                            columnNumber: 41
+                                                        }, this)),
+                                                    section.items.length === 0 && /*#__PURE__*/ _jsxDEV("div", {
+                                                        className: "text-center py-8 text-muted-foreground text-sm border-2 border-dashed rounded-lg",
+                                                        children: "No content. Add lessons."
+                                                    }, void 0, false, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                        lineNumber: 273,
+                                                        columnNumber: 41
+                                                    }, this)
+                                                ]
+                                            }, void 0, true, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                lineNumber: 246,
+                                                columnNumber: 33
+                                            }, this)
+                                        ]
+                                    }, section.id, true, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                        lineNumber: 234,
+                                        columnNumber: 29
+                                    }, this))
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                lineNumber: 232,
+                                columnNumber: 21
+                            }, this)
+                        ]
+                    }, void 0, true, {
+                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                        lineNumber: 226,
+                        columnNumber: 17
+                    }, this),
+                    /*#__PURE__*/ _jsxDEV(TabsContent, {
+                        value: "overview",
+                        children: /*#__PURE__*/ _jsxDEV(Card, {
+                            children: /*#__PURE__*/ _jsxDEV(CardContent, {
+                                className: "pt-6 space-y-4",
+                                children: [
+                                    /*#__PURE__*/ _jsxDEV("div", {
+                                        className: "space-y-2",
+                                        children: [
+                                            /*#__PURE__*/ _jsxDEV(Label, {
+                                                children: "Course Title"
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                lineNumber: 287,
+                                                columnNumber: 33
+                                            }, this),
+                                            /*#__PURE__*/ _jsxDEV(Input, {
+                                                defaultValue: course.title,
+                                                disabled: true
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                lineNumber: 288,
+                                                columnNumber: 33
+                                            }, this)
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                        lineNumber: 286,
+                                        columnNumber: 29
+                                    }, this),
+                                    /*#__PURE__*/ _jsxDEV("div", {
+                                        className: "space-y-2",
+                                        children: [
+                                            /*#__PURE__*/ _jsxDEV(Label, {
+                                                children: "Description"
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                lineNumber: 291,
+                                                columnNumber: 33
+                                            }, this),
+                                            /*#__PURE__*/ _jsxDEV(Textarea, {
+                                                className: "min-h-[100px]",
+                                                defaultValue: course.description,
+                                                disabled: true
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                lineNumber: 292,
+                                                columnNumber: 33
+                                            }, this)
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                        lineNumber: 290,
+                                        columnNumber: 29
+                                    }, this)
+                                ]
+                            }, void 0, true, {
+                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                lineNumber: 285,
+                                columnNumber: 25
+                            }, this)
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                            lineNumber: 284,
+                            columnNumber: 21
+                        }, this)
+                    }, void 0, false, {
+                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                        lineNumber: 283,
+                        columnNumber: 17
+                    }, this),
+                    /*#__PURE__*/ _jsxDEV(TabsContent, {
+                        value: "students",
+                        children: [
+                            /*#__PURE__*/ _jsxDEV("div", {
+                                className: "flex justify-between items-center mb-6",
+                                children: [
+                                    /*#__PURE__*/ _jsxDEV("h2", {
+                                        className: "text-xl font-bold",
+                                        children: "Student Enrollments"
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                        lineNumber: 300,
+                                        columnNumber: 25
+                                    }, this),
+                                    /*#__PURE__*/ _jsxDEV(Button, {
+                                        variant: "outline",
+                                        onClick: exportToCSV,
+                                        className: "gap-2",
+                                        children: [
+                                            /*#__PURE__*/ _jsxDEV(Download, {
+                                                className: "h-4 w-4"
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                lineNumber: 302,
+                                                columnNumber: 29
+                                            }, this),
+                                            "Export CSV"
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                        lineNumber: 301,
+                                        columnNumber: 25
+                                    }, this)
+                                ]
+                            }, void 0, true, {
+                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                lineNumber: 299,
+                                columnNumber: 21
+                            }, this),
+                            /*#__PURE__*/ _jsxDEV("div", {
+                                className: "space-y-4",
+                                children: enrollments.length > 0 ? enrollments.map((enrollment)=>/*#__PURE__*/ _jsxDEV("div", {
+                                        className: "flex items-center justify-between p-4 border rounded-lg bg-card",
+                                        children: [
+                                            /*#__PURE__*/ _jsxDEV("div", {
+                                                className: "flex items-center gap-4",
+                                                children: [
+                                                    /*#__PURE__*/ _jsxDEV("div", {
+                                                        className: "h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden",
+                                                        children: enrollment.student?.avatar_url ? /*#__PURE__*/ _jsxDEV("img", {
+                                                            src: enrollment.student.avatar_url,
+                                                            alt: enrollment.student.full_name,
+                                                            className: "h-full w-full object-cover"
+                                                        }, void 0, false, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                            lineNumber: 313,
+                                                            columnNumber: 49
+                                                        }, this) : /*#__PURE__*/ _jsxDEV("span", {
+                                                            className: "font-bold text-primary",
+                                                            children: enrollment.student?.full_name?.[0] || "?"
+                                                        }, void 0, false, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                            lineNumber: 315,
+                                                            columnNumber: 49
+                                                        }, this)
+                                                    }, void 0, false, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                        lineNumber: 311,
+                                                        columnNumber: 41
+                                                    }, this),
+                                                    /*#__PURE__*/ _jsxDEV("div", {
+                                                        children: [
+                                                            /*#__PURE__*/ _jsxDEV("p", {
+                                                                className: "font-medium",
+                                                                children: enrollment.student?.full_name || "Unknown Student"
+                                                            }, void 0, false, {
+                                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                lineNumber: 319,
+                                                                columnNumber: 45
+                                                            }, this),
+                                                            /*#__PURE__*/ _jsxDEV("p", {
+                                                                className: "text-sm text-muted-foreground",
+                                                                children: enrollment.student?.email
+                                                            }, void 0, false, {
+                                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                lineNumber: 320,
+                                                                columnNumber: 45
+                                                            }, this),
+                                                            enrollment.transaction_id && /*#__PURE__*/ _jsxDEV("p", {
+                                                                className: "text-xs font-mono bg-muted px-2 py-0.5 rounded inline-block mt-1",
+                                                                children: [
+                                                                    "UPI/Txn: ",
+                                                                    /*#__PURE__*/ _jsxDEV("span", {
+                                                                        className: "font-bold text-foreground",
+                                                                        children: enrollment.transaction_id
+                                                                    }, void 0, false, {
+                                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                        lineNumber: 323,
+                                                                        columnNumber: 62
+                                                                    }, this)
+                                                                ]
+                                                            }, void 0, true, {
+                                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                lineNumber: 322,
+                                                                columnNumber: 49
+                                                            }, this)
+                                                        ]
+                                                    }, void 0, true, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                        lineNumber: 318,
+                                                        columnNumber: 41
+                                                    }, this)
+                                                ]
+                                            }, void 0, true, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                lineNumber: 310,
+                                                columnNumber: 37
+                                            }, this),
+                                            /*#__PURE__*/ _jsxDEV("div", {
+                                                className: "text-right flex items-center justify-end gap-3",
+                                                children: [
+                                                    enrollment.status === 'pending' ? /*#__PURE__*/ _jsxDEV(_Fragment, {
+                                                        children: [
+                                                            /*#__PURE__*/ _jsxDEV(Badge, {
+                                                                variant: "secondary",
+                                                                className: "bg-yellow-500/10 text-yellow-600 hover:bg-yellow-500/20",
+                                                                children: "Pending"
+                                                            }, void 0, false, {
+                                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                lineNumber: 331,
+                                                                columnNumber: 49
+                                                            }, this),
+                                                            /*#__PURE__*/ _jsxDEV(Button, {
+                                                                size: "sm",
+                                                                onClick: ()=>handleApproveEnrollment(enrollment.id),
+                                                                className: "gap-2",
+                                                                children: [
+                                                                    /*#__PURE__*/ _jsxDEV(CheckCircle, {
+                                                                        className: "h-4 w-4"
+                                                                    }, void 0, false, {
+                                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                        lineNumber: 333,
+                                                                        columnNumber: 53
+                                                                    }, this),
+                                                                    " Approve"
+                                                                ]
+                                                            }, void 0, true, {
+                                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                lineNumber: 332,
+                                                                columnNumber: 49
+                                                            }, this),
+                                                            /*#__PURE__*/ _jsxDEV(Button, {
+                                                                size: "sm",
+                                                                variant: "destructive",
+                                                                onClick: ()=>handleDeclineEnrollment(enrollment.id),
+                                                                className: "gap-2",
+                                                                children: [
+                                                                    /*#__PURE__*/ _jsxDEV(XCircle, {
+                                                                        className: "h-4 w-4"
+                                                                    }, void 0, false, {
+                                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                        lineNumber: 336,
+                                                                        columnNumber: 53
+                                                                    }, this),
+                                                                    " Decline"
+                                                                ]
+                                                            }, void 0, true, {
+                                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                lineNumber: 335,
+                                                                columnNumber: 49
+                                                            }, this)
+                                                        ]
+                                                    }, void 0, true) : /*#__PURE__*/ _jsxDEV(_Fragment, {
+                                                        children: [
+                                                            /*#__PURE__*/ _jsxDEV(Badge, {
+                                                                variant: enrollment.status === 'rejected' ? "destructive" : enrollment.completed ? "success" : "default",
+                                                                className: enrollment.status === 'rejected' ? "bg-red-500/10 text-red-600 hover:bg-red-500/20" : "bg-green-500/10 text-green-600 hover:bg-green-500/20",
+                                                                children: enrollment.status === 'rejected' ? "Declined" : enrollment.completed ? "Completed" : "Active"
+                                                            }, void 0, false, {
+                                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                lineNumber: 341,
+                                                                columnNumber: 49
+                                                            }, this),
+                                                            /*#__PURE__*/ _jsxDEV(Button, {
+                                                                variant: "ghost",
+                                                                size: "icon",
+                                                                className: "h-8 w-8 text-destructive ml-2",
+                                                                onClick: ()=>handleDeleteEnrollment(enrollment.id),
+                                                                title: "Remove Student",
+                                                                children: /*#__PURE__*/ _jsxDEV(Trash2, {
+                                                                    className: "h-4 w-4"
+                                                                }, void 0, false, {
+                                                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                    lineNumber: 345,
+                                                                    columnNumber: 53
+                                                                }, this)
+                                                            }, void 0, false, {
+                                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                lineNumber: 344,
+                                                                columnNumber: 49
+                                                            }, this)
+                                                        ]
+                                                    }, void 0, true),
+                                                    /*#__PURE__*/ _jsxDEV("div", {
+                                                        className: "flex flex-col ml-2",
+                                                        children: /*#__PURE__*/ _jsxDEV("p", {
+                                                            className: "text-xs text-muted-foreground mt-1 text-right",
+                                                            children: [
+                                                                "Requested: ",
+                                                                new Date(enrollment.enrolled_at).toLocaleDateString()
+                                                            ]
+                                                        }, void 0, true, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                            lineNumber: 350,
+                                                            columnNumber: 45
+                                                        }, this)
+                                                    }, void 0, false, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                        lineNumber: 349,
+                                                        columnNumber: 41
+                                                    }, this)
+                                                ]
+                                            }, void 0, true, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                lineNumber: 328,
+                                                columnNumber: 37
+                                            }, this)
+                                        ]
+                                    }, enrollment.id, true, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                        lineNumber: 309,
+                                        columnNumber: 33
+                                    }, this)) : /*#__PURE__*/ _jsxDEV("div", {
+                                    className: "text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg",
+                                    children: "No students enrolled yet."
+                                }, void 0, false, {
+                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                    lineNumber: 358,
+                                    columnNumber: 29
+                                }, this)
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                lineNumber: 306,
+                                columnNumber: 21
+                            }, this)
+                        ]
+                    }, void 0, true, {
+                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                        lineNumber: 298,
+                        columnNumber: 17
+                    }, this)
+                ]
+            }, void 0, true, {
+                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                lineNumber: 219,
+                columnNumber: 13
+            }, this)
+        ]
+    }, void 0, true, {
+        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+        lineNumber: 199,
+        columnNumber: 9
+    }, this);
+}
+_s(AdminCourseDetail, "Vdnli8CUBB5Nuy7kHeMFMaqXz/Q=", false, function() {
+    return [
+        useParams,
+        useSearchParams,
+        useToast
+    ];
+});
+_c = AdminCourseDetail;
+function AddSectionDialog({ onCreate }) {
+    _s1();
+    const [title, setTitle] = useState("");
+    const [open, setOpen] = useState(false);
+    return /*#__PURE__*/ _jsxDEV(Dialog, {
+        open: open,
+        onOpenChange: setOpen,
+        children: [
+            /*#__PURE__*/ _jsxDEV(DialogTrigger, {
+                asChild: true,
+                children: /*#__PURE__*/ _jsxDEV(Button, {
+                    className: "gap-2",
+                    children: [
+                        /*#__PURE__*/ _jsxDEV(Plus, {
+                            className: "h-4 w-4"
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                            lineNumber: 375,
+                            columnNumber: 43
+                        }, this),
+                        " Add Module"
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                    lineNumber: 375,
+                    columnNumber: 17
+                }, this)
+            }, void 0, false, {
+                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                lineNumber: 374,
+                columnNumber: 13
+            }, this),
+            /*#__PURE__*/ _jsxDEV(DialogContent, {
+                children: [
+                    /*#__PURE__*/ _jsxDEV(DialogHeader, {
+                        children: /*#__PURE__*/ _jsxDEV(DialogTitle, {
+                            children: "Add Module"
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                            lineNumber: 378,
+                            columnNumber: 31
+                        }, this)
+                    }, void 0, false, {
+                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                        lineNumber: 378,
+                        columnNumber: 17
+                    }, this),
+                    /*#__PURE__*/ _jsxDEV("div", {
+                        className: "py-4",
+                        children: [
+                            /*#__PURE__*/ _jsxDEV(Label, {
+                                children: "Module Title"
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                lineNumber: 380,
+                                columnNumber: 21
+                            }, this),
+                            /*#__PURE__*/ _jsxDEV(Input, {
+                                value: title,
+                                onChange: (e)=>setTitle(e.target.value),
+                                placeholder: "e.g. Introduction"
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                lineNumber: 381,
+                                columnNumber: 21
+                            }, this)
+                        ]
+                    }, void 0, true, {
+                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                        lineNumber: 379,
+                        columnNumber: 17
+                    }, this),
+                    /*#__PURE__*/ _jsxDEV(DialogFooter, {
+                        children: /*#__PURE__*/ _jsxDEV(Button, {
+                            onClick: ()=>{
+                                onCreate(title);
+                                setOpen(false);
+                                setTitle("");
+                            },
+                            children: "Create"
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                            lineNumber: 384,
+                            columnNumber: 21
+                        }, this)
+                    }, void 0, false, {
+                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                        lineNumber: 383,
+                        columnNumber: 17
+                    }, this)
+                ]
+            }, void 0, true, {
+                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                lineNumber: 377,
+                columnNumber: 13
+            }, this)
+        ]
+    }, void 0, true, {
+        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+        lineNumber: 373,
+        columnNumber: 9
+    }, this);
+}
+_s1(AddSectionDialog, "EpkVbj0H3JQKIImDf0B1CD4XxvM=");
+_c1 = AddSectionDialog;
+function AddContentDialog({ sectionId, onAdded }) {
+    _s2();
+    const { toast } = useToast();
+    const [open, setOpen] = useState(false);
+    // Unified state
+    const [title, setTitle] = useState("");
+    const [videoUrl, setVideoUrl] = useState("");
+    const [pdfUrl, setPdfUrl] = useState("");
+    const [textContent, setTextContent] = useState("");
+    // Upload state
+    const [docType, setDocType] = useState("upload");
+    const [uploading, setUploading] = useState(false);
+    const handleFileUpload = async (e)=>{
+        const file = e.target.files?.[0];
+        if (!file) return;
+        try {
+            setUploading(true);
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+            const filePath = `${fileName}`;
+            const { error: uploadError } = await supabase.storage.from('course_content').upload(filePath, file);
+            if (uploadError) throw uploadError;
+            const { data } = supabase.storage.from('course_content').getPublicUrl(filePath);
+            setPdfUrl(data.publicUrl);
+            toast({
+                title: "File uploaded successfully"
+            });
+        } catch (error) {
+            toast({
+                variant: "destructive",
+                title: "Upload failed",
+                description: error.message
+            });
+        } finally{
+            setUploading(false);
+        }
+    };
+    const handleAdd = async ()=>{
+        if (!title) {
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "Title is required"
+            });
+            return;
+        }
+        const { error } = await supabase.from('section_contents').insert([
+            {
+                section_id: sectionId,
+                title,
+                type: 'text',
+                video_url: videoUrl || null,
+                pdf_url: pdfUrl || null,
+                content_text: textContent || null
+            }
+        ]);
+        if (error) {
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: error.message
+            });
+        } else {
+            toast({
+                title: "Lesson added successfully"
+            });
+            setOpen(false);
+            onAdded();
+            // Reset
+            setTitle("");
+            setVideoUrl("");
+            setPdfUrl("");
+            setTextContent("");
+            setDocType("upload");
+        }
+    };
+    return /*#__PURE__*/ _jsxDEV(Dialog, {
+        open: open,
+        onOpenChange: setOpen,
+        children: [
+            /*#__PURE__*/ _jsxDEV(DialogTrigger, {
+                asChild: true,
+                children: /*#__PURE__*/ _jsxDEV(Button, {
+                    variant: "outline",
+                    size: "sm",
+                    className: "gap-2",
+                    children: [
+                        /*#__PURE__*/ _jsxDEV(Plus, {
+                            className: "h-3 w-3"
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                            lineNumber: 467,
+                            columnNumber: 71
+                        }, this),
+                        " Add Lesson"
+                    ]
+                }, void 0, true, {
+                    fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                    lineNumber: 467,
+                    columnNumber: 17
+                }, this)
+            }, void 0, false, {
+                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                lineNumber: 466,
+                columnNumber: 13
+            }, this),
+            /*#__PURE__*/ _jsxDEV(DialogContent, {
+                className: "sm:max-w-lg",
+                children: [
+                    /*#__PURE__*/ _jsxDEV(DialogHeader, {
+                        children: /*#__PURE__*/ _jsxDEV(DialogTitle, {
+                            children: "Add Lesson Content"
+                        }, void 0, false, {
+                            fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                            lineNumber: 471,
+                            columnNumber: 21
+                        }, this)
+                    }, void 0, false, {
+                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                        lineNumber: 470,
+                        columnNumber: 17
+                    }, this),
+                    /*#__PURE__*/ _jsxDEV("div", {
+                        className: "space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-2",
+                        children: [
+                            /*#__PURE__*/ _jsxDEV("div", {
+                                className: "space-y-2",
+                                children: [
+                                    /*#__PURE__*/ _jsxDEV(Label, {
+                                        children: "Lesson Title"
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                        lineNumber: 476,
+                                        columnNumber: 25
+                                    }, this),
+                                    /*#__PURE__*/ _jsxDEV(Input, {
+                                        value: title,
+                                        onChange: (e)=>setTitle(e.target.value),
+                                        placeholder: "e.g. Part 1: Basics"
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                        lineNumber: 477,
+                                        columnNumber: 25
+                                    }, this)
+                                ]
+                            }, void 0, true, {
+                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                lineNumber: 475,
+                                columnNumber: 21
+                            }, this),
+                            /*#__PURE__*/ _jsxDEV("div", {
+                                className: "space-y-2",
+                                children: [
+                                    /*#__PURE__*/ _jsxDEV(Label, {
+                                        children: "Video URL (YouTube)"
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                        lineNumber: 481,
+                                        columnNumber: 25
+                                    }, this),
+                                    /*#__PURE__*/ _jsxDEV("div", {
+                                        className: "flex gap-2",
+                                        children: [
+                                            /*#__PURE__*/ _jsxDEV(Video, {
+                                                className: "w-4 h-4 mt-3 text-muted-foreground"
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                lineNumber: 483,
+                                                columnNumber: 29
+                                            }, this),
+                                            /*#__PURE__*/ _jsxDEV(Input, {
+                                                value: videoUrl,
+                                                onChange: (e)=>setVideoUrl(e.target.value),
+                                                placeholder: "https://youtube.com/..."
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                lineNumber: 484,
+                                                columnNumber: 29
+                                            }, this)
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                        lineNumber: 482,
+                                        columnNumber: 25
+                                    }, this)
+                                ]
+                            }, void 0, true, {
+                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                lineNumber: 480,
+                                columnNumber: 21
+                            }, this),
+                            /*#__PURE__*/ _jsxDEV("div", {
+                                className: "space-y-2",
+                                children: [
+                                    /*#__PURE__*/ _jsxDEV(Label, {
+                                        children: "Document (PDF / PPT)"
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                        lineNumber: 489,
+                                        columnNumber: 25
+                                    }, this),
+                                    /*#__PURE__*/ _jsxDEV(Tabs, {
+                                        value: docType,
+                                        onValueChange: (v)=>setDocType(v),
+                                        className: "w-full",
+                                        children: [
+                                            /*#__PURE__*/ _jsxDEV(TabsList, {
+                                                className: "grid w-full grid-cols-2 h-8 mb-2",
+                                                children: [
+                                                    /*#__PURE__*/ _jsxDEV(TabsTrigger, {
+                                                        value: "upload",
+                                                        className: "text-xs",
+                                                        children: "Upload File"
+                                                    }, void 0, false, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                        lineNumber: 492,
+                                                        columnNumber: 33
+                                                    }, this),
+                                                    /*#__PURE__*/ _jsxDEV(TabsTrigger, {
+                                                        value: "link",
+                                                        className: "text-xs",
+                                                        children: "External Link"
+                                                    }, void 0, false, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                        lineNumber: 493,
+                                                        columnNumber: 33
+                                                    }, this)
+                                                ]
+                                            }, void 0, true, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                lineNumber: 491,
+                                                columnNumber: 29
+                                            }, this),
+                                            /*#__PURE__*/ _jsxDEV(TabsContent, {
+                                                value: "upload",
+                                                className: "mt-0",
+                                                children: /*#__PURE__*/ _jsxDEV("div", {
+                                                    className: "border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center text-center hover:bg-muted/50 transition-colors",
+                                                    children: uploading ? /*#__PURE__*/ _jsxDEV("div", {
+                                                        className: "flex flex-col items-center gap-2",
+                                                        children: [
+                                                            /*#__PURE__*/ _jsxDEV(Loader2, {
+                                                                className: "h-8 w-8 animate-spin text-primary"
+                                                            }, void 0, false, {
+                                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                lineNumber: 499,
+                                                                columnNumber: 45
+                                                            }, this),
+                                                            /*#__PURE__*/ _jsxDEV("p", {
+                                                                className: "text-sm text-muted-foreground",
+                                                                children: "Uploading..."
+                                                            }, void 0, false, {
+                                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                lineNumber: 500,
+                                                                columnNumber: 45
+                                                            }, this)
+                                                        ]
+                                                    }, void 0, true, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                        lineNumber: 498,
+                                                        columnNumber: 41
+                                                    }, this) : pdfUrl && pdfUrl.includes("supabase") ? /*#__PURE__*/ _jsxDEV("div", {
+                                                        className: "flex flex-col items-center gap-2",
+                                                        children: [
+                                                            /*#__PURE__*/ _jsxDEV(FileText, {
+                                                                className: "h-8 w-8 text-green-500"
+                                                            }, void 0, false, {
+                                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                lineNumber: 504,
+                                                                columnNumber: 45
+                                                            }, this),
+                                                            /*#__PURE__*/ _jsxDEV("p", {
+                                                                className: "text-sm font-medium text-green-600",
+                                                                children: "File Uploaded"
+                                                            }, void 0, false, {
+                                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                lineNumber: 505,
+                                                                columnNumber: 45
+                                                            }, this),
+                                                            /*#__PURE__*/ _jsxDEV(Button, {
+                                                                variant: "ghost",
+                                                                size: "sm",
+                                                                onClick: ()=>setPdfUrl(""),
+                                                                className: "h-6 text-xs text-destructive",
+                                                                children: "Remove"
+                                                            }, void 0, false, {
+                                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                lineNumber: 506,
+                                                                columnNumber: 45
+                                                            }, this)
+                                                        ]
+                                                    }, void 0, true, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                        lineNumber: 503,
+                                                        columnNumber: 41
+                                                    }, this) : /*#__PURE__*/ _jsxDEV("div", {
+                                                        className: "w-full",
+                                                        children: [
+                                                            /*#__PURE__*/ _jsxDEV(Label, {
+                                                                htmlFor: "file-upload",
+                                                                className: "cursor-pointer flex flex-col items-center gap-2 w-full",
+                                                                children: [
+                                                                    /*#__PURE__*/ _jsxDEV(UploadCloud, {
+                                                                        className: "h-8 w-8 text-muted-foreground"
+                                                                    }, void 0, false, {
+                                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                        lineNumber: 511,
+                                                                        columnNumber: 49
+                                                                    }, this),
+                                                                    /*#__PURE__*/ _jsxDEV("span", {
+                                                                        className: "text-sm font-medium",
+                                                                        children: "Click to upload PDF or PPT"
+                                                                    }, void 0, false, {
+                                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                        lineNumber: 512,
+                                                                        columnNumber: 49
+                                                                    }, this),
+                                                                    /*#__PURE__*/ _jsxDEV("span", {
+                                                                        className: "text-xs text-muted-foreground",
+                                                                        children: "Max 10MB"
+                                                                    }, void 0, false, {
+                                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                        lineNumber: 513,
+                                                                        columnNumber: 49
+                                                                    }, this)
+                                                                ]
+                                                            }, void 0, true, {
+                                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                lineNumber: 510,
+                                                                columnNumber: 45
+                                                            }, this),
+                                                            /*#__PURE__*/ _jsxDEV(Input, {
+                                                                id: "file-upload",
+                                                                type: "file",
+                                                                accept: ".pdf,.ppt,.pptx",
+                                                                className: "hidden",
+                                                                onChange: handleFileUpload
+                                                            }, void 0, false, {
+                                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                                lineNumber: 515,
+                                                                columnNumber: 45
+                                                            }, this)
+                                                        ]
+                                                    }, void 0, true, {
+                                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                        lineNumber: 509,
+                                                        columnNumber: 41
+                                                    }, this)
+                                                }, void 0, false, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                    lineNumber: 496,
+                                                    columnNumber: 33
+                                                }, this)
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                lineNumber: 495,
+                                                columnNumber: 29
+                                            }, this),
+                                            /*#__PURE__*/ _jsxDEV(TabsContent, {
+                                                value: "link",
+                                                className: "mt-0",
+                                                children: /*#__PURE__*/ _jsxDEV("div", {
+                                                    className: "flex gap-2",
+                                                    children: [
+                                                        /*#__PURE__*/ _jsxDEV(FileText, {
+                                                            className: "w-4 h-4 mt-3 text-muted-foreground"
+                                                        }, void 0, false, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                            lineNumber: 528,
+                                                            columnNumber: 37
+                                                        }, this),
+                                                        /*#__PURE__*/ _jsxDEV(Input, {
+                                                            value: pdfUrl,
+                                                            onChange: (e)=>setPdfUrl(e.target.value),
+                                                            placeholder: "https://..."
+                                                        }, void 0, false, {
+                                                            fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                            lineNumber: 529,
+                                                            columnNumber: 37
+                                                        }, this)
+                                                    ]
+                                                }, void 0, true, {
+                                                    fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                    lineNumber: 527,
+                                                    columnNumber: 33
+                                                }, this)
+                                            }, void 0, false, {
+                                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                                lineNumber: 526,
+                                                columnNumber: 29
+                                            }, this)
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                        lineNumber: 490,
+                                        columnNumber: 25
+                                    }, this)
+                                ]
+                            }, void 0, true, {
+                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                lineNumber: 488,
+                                columnNumber: 21
+                            }, this),
+                            /*#__PURE__*/ _jsxDEV("div", {
+                                className: "space-y-2",
+                                children: [
+                                    /*#__PURE__*/ _jsxDEV(Label, {
+                                        children: "Text Content"
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                        lineNumber: 536,
+                                        columnNumber: 25
+                                    }, this),
+                                    /*#__PURE__*/ _jsxDEV(Textarea, {
+                                        value: textContent,
+                                        onChange: (e)=>setTextContent(e.target.value),
+                                        rows: 6,
+                                        placeholder: "Reading material for this lesson..."
+                                    }, void 0, false, {
+                                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                        lineNumber: 537,
+                                        columnNumber: 25
+                                    }, this)
+                                ]
+                            }, void 0, true, {
+                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                lineNumber: 535,
+                                columnNumber: 21
+                            }, this)
+                        ]
+                    }, void 0, true, {
+                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                        lineNumber: 474,
+                        columnNumber: 17
+                    }, this),
+                    /*#__PURE__*/ _jsxDEV(DialogFooter, {
+                        children: [
+                            /*#__PURE__*/ _jsxDEV(Button, {
+                                variant: "outline",
+                                onClick: ()=>setOpen(false),
+                                children: "Cancel"
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                lineNumber: 547,
+                                columnNumber: 21
+                            }, this),
+                            /*#__PURE__*/ _jsxDEV(Button, {
+                                onClick: handleAdd,
+                                disabled: uploading,
+                                children: "Save Lesson"
+                            }, void 0, false, {
+                                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                                lineNumber: 548,
+                                columnNumber: 21
+                            }, this)
+                        ]
+                    }, void 0, true, {
+                        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                        lineNumber: 546,
+                        columnNumber: 17
+                    }, this)
+                ]
+            }, void 0, true, {
+                fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+                lineNumber: 469,
+                columnNumber: 13
+            }, this)
+        ]
+    }, void 0, true, {
+        fileName: "D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx",
+        lineNumber: 465,
+        columnNumber: 9
+    }, this);
+}
+_s2(AddContentDialog, "u7w7sp8d+2tdcphVmSXYl363PYc=", false, function() {
+    return [
+        useToast
+    ];
+});
+_c2 = AddContentDialog;
+var _c, _c1, _c2;
+$RefreshReg$(_c, "AdminCourseDetail");
+$RefreshReg$(_c1, "AddSectionDialog");
+$RefreshReg$(_c2, "AddContentDialog");
+
+
+if (import.meta.hot && !inWebWorker) {
+  window.$RefreshReg$ = prevRefreshReg;
+  window.$RefreshSig$ = prevRefreshSig;
+}
+
+
+if (import.meta.hot && !inWebWorker) {
+  RefreshRuntime.__hmr_import(import.meta.url).then((currentExports) => {
+    RefreshRuntime.registerExportsForReactRefresh("D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx", currentExports);
+    import.meta.hot.accept((nextExports) => {
+      if (!nextExports) return;
+      const invalidateMessage = RefreshRuntime.validateRefreshBoundaryAndEnqueueUpdate("D:/Orbitlms/src/pages/admin/AdminCourseDetail.tsx", currentExports, nextExports);
+      if (invalidateMessage) import.meta.hot.invalidate(invalidateMessage);
+    });
+  });
+}
+
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbIkFkbWluQ291cnNlRGV0YWlsLnRzeCJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgeyB1c2VTdGF0ZSwgdXNlRWZmZWN0IH0gZnJvbSBcInJlYWN0XCI7XHJcbmltcG9ydCB7IHVzZVBhcmFtcywgTGluaywgdXNlU2VhcmNoUGFyYW1zIH0gZnJvbSBcInJlYWN0LXJvdXRlci1kb21cIjtcclxuaW1wb3J0IHsgQWRtaW5MYXlvdXQgfSBmcm9tIFwiQC9jb21wb25lbnRzL2xheW91dC9BZG1pbkxheW91dFwiO1xyXG5pbXBvcnQgeyBCdXR0b24gfSBmcm9tIFwiQC9jb21wb25lbnRzL3VpL2J1dHRvblwiO1xyXG5pbXBvcnQgeyBJbnB1dCB9IGZyb20gXCJAL2NvbXBvbmVudHMvdWkvaW5wdXRcIjtcclxuaW1wb3J0IHsgVGV4dGFyZWEgfSBmcm9tIFwiQC9jb21wb25lbnRzL3VpL3RleHRhcmVhXCI7XHJcbmltcG9ydCB7IExhYmVsIH0gZnJvbSBcIkAvY29tcG9uZW50cy91aS9sYWJlbFwiO1xyXG5pbXBvcnQgeyBBY2NvcmRpb24sIEFjY29yZGlvbkNvbnRlbnQsIEFjY29yZGlvbkl0ZW0sIEFjY29yZGlvblRyaWdnZXIgfSBmcm9tIFwiQC9jb21wb25lbnRzL3VpL2FjY29yZGlvblwiO1xyXG5pbXBvcnQgeyBEaWFsb2csIERpYWxvZ0NvbnRlbnQsIERpYWxvZ0Rlc2NyaXB0aW9uLCBEaWFsb2dGb290ZXIsIERpYWxvZ0hlYWRlciwgRGlhbG9nVGl0bGUsIERpYWxvZ1RyaWdnZXIgfSBmcm9tIFwiQC9jb21wb25lbnRzL3VpL2RpYWxvZ1wiO1xyXG5pbXBvcnQgeyBUYWJzLCBUYWJzQ29udGVudCwgVGFic0xpc3QsIFRhYnNUcmlnZ2VyIH0gZnJvbSBcIkAvY29tcG9uZW50cy91aS90YWJzXCI7XHJcbmltcG9ydCB7IENhcmQsIENhcmRDb250ZW50IH0gZnJvbSBcIkAvY29tcG9uZW50cy91aS9jYXJkXCI7XHJcbmltcG9ydCB7IEJhZGdlIH0gZnJvbSBcIkAvY29tcG9uZW50cy91aS9iYWRnZVwiO1xyXG5pbXBvcnQgeyB1c2VUb2FzdCB9IGZyb20gXCJAL2hvb2tzL3VzZS10b2FzdFwiO1xyXG5pbXBvcnQgeyBzdXBhYmFzZSB9IGZyb20gXCJAL2xpYi9zdXBhYmFzZVwiO1xyXG5pbXBvcnQge1xyXG4gICAgUGx1cyxcclxuICAgIFZpZGVvLFxyXG4gICAgRmlsZVRleHQsXHJcbiAgICBUeXBlLFxyXG4gICAgTW9yZVZlcnRpY2FsLFxyXG4gICAgRWRpdDIsXHJcbiAgICBUcmFzaDIsXHJcbiAgICBVcGxvYWRDbG91ZCxcclxuICAgIENoZXZyb25MZWZ0LFxyXG4gICAgTG9hZGVyMixcclxuICAgIENoZWNrQ2lyY2xlLFxyXG4gICAgWENpcmNsZSxcclxuICAgIERvd25sb2FkLFxyXG4gICAgRXllXHJcbn0gZnJvbSBcImx1Y2lkZS1yZWFjdFwiO1xyXG5cclxuZXhwb3J0IGRlZmF1bHQgZnVuY3Rpb24gQWRtaW5Db3Vyc2VEZXRhaWwoKSB7XHJcbiAgICBjb25zdCB7IGlkIH0gPSB1c2VQYXJhbXMoKTtcclxuICAgIGNvbnN0IFtzZWFyY2hQYXJhbXNdID0gdXNlU2VhcmNoUGFyYW1zKCk7XHJcbiAgICBjb25zdCB7IHRvYXN0IH0gPSB1c2VUb2FzdCgpO1xyXG4gICAgY29uc3QgW2NvdXJzZSwgc2V0Q291cnNlXSA9IHVzZVN0YXRlPGFueT4obnVsbCk7XHJcbiAgICBjb25zdCBbbG9hZGluZywgc2V0TG9hZGluZ10gPSB1c2VTdGF0ZSh0cnVlKTtcclxuICAgIGNvbnN0IFthY3RpdmVUYWIsIHNldEFjdGl2ZVRhYl0gPSB1c2VTdGF0ZShzZWFyY2hQYXJhbXMuZ2V0KFwidGFiXCIpIHx8IFwiY3VycmljdWx1bVwiKTtcclxuICAgIGNvbnN0IFtzZWN0aW9ucywgc2V0U2VjdGlvbnNdID0gdXNlU3RhdGU8YW55W10+KFtdKTtcclxuICAgIGNvbnN0IFtlbnJvbGxtZW50cywgc2V0RW5yb2xsbWVudHNdID0gdXNlU3RhdGU8YW55W10+KFtdKTtcclxuXHJcbiAgICB1c2VFZmZlY3QoKCkgPT4ge1xyXG4gICAgICAgIGlmIChpZCkgZmV0Y2hDb3Vyc2VEYXRhKCk7XHJcbiAgICB9LCBbaWRdKTtcclxuXHJcbiAgICBjb25zdCBmZXRjaENvdXJzZURhdGEgPSBhc3luYyAoKSA9PiB7XHJcbiAgICAgICAgc2V0TG9hZGluZyh0cnVlKTtcclxuICAgICAgICAvLyBGZXRjaCBjb3Vyc2UgZGV0YWlsc1xyXG4gICAgICAgIGNvbnN0IHsgZGF0YTogY291cnNlRGF0YSwgZXJyb3I6IGNvdXJzZUVycm9yIH0gPSBhd2FpdCBzdXBhYmFzZVxyXG4gICAgICAgICAgICAuZnJvbSgnY291cnNlcycpXHJcbiAgICAgICAgICAgIC5zZWxlY3QoJ2lkLCB0aXRsZSwgZGVzY3JpcHRpb24nKVxyXG4gICAgICAgICAgICAuZXEoJ2lkJywgaWQpXHJcbiAgICAgICAgICAgIC5zaW5nbGUoKTtcclxuXHJcbiAgICAgICAgaWYgKGNvdXJzZUVycm9yKSB7XHJcbiAgICAgICAgICAgIGNvbnNvbGUuZXJyb3IoY291cnNlRXJyb3IpO1xyXG4gICAgICAgICAgICB0b2FzdCh7IHZhcmlhbnQ6IFwiZGVzdHJ1Y3RpdmVcIiwgdGl0bGU6IFwiRXJyb3JcIiwgZGVzY3JpcHRpb246IFwiRmFpbGVkIHRvIGxvYWQgY291cnNlXCIgfSk7XHJcbiAgICAgICAgICAgIHNldExvYWRpbmcoZmFsc2UpO1xyXG4gICAgICAgICAgICByZXR1cm47XHJcbiAgICAgICAgfVxyXG5cclxuICAgICAgICBzZXRDb3Vyc2UoY291cnNlRGF0YSk7XHJcblxyXG4gICAgICAgIC8vIEZldGNoIGVucm9sbG1lbnRzIHdpdGggc3R1ZGVudCBkZXRhaWxzXHJcbiAgICAgICAgY29uc3QgeyBkYXRhOiBlbnJvbGxtZW50RGF0YSB9ID0gYXdhaXQgc3VwYWJhc2VcclxuICAgICAgICAgICAgLmZyb20oJ2Vucm9sbG1lbnRzJylcclxuICAgICAgICAgICAgLnNlbGVjdChgXHJcbiAgICAgICAgICAgICAgICAqLFxyXG4gICAgICAgICAgICAgICAgc3R1ZGVudDp1c2VycyFzdHVkZW50X2lkKGZ1bGxfbmFtZSwgZW1haWwsIGF2YXRhcl91cmwpXHJcbiAgICAgICAgICAgIGApXHJcbiAgICAgICAgICAgIC5lcSgnY291cnNlX2lkJywgaWQpO1xyXG5cclxuICAgICAgICBpZiAoZW5yb2xsbWVudERhdGEpIHtcclxuICAgICAgICAgICAgc2V0RW5yb2xsbWVudHMoZW5yb2xsbWVudERhdGEpO1xyXG4gICAgICAgIH1cclxuXHJcbiAgICAgICAgLy8gRmV0Y2ggc2VjdGlvbnMgYW5kIGNvbnRlbnRcclxuICAgICAgICBjb25zdCB7IGRhdGE6IHNlY3Rpb25EYXRhLCBlcnJvcjogc2VjdGlvbkVycm9yIH0gPSBhd2FpdCBzdXBhYmFzZVxyXG4gICAgICAgICAgICAuZnJvbSgnY291cnNlX3NlY3Rpb25zJylcclxuICAgICAgICAgICAgLnNlbGVjdChgXHJcbiAgICAgICAgICAgICAgICBpZCwgdGl0bGUsIG9yZGVyX2luZGV4LFxyXG4gICAgICAgICAgICAgICAgc2VjdGlvbl9jb250ZW50cyAoaWQsIHRpdGxlLCB2aWRlb191cmwsIHBkZl91cmwsIGNvbnRlbnRfdGV4dCwgb3JkZXJfaW5kZXgpXHJcbiAgICAgICAgICAgIGApXHJcbiAgICAgICAgICAgIC5lcSgnY291cnNlX2lkJywgaWQpXHJcbiAgICAgICAgICAgIC5vcmRlcignb3JkZXJfaW5kZXgnLCB7IGFzY2VuZGluZzogdHJ1ZSB9KTtcclxuXHJcbiAgICAgICAgaWYgKHNlY3Rpb25FcnJvcikgY29uc29sZS5lcnJvcihzZWN0aW9uRXJyb3IpO1xyXG5cclxuICAgICAgICAvLyBTb3J0IGNvbnRlbnRzIG1hbnVhbGx5IGlmIG5lZWRlZCwgb3IgcmVseSBvbiBmZXRjaCBvcmRlciBpZiB3ZSBhZGQgb3JkZXIgbG9naWMgdG8gcXVlcnlcclxuICAgICAgICBjb25zdCBzb3J0ZWRTZWN0aW9ucyA9IHNlY3Rpb25EYXRhPy5tYXAoc2VjdGlvbiA9PiAoe1xyXG4gICAgICAgICAgICAuLi5zZWN0aW9uLFxyXG4gICAgICAgICAgICBpdGVtczogc2VjdGlvbi5zZWN0aW9uX2NvbnRlbnRzPy5zb3J0KChhOiBhbnksIGI6IGFueSkgPT4gYS5vcmRlcl9pbmRleCAtIGIub3JkZXJfaW5kZXgpIHx8IFtdXHJcbiAgICAgICAgfSkpIHx8IFtdO1xyXG5cclxuICAgICAgICBzZXRTZWN0aW9ucyhzb3J0ZWRTZWN0aW9ucyk7XHJcbiAgICAgICAgc2V0TG9hZGluZyhmYWxzZSk7XHJcbiAgICB9O1xyXG5cclxuICAgIGNvbnN0IGhhbmRsZUNyZWF0ZVNlY3Rpb24gPSBhc3luYyAodGl0bGU6IHN0cmluZykgPT4ge1xyXG4gICAgICAgIGNvbnN0IHsgZXJyb3IgfSA9IGF3YWl0IHN1cGFiYXNlXHJcbiAgICAgICAgICAgIC5mcm9tKCdjb3Vyc2Vfc2VjdGlvbnMnKVxyXG4gICAgICAgICAgICAuaW5zZXJ0KFt7IGNvdXJzZV9pZDogaWQsIHRpdGxlLCBvcmRlcl9pbmRleDogc2VjdGlvbnMubGVuZ3RoIH1dKTtcclxuXHJcbiAgICAgICAgaWYgKGVycm9yKSB7XHJcbiAgICAgICAgICAgIHRvYXN0KHsgdmFyaWFudDogXCJkZXN0cnVjdGl2ZVwiLCB0aXRsZTogXCJFcnJvclwiLCBkZXNjcmlwdGlvbjogZXJyb3IubWVzc2FnZSB9KTtcclxuICAgICAgICB9IGVsc2Uge1xyXG4gICAgICAgICAgICB0b2FzdCh7IHRpdGxlOiBcIlNlY3Rpb24gYWRkZWRcIiB9KTtcclxuICAgICAgICAgICAgZmV0Y2hDb3Vyc2VEYXRhKCk7XHJcbiAgICAgICAgfVxyXG4gICAgfTtcclxuXHJcbiAgICBjb25zdCBoYW5kbGVBcHByb3ZlRW5yb2xsbWVudCA9IGFzeW5jIChlbnJvbGxtZW50SWQ6IHN0cmluZykgPT4ge1xyXG4gICAgICAgIHRyeSB7XHJcbiAgICAgICAgICAgIGNvbnN0IHsgZXJyb3IgfSA9IGF3YWl0IHN1cGFiYXNlXHJcbiAgICAgICAgICAgICAgICAuZnJvbSgnZW5yb2xsbWVudHMnKVxyXG4gICAgICAgICAgICAgICAgLnVwZGF0ZSh7IHN0YXR1czogJ2FwcHJvdmVkJyB9KVxyXG4gICAgICAgICAgICAgICAgLmVxKCdpZCcsIGVucm9sbG1lbnRJZCk7XHJcblxyXG4gICAgICAgICAgICBpZiAoZXJyb3IpIHRocm93IGVycm9yO1xyXG5cclxuICAgICAgICAgICAgdG9hc3QoeyB0aXRsZTogXCJFbnJvbGxtZW50IEFwcHJvdmVkXCIsIGRlc2NyaXB0aW9uOiBcIlRoZSBzdHVkZW50IG5vdyBoYXMgYWNjZXNzIHRvIHRoZSBjb3Vyc2UuXCIgfSk7XHJcbiAgICAgICAgICAgIGZldGNoQ291cnNlRGF0YSgpOyAvLyBSZWZyZXNoIGxpc3RcclxuICAgICAgICB9IGNhdGNoIChlcnJvcjogYW55KSB7XHJcbiAgICAgICAgICAgIHRvYXN0KHsgdmFyaWFudDogXCJkZXN0cnVjdGl2ZVwiLCB0aXRsZTogXCJFcnJvclwiLCBkZXNjcmlwdGlvbjogZXJyb3IubWVzc2FnZSB8fCBcIkZhaWxlZCB0byBhcHByb3ZlIGVucm9sbG1lbnQuXCIgfSk7XHJcbiAgICAgICAgfVxyXG4gICAgfTtcclxuXHJcbiAgICBjb25zdCBoYW5kbGVEZWNsaW5lRW5yb2xsbWVudCA9IGFzeW5jIChlbnJvbGxtZW50SWQ6IHN0cmluZykgPT4ge1xyXG4gICAgICAgIHRyeSB7XHJcbiAgICAgICAgICAgIGNvbnN0IHsgZXJyb3IgfSA9IGF3YWl0IHN1cGFiYXNlXHJcbiAgICAgICAgICAgICAgICAuZnJvbSgnZW5yb2xsbWVudHMnKVxyXG4gICAgICAgICAgICAgICAgLnVwZGF0ZSh7IHN0YXR1czogJ3JlamVjdGVkJyB9KVxyXG4gICAgICAgICAgICAgICAgLmVxKCdpZCcsIGVucm9sbG1lbnRJZCk7XHJcblxyXG4gICAgICAgICAgICBpZiAoZXJyb3IpIHRocm93IGVycm9yO1xyXG5cclxuICAgICAgICAgICAgdG9hc3QoeyB0aXRsZTogXCJFbnJvbGxtZW50IERlY2xpbmVkXCIsIGRlc2NyaXB0aW9uOiBcIlRoZSBzdHVkZW50J3MgZW5yb2xsbWVudCByZXF1ZXN0IGhhcyBiZWVuIGRlY2xpbmVkLlwiIH0pO1xyXG4gICAgICAgICAgICBmZXRjaENvdXJzZURhdGEoKTsgLy8gUmVmcmVzaCBsaXN0XHJcbiAgICAgICAgfSBjYXRjaCAoZXJyb3I6IGFueSkge1xyXG4gICAgICAgICAgICB0b2FzdCh7IHZhcmlhbnQ6IFwiZGVzdHJ1Y3RpdmVcIiwgdGl0bGU6IFwiRXJyb3JcIiwgZGVzY3JpcHRpb246IGVycm9yLm1lc3NhZ2UgfHwgXCJGYWlsZWQgdG8gZGVjbGluZSBlbnJvbGxtZW50LlwiIH0pO1xyXG4gICAgICAgIH1cclxuICAgIH07XHJcblxyXG4gICAgY29uc3QgaGFuZGxlRGVsZXRlRW5yb2xsbWVudCA9IGFzeW5jIChlbnJvbGxtZW50SWQ6IHN0cmluZykgPT4ge1xyXG4gICAgICAgIGlmICghY29uZmlybShcIkFyZSB5b3Ugc3VyZSB5b3Ugd2FudCB0byByZW1vdmUgdGhpcyBzdHVkZW50IGZyb20gdGhlIGNvdXJzZT9cIikpIHJldHVybjtcclxuXHJcbiAgICAgICAgdHJ5IHtcclxuICAgICAgICAgICAgY29uc3QgeyBlcnJvciB9ID0gYXdhaXQgc3VwYWJhc2VcclxuICAgICAgICAgICAgICAgIC5mcm9tKCdlbnJvbGxtZW50cycpXHJcbiAgICAgICAgICAgICAgICAuZGVsZXRlKClcclxuICAgICAgICAgICAgICAgIC5lcSgnaWQnLCBlbnJvbGxtZW50SWQpO1xyXG5cclxuICAgICAgICAgICAgaWYgKGVycm9yKSB0aHJvdyBlcnJvcjtcclxuXHJcbiAgICAgICAgICAgIHRvYXN0KHsgdGl0bGU6IFwiU3R1ZGVudCBSZW1vdmVkXCIsIGRlc2NyaXB0aW9uOiBcIlRoZSBzdHVkZW50IGhhcyBiZWVuIHJlbW92ZWQgZnJvbSB0aGlzIGNvdXJzZS5cIiB9KTtcclxuICAgICAgICAgICAgZmV0Y2hDb3Vyc2VEYXRhKCk7IC8vIFJlZnJlc2ggbGlzdFxyXG4gICAgICAgIH0gY2F0Y2ggKGVycm9yOiBhbnkpIHtcclxuICAgICAgICAgICAgdG9hc3QoeyB2YXJpYW50OiBcImRlc3RydWN0aXZlXCIsIHRpdGxlOiBcIkVycm9yXCIsIGRlc2NyaXB0aW9uOiBlcnJvci5tZXNzYWdlIHx8IFwiRmFpbGVkIHRvIHJlbW92ZSBzdHVkZW50LlwiIH0pO1xyXG4gICAgICAgIH1cclxuICAgIH07XHJcblxyXG4gICAgY29uc3QgZXhwb3J0VG9DU1YgPSAoKSA9PiB7XHJcbiAgICAgICAgaWYgKCFlbnJvbGxtZW50cy5sZW5ndGgpIHtcclxuICAgICAgICAgICAgdG9hc3QoeyBkZXNjcmlwdGlvbjogXCJObyBzdHVkZW50cyB0byBleHBvcnQuXCIgfSk7XHJcbiAgICAgICAgICAgIHJldHVybjtcclxuICAgICAgICB9XHJcblxyXG4gICAgICAgIGNvbnN0IGNzdlJvd3MgPSBbXTtcclxuICAgICAgICBjb25zdCBoZWFkZXJzID0gW1wiU3R1ZGVudCBOYW1lXCIsIFwiRW1haWxcIiwgXCJDb3Vyc2UgRW5yb2xsZWRcIiwgXCJEYXRlIG9mIFJlcXVlc3RcIiwgXCJVUEkgLyBUcmFuc2FjdGlvbiBJRFwiLCBcIlN0YXR1c1wiXTtcclxuICAgICAgICBjc3ZSb3dzLnB1c2goaGVhZGVycy5qb2luKCcsJykpO1xyXG5cclxuICAgICAgICBlbnJvbGxtZW50cy5mb3JFYWNoKGVucm9sbG1lbnQgPT4ge1xyXG4gICAgICAgICAgICBjb25zdCByb3cgPSBbXHJcbiAgICAgICAgICAgICAgICBgXCIkeyhlbnJvbGxtZW50LnN0dWRlbnQ/LmZ1bGxfbmFtZSB8fCAnVW5rbm93biBTdHVkZW50JykucmVwbGFjZSgvXCIvZywgJ1wiXCInKX1cImAsXHJcbiAgICAgICAgICAgICAgICBgXCIkeyhlbnJvbGxtZW50LnN0dWRlbnQ/LmVtYWlsIHx8ICdOL0EnKS5yZXBsYWNlKC9cIi9nLCAnXCJcIicpfVwiYCxcclxuICAgICAgICAgICAgICAgIGBcIiR7KGNvdXJzZT8udGl0bGUgfHwgJ1Vua25vd24gQ291cnNlJykucmVwbGFjZSgvXCIvZywgJ1wiXCInKX1cImAsXHJcbiAgICAgICAgICAgICAgICBgXCIke25ldyBEYXRlKGVucm9sbG1lbnQuZW5yb2xsZWRfYXQpLnRvTG9jYWxlRGF0ZVN0cmluZygpfVwiYCxcclxuICAgICAgICAgICAgICAgIGBcIiR7KGVucm9sbG1lbnQudHJhbnNhY3Rpb25faWQgfHwgJ04vQScpLnJlcGxhY2UoL1wiL2csICdcIlwiJyl9XCJgLFxyXG4gICAgICAgICAgICAgICAgYFwiJHtlbnJvbGxtZW50LnN0YXR1c31cImBcclxuICAgICAgICAgICAgXTtcclxuICAgICAgICAgICAgY3N2Um93cy5wdXNoKHJvdy5qb2luKCcsJykpO1xyXG4gICAgICAgIH0pO1xyXG5cclxuICAgICAgICBjb25zdCBjc3ZEYXRhID0gY3N2Um93cy5qb2luKCdcXG4nKTtcclxuICAgICAgICBjb25zdCBibG9iID0gbmV3IEJsb2IoW2NzdkRhdGFdLCB7IHR5cGU6ICd0ZXh0L2NzdicgfSk7XHJcbiAgICAgICAgY29uc3QgdXJsID0gd2luZG93LlVSTC5jcmVhdGVPYmplY3RVUkwoYmxvYik7XHJcbiAgICAgICAgY29uc3QgYSA9IGRvY3VtZW50LmNyZWF0ZUVsZW1lbnQoJ2EnKTtcclxuICAgICAgICBhLnNldEF0dHJpYnV0ZSgnaGlkZGVuJywgJycpO1xyXG4gICAgICAgIGEuc2V0QXR0cmlidXRlKCdocmVmJywgdXJsKTtcclxuICAgICAgICBhLnNldEF0dHJpYnV0ZSgnZG93bmxvYWQnLCBgJHsoY291cnNlPy50aXRsZSB8fCAnY291cnNlJykucmVwbGFjZSgvXFxzKy9nLCAnXycpfV9lbnJvbGxtZW50cy5jc3ZgKTtcclxuICAgICAgICBkb2N1bWVudC5ib2R5LmFwcGVuZENoaWxkKGEpO1xyXG4gICAgICAgIGEuY2xpY2soKTtcclxuICAgICAgICBkb2N1bWVudC5ib2R5LnJlbW92ZUNoaWxkKGEpO1xyXG4gICAgfTtcclxuXHJcbiAgICBpZiAobG9hZGluZykgcmV0dXJuIDxBZG1pbkxheW91dD48ZGl2IGNsYXNzTmFtZT1cImZsZXggaC1zY3JlZW4gaXRlbXMtY2VudGVyIGp1c3RpZnktY2VudGVyXCI+PExvYWRlcjIgY2xhc3NOYW1lPVwiYW5pbWF0ZS1zcGluXCIgLz48L2Rpdj48L0FkbWluTGF5b3V0PjtcclxuXHJcbiAgICByZXR1cm4gKFxyXG4gICAgICAgIDxBZG1pbkxheW91dD5cclxuICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJmbGV4IGl0ZW1zLWNlbnRlciBnYXAtNCBtYi02IGFuaW1hdGUtZmFkZS1pbiBwLTYgcGItMFwiPlxyXG4gICAgICAgICAgICAgICAgPExpbmsgdG89XCIvYWRtaW4vY291cnNlc1wiPlxyXG4gICAgICAgICAgICAgICAgICAgIDxCdXR0b24gdmFyaWFudD1cImdob3N0XCIgc2l6ZT1cImljb25cIj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgPENoZXZyb25MZWZ0IGNsYXNzTmFtZT1cImgtNSB3LTVcIiAvPlxyXG4gICAgICAgICAgICAgICAgICAgIDwvQnV0dG9uPlxyXG4gICAgICAgICAgICAgICAgPC9MaW5rPlxyXG4gICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJmbGV4LTFcIj5cclxuICAgICAgICAgICAgICAgICAgICA8aDEgY2xhc3NOYW1lPVwidGV4dC0yeGwgZm9udC1kaXNwbGF5IGZvbnQtYm9sZFwiPntjb3Vyc2UudGl0bGV9PC9oMT5cclxuICAgICAgICAgICAgICAgICAgICA8cCBjbGFzc05hbWU9XCJ0ZXh0LW11dGVkLWZvcmVncm91bmQgdGV4dC1zbVwiPntjb3Vyc2UuZGVzY3JpcHRpb259PC9wPlxyXG4gICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImZsZXggZ2FwLTJcIj5cclxuICAgICAgICAgICAgICAgICAgICA8TGluayB0bz17YC9zdHVkZW50L2NvdXJzZXMvJHtpZH0vbGVhcm5gfSB0YXJnZXQ9XCJfYmxhbmtcIj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgPEJ1dHRvbiB2YXJpYW50PVwic2Vjb25kYXJ5XCIgY2xhc3NOYW1lPVwiZ2FwLTEuNSBmb250LWJvbGQgdGV4dC1wcmltYXJ5IGJnLXByaW1hcnkvMTAgaG92ZXI6YmctcHJpbWFyeS8yMCBib3JkZXIgYm9yZGVyLXByaW1hcnkvMzAgc2hhZG93LXhzXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICA8RXllIGNsYXNzTmFtZT1cImgtNCB3LTRcIiAvPiBQcmV2aWV3IFN0dWRlbnQgVmlldyDihpdcclxuICAgICAgICAgICAgICAgICAgICAgICAgPC9CdXR0b24+XHJcbiAgICAgICAgICAgICAgICAgICAgPC9MaW5rPlxyXG4gICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgIDwvZGl2PlxyXG5cclxuICAgICAgICAgICAgPFRhYnMgdmFsdWU9e2FjdGl2ZVRhYn0gb25WYWx1ZUNoYW5nZT17c2V0QWN0aXZlVGFifSBjbGFzc05hbWU9XCJhbmltYXRlLWZhZGUtaW4gZGVsYXktNzUgcC02IHB0LTBcIj5cclxuICAgICAgICAgICAgICAgIDxUYWJzTGlzdCBjbGFzc05hbWU9XCJtYi02XCI+XHJcbiAgICAgICAgICAgICAgICAgICAgPFRhYnNUcmlnZ2VyIHZhbHVlPVwiY3VycmljdWx1bVwiPkN1cnJpY3VsdW08L1RhYnNUcmlnZ2VyPlxyXG4gICAgICAgICAgICAgICAgICAgIDxUYWJzVHJpZ2dlciB2YWx1ZT1cIm92ZXJ2aWV3XCI+RGV0YWlsczwvVGFic1RyaWdnZXI+XHJcbiAgICAgICAgICAgICAgICAgICAgPFRhYnNUcmlnZ2VyIHZhbHVlPVwic3R1ZGVudHNcIj5FbnJvbGxlZCBTdHVkZW50czwvVGFic1RyaWdnZXI+XHJcbiAgICAgICAgICAgICAgICA8L1RhYnNMaXN0PlxyXG5cclxuICAgICAgICAgICAgICAgIDxUYWJzQ29udGVudCB2YWx1ZT1cImN1cnJpY3VsdW1cIiBjbGFzc05hbWU9XCJzcGFjZS15LTZcIj5cclxuICAgICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImZsZXgganVzdGlmeS1iZXR3ZWVuIGl0ZW1zLWNlbnRlclwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICA8aDIgY2xhc3NOYW1lPVwidGV4dC1sZyBmb250LXNlbWlib2xkXCI+TW9kdWxlcyAmIENvbnRlbnQ8L2gyPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICA8QWRkU2VjdGlvbkRpYWxvZyBvbkNyZWF0ZT17aGFuZGxlQ3JlYXRlU2VjdGlvbn0gLz5cclxuICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuXHJcbiAgICAgICAgICAgICAgICAgICAgPEFjY29yZGlvbiB0eXBlPVwibXVsdGlwbGVcIiBjbGFzc05hbWU9XCJzcGFjZS15LTRcIj5cclxuICAgICAgICAgICAgICAgICAgICAgICAge3NlY3Rpb25zLm1hcCgoc2VjdGlvbikgPT4gKFxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgPEFjY29yZGlvbkl0ZW0ga2V5PXtzZWN0aW9uLmlkfSB2YWx1ZT17c2VjdGlvbi5pZH0gY2xhc3NOYW1lPVwiYm9yZGVyIHJvdW5kZWQteGwgYmctY2FyZCBweC00XCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJmbGV4IGl0ZW1zLWNlbnRlciBweS00XCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxBY2NvcmRpb25UcmlnZ2VyIGNsYXNzTmFtZT1cImhvdmVyOm5vLXVuZGVybGluZSBmbGV4LTEgcHktMFwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPHNwYW4gY2xhc3NOYW1lPVwiZm9udC1zZW1pYm9sZCB0ZXh0LWxnXCI+e3NlY3Rpb24udGl0bGV9PC9zcGFuPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8L0FjY29yZGlvblRyaWdnZXI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZmxleCBpdGVtcy1jZW50ZXIgZ2FwLTIgbWwtNFwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPEFkZENvbnRlbnREaWFsb2cgc2VjdGlvbklkPXtzZWN0aW9uLmlkfSBvbkFkZGVkPXtmZXRjaENvdXJzZURhdGF9IC8+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8QnV0dG9uIHZhcmlhbnQ9XCJnaG9zdFwiIHNpemU9XCJpY29uXCIgY2xhc3NOYW1lPVwiaC04IHctOFwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxFZGl0MiBjbGFzc05hbWU9XCJoLTQgdy00XCIgLz5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvQnV0dG9uPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8QWNjb3JkaW9uQ29udGVudCBjbGFzc05hbWU9XCJwdC0yIHBiLTQgc3BhY2UteS0yXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHtzZWN0aW9uLml0ZW1zLm1hcCgoaXRlbTogYW55KSA9PiAoXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8ZGl2IGtleT17aXRlbS5pZH0gY2xhc3NOYW1lPVwiZmxleCBpdGVtcy1jZW50ZXIganVzdGlmeS1iZXR3ZWVuIHAtMyByb3VuZGVkLWxnIGJnLW11dGVkLzMwIGhvdmVyOmJnLW11dGVkIHRyYW5zaXRpb24tY29sb3JzIGdyb3VwXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJmbGV4IGl0ZW1zLWNlbnRlciBnYXAtM1wiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImgtOCB3LTggcm91bmRlZCBiZy1iYWNrZ3JvdW5kIGZsZXggaXRlbXMtY2VudGVyIGp1c3RpZnktY2VudGVyIGJvcmRlciB0ZXh0LW11dGVkLWZvcmVncm91bmRcIj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHtpdGVtLnZpZGVvX3VybCAmJiA8VmlkZW8gY2xhc3NOYW1lPVwiaC00IHctNCB0ZXh0LWJsdWUtNTAwXCIgLz59XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB7aXRlbS5wZGZfdXJsICYmIDxGaWxlVGV4dCBjbGFzc05hbWU9XCJoLTQgdy00IHRleHQtcmVkLTUwMFwiIC8+fVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAge2l0ZW0uY29udGVudF90ZXh0ICYmIDxUeXBlIGNsYXNzTmFtZT1cImgtNCB3LTQgdGV4dC1ncmVlbi01MDBcIiAvPn1cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHshaXRlbS52aWRlb191cmwgJiYgIWl0ZW0ucGRmX3VybCAmJiAhaXRlbS5jb250ZW50X3RleHQgJiYgPEZpbGVUZXh0IGNsYXNzTmFtZT1cImgtNCB3LTRcIiAvPn1cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxkaXY+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8cCBjbGFzc05hbWU9XCJmb250LW1lZGl1bSB0ZXh0LXNtXCI+e2l0ZW0udGl0bGV9PC9wPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJmbGV4IGdhcC0yIHRleHQtWzEwcHhdIHRleHQtbXV0ZWQtZm9yZWdyb3VuZFwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHtpdGVtLnZpZGVvX3VybCAmJiA8c3BhbiBjbGFzc05hbWU9XCJmbGV4IGl0ZW1zLWNlbnRlciBnYXAtMC41XCI+PFZpZGVvIGNsYXNzTmFtZT1cImgtMyB3LTNcIiAvPiBWaWRlbzwvc3Bhbj59XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAge2l0ZW0ucGRmX3VybCAmJiA8c3BhbiBjbGFzc05hbWU9XCJmbGV4IGl0ZW1zLWNlbnRlciBnYXAtMC41XCI+PEZpbGVUZXh0IGNsYXNzTmFtZT1cImgtMyB3LTNcIiAvPiBQREY8L3NwYW4+fVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHtpdGVtLmNvbnRlbnRfdGV4dCAmJiA8c3BhbiBjbGFzc05hbWU9XCJmbGV4IGl0ZW1zLWNlbnRlciBnYXAtMC41XCI+PFR5cGUgY2xhc3NOYW1lPVwiaC0zIHctM1wiIC8+IFRleHQ8L3NwYW4+fVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwib3BhY2l0eS0wIGdyb3VwLWhvdmVyOm9wYWNpdHktMTAwIHRyYW5zaXRpb24tb3BhY2l0eSBmbGV4IGdhcC0xXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxCdXR0b24gdmFyaWFudD1cImdob3N0XCIgc2l6ZT1cImljb25cIiBjbGFzc05hbWU9XCJoLTggdy04IHRleHQtZGVzdHJ1Y3RpdmVcIj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxUcmFzaDIgY2xhc3NOYW1lPVwiaC0zIHctM1wiIC8+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvQnV0dG9uPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICkpfVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB7c2VjdGlvbi5pdGVtcy5sZW5ndGggPT09IDAgJiYgKFxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJ0ZXh0LWNlbnRlciBweS04IHRleHQtbXV0ZWQtZm9yZWdyb3VuZCB0ZXh0LXNtIGJvcmRlci0yIGJvcmRlci1kYXNoZWQgcm91bmRlZC1sZ1wiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIE5vIGNvbnRlbnQuIEFkZCBsZXNzb25zLlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICl9XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPC9BY2NvcmRpb25Db250ZW50PlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgPC9BY2NvcmRpb25JdGVtPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICApKX1cclxuICAgICAgICAgICAgICAgICAgICA8L0FjY29yZGlvbj5cclxuICAgICAgICAgICAgICAgIDwvVGFic0NvbnRlbnQ+XHJcblxyXG4gICAgICAgICAgICAgICAgPFRhYnNDb250ZW50IHZhbHVlPVwib3ZlcnZpZXdcIj5cclxuICAgICAgICAgICAgICAgICAgICA8Q2FyZD5cclxuICAgICAgICAgICAgICAgICAgICAgICAgPENhcmRDb250ZW50IGNsYXNzTmFtZT1cInB0LTYgc3BhY2UteS00XCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInNwYWNlLXktMlwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxMYWJlbD5Db3Vyc2UgVGl0bGU8L0xhYmVsPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxJbnB1dCBkZWZhdWx0VmFsdWU9e2NvdXJzZS50aXRsZX0gZGlzYWJsZWQgLz5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJzcGFjZS15LTJcIj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8TGFiZWw+RGVzY3JpcHRpb248L0xhYmVsPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxUZXh0YXJlYSBjbGFzc05hbWU9XCJtaW4taC1bMTAwcHhdXCIgZGVmYXVsdFZhbHVlPXtjb3Vyc2UuZGVzY3JpcHRpb259IGRpc2FibGVkIC8+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgPC9DYXJkQ29udGVudD5cclxuICAgICAgICAgICAgICAgICAgICA8L0NhcmQ+XHJcbiAgICAgICAgICAgICAgICA8L1RhYnNDb250ZW50PlxyXG5cclxuICAgICAgICAgICAgICAgIDxUYWJzQ29udGVudCB2YWx1ZT1cInN0dWRlbnRzXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJmbGV4IGp1c3RpZnktYmV0d2VlbiBpdGVtcy1jZW50ZXIgbWItNlwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICA8aDIgY2xhc3NOYW1lPVwidGV4dC14bCBmb250LWJvbGRcIj5TdHVkZW50IEVucm9sbG1lbnRzPC9oMj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgPEJ1dHRvbiB2YXJpYW50PVwib3V0bGluZVwiIG9uQ2xpY2s9e2V4cG9ydFRvQ1NWfSBjbGFzc05hbWU9XCJnYXAtMlwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgPERvd25sb2FkIGNsYXNzTmFtZT1cImgtNCB3LTRcIiAvPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgRXhwb3J0IENTVlxyXG4gICAgICAgICAgICAgICAgICAgICAgICA8L0J1dHRvbj5cclxuICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInNwYWNlLXktNFwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICB7ZW5yb2xsbWVudHMubGVuZ3RoID4gMCA/IChcclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIGVucm9sbG1lbnRzLm1hcCgoZW5yb2xsbWVudDogYW55KSA9PiAoXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPGRpdiBrZXk9e2Vucm9sbG1lbnQuaWR9IGNsYXNzTmFtZT1cImZsZXggaXRlbXMtY2VudGVyIGp1c3RpZnktYmV0d2VlbiBwLTQgYm9yZGVyIHJvdW5kZWQtbGcgYmctY2FyZFwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImZsZXggaXRlbXMtY2VudGVyIGdhcC00XCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImgtMTAgdy0xMCByb3VuZGVkLWZ1bGwgYmctcHJpbWFyeS8xMCBmbGV4IGl0ZW1zLWNlbnRlciBqdXN0aWZ5LWNlbnRlciBvdmVyZmxvdy1oaWRkZW5cIj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB7ZW5yb2xsbWVudC5zdHVkZW50Py5hdmF0YXJfdXJsID8gKFxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8aW1nIHNyYz17ZW5yb2xsbWVudC5zdHVkZW50LmF2YXRhcl91cmx9IGFsdD17ZW5yb2xsbWVudC5zdHVkZW50LmZ1bGxfbmFtZX0gY2xhc3NOYW1lPVwiaC1mdWxsIHctZnVsbCBvYmplY3QtY292ZXJcIiAvPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICkgOiAoXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxzcGFuIGNsYXNzTmFtZT1cImZvbnQtYm9sZCB0ZXh0LXByaW1hcnlcIj57ZW5yb2xsbWVudC5zdHVkZW50Py5mdWxsX25hbWU/LlswXSB8fCBcIj9cIn08L3NwYW4+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgKX1cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPGRpdj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8cCBjbGFzc05hbWU9XCJmb250LW1lZGl1bVwiPntlbnJvbGxtZW50LnN0dWRlbnQ/LmZ1bGxfbmFtZSB8fCBcIlVua25vd24gU3R1ZGVudFwifTwvcD5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8cCBjbGFzc05hbWU9XCJ0ZXh0LXNtIHRleHQtbXV0ZWQtZm9yZWdyb3VuZFwiPntlbnJvbGxtZW50LnN0dWRlbnQ/LmVtYWlsfTwvcD5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB7ZW5yb2xsbWVudC50cmFuc2FjdGlvbl9pZCAmJiAoXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxwIGNsYXNzTmFtZT1cInRleHQteHMgZm9udC1tb25vIGJnLW11dGVkIHB4LTIgcHktMC41IHJvdW5kZWQgaW5saW5lLWJsb2NrIG10LTFcIj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIFVQSS9UeG46IDxzcGFuIGNsYXNzTmFtZT1cImZvbnQtYm9sZCB0ZXh0LWZvcmVncm91bmRcIj57ZW5yb2xsbWVudC50cmFuc2FjdGlvbl9pZH08L3NwYW4+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvcD5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICApfVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInRleHQtcmlnaHQgZmxleCBpdGVtcy1jZW50ZXIganVzdGlmeS1lbmQgZ2FwLTNcIj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHtlbnJvbGxtZW50LnN0YXR1cyA9PT0gJ3BlbmRpbmcnID8gKFxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDw+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxCYWRnZSB2YXJpYW50PVwic2Vjb25kYXJ5XCIgY2xhc3NOYW1lPVwiYmcteWVsbG93LTUwMC8xMCB0ZXh0LXllbGxvdy02MDAgaG92ZXI6YmcteWVsbG93LTUwMC8yMFwiPlBlbmRpbmc8L0JhZGdlPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8QnV0dG9uIHNpemU9XCJzbVwiIG9uQ2xpY2s9eygpID0+IGhhbmRsZUFwcHJvdmVFbnJvbGxtZW50KGVucm9sbG1lbnQuaWQpfSBjbGFzc05hbWU9XCJnYXAtMlwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPENoZWNrQ2lyY2xlIGNsYXNzTmFtZT1cImgtNCB3LTRcIiAvPiBBcHByb3ZlXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvQnV0dG9uPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8QnV0dG9uIHNpemU9XCJzbVwiIHZhcmlhbnQ9XCJkZXN0cnVjdGl2ZVwiIG9uQ2xpY2s9eygpID0+IGhhbmRsZURlY2xpbmVFbnJvbGxtZW50KGVucm9sbG1lbnQuaWQpfSBjbGFzc05hbWU9XCJnYXAtMlwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPFhDaXJjbGUgY2xhc3NOYW1lPVwiaC00IHctNFwiIC8+IERlY2xpbmVcclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPC9CdXR0b24+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPC8+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICApIDogKFxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDw+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxCYWRnZSB2YXJpYW50PXtlbnJvbGxtZW50LnN0YXR1cyA9PT0gJ3JlamVjdGVkJyA/IFwiZGVzdHJ1Y3RpdmVcIiA6IChlbnJvbGxtZW50LmNvbXBsZXRlZCA/IFwic3VjY2Vzc1wiIDogXCJkZWZhdWx0XCIpfSBjbGFzc05hbWU9e2Vucm9sbG1lbnQuc3RhdHVzID09PSAncmVqZWN0ZWQnID8gXCJiZy1yZWQtNTAwLzEwIHRleHQtcmVkLTYwMCBob3ZlcjpiZy1yZWQtNTAwLzIwXCIgOiBcImJnLWdyZWVuLTUwMC8xMCB0ZXh0LWdyZWVuLTYwMCBob3ZlcjpiZy1ncmVlbi01MDAvMjBcIn0+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB7ZW5yb2xsbWVudC5zdGF0dXMgPT09ICdyZWplY3RlZCcgPyBcIkRlY2xpbmVkXCIgOiAoZW5yb2xsbWVudC5jb21wbGV0ZWQgPyBcIkNvbXBsZXRlZFwiIDogXCJBY3RpdmVcIil9XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvQmFkZ2U+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxCdXR0b24gdmFyaWFudD1cImdob3N0XCIgc2l6ZT1cImljb25cIiBjbGFzc05hbWU9XCJoLTggdy04IHRleHQtZGVzdHJ1Y3RpdmUgbWwtMlwiIG9uQ2xpY2s9eygpID0+IGhhbmRsZURlbGV0ZUVucm9sbG1lbnQoZW5yb2xsbWVudC5pZCl9IHRpdGxlPVwiUmVtb3ZlIFN0dWRlbnRcIj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxUcmFzaDIgY2xhc3NOYW1lPVwiaC00IHctNFwiIC8+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvQnV0dG9uPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgKX1cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZmxleCBmbGV4LWNvbCBtbC0yXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPHAgY2xhc3NOYW1lPVwidGV4dC14cyB0ZXh0LW11dGVkLWZvcmVncm91bmQgbXQtMSB0ZXh0LXJpZ2h0XCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIFJlcXVlc3RlZDoge25ldyBEYXRlKGVucm9sbG1lbnQuZW5yb2xsZWRfYXQpLnRvTG9jYWxlRGF0ZVN0cmluZygpfVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvcD5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICkpXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICkgOiAoXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInRleHQtY2VudGVyIHB5LTEyIHRleHQtbXV0ZWQtZm9yZWdyb3VuZCBib3JkZXItMiBib3JkZXItZGFzaGVkIHJvdW5kZWQtbGdcIj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBObyBzdHVkZW50cyBlbnJvbGxlZCB5ZXQuXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgKX1cclxuICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgIDwvVGFic0NvbnRlbnQ+XHJcbiAgICAgICAgICAgIDwvVGFicz5cclxuICAgICAgICA8L0FkbWluTGF5b3V0PlxyXG4gICAgKTtcclxufVxyXG5cclxuZnVuY3Rpb24gQWRkU2VjdGlvbkRpYWxvZyh7IG9uQ3JlYXRlIH06IHsgb25DcmVhdGU6ICh0aXRsZTogc3RyaW5nKSA9PiB2b2lkIH0pIHtcclxuICAgIGNvbnN0IFt0aXRsZSwgc2V0VGl0bGVdID0gdXNlU3RhdGUoXCJcIik7XHJcbiAgICBjb25zdCBbb3Blbiwgc2V0T3Blbl0gPSB1c2VTdGF0ZShmYWxzZSk7XHJcbiAgICByZXR1cm4gKFxyXG4gICAgICAgIDxEaWFsb2cgb3Blbj17b3Blbn0gb25PcGVuQ2hhbmdlPXtzZXRPcGVufT5cclxuICAgICAgICAgICAgPERpYWxvZ1RyaWdnZXIgYXNDaGlsZD5cclxuICAgICAgICAgICAgICAgIDxCdXR0b24gY2xhc3NOYW1lPVwiZ2FwLTJcIj48UGx1cyBjbGFzc05hbWU9XCJoLTQgdy00XCIgLz4gQWRkIE1vZHVsZTwvQnV0dG9uPlxyXG4gICAgICAgICAgICA8L0RpYWxvZ1RyaWdnZXI+XHJcbiAgICAgICAgICAgIDxEaWFsb2dDb250ZW50PlxyXG4gICAgICAgICAgICAgICAgPERpYWxvZ0hlYWRlcj48RGlhbG9nVGl0bGU+QWRkIE1vZHVsZTwvRGlhbG9nVGl0bGU+PC9EaWFsb2dIZWFkZXI+XHJcbiAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInB5LTRcIj5cclxuICAgICAgICAgICAgICAgICAgICA8TGFiZWw+TW9kdWxlIFRpdGxlPC9MYWJlbD5cclxuICAgICAgICAgICAgICAgICAgICA8SW5wdXQgdmFsdWU9e3RpdGxlfSBvbkNoYW5nZT17ZSA9PiBzZXRUaXRsZShlLnRhcmdldC52YWx1ZSl9IHBsYWNlaG9sZGVyPVwiZS5nLiBJbnRyb2R1Y3Rpb25cIiAvPlxyXG4gICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgICA8RGlhbG9nRm9vdGVyPlxyXG4gICAgICAgICAgICAgICAgICAgIDxCdXR0b24gb25DbGljaz17KCkgPT4geyBvbkNyZWF0ZSh0aXRsZSk7IHNldE9wZW4oZmFsc2UpOyBzZXRUaXRsZShcIlwiKTsgfX0+Q3JlYXRlPC9CdXR0b24+XHJcbiAgICAgICAgICAgICAgICA8L0RpYWxvZ0Zvb3Rlcj5cclxuICAgICAgICAgICAgPC9EaWFsb2dDb250ZW50PlxyXG4gICAgICAgIDwvRGlhbG9nPlxyXG4gICAgKTtcclxufVxyXG5cclxuZnVuY3Rpb24gQWRkQ29udGVudERpYWxvZyh7IHNlY3Rpb25JZCwgb25BZGRlZCB9OiB7IHNlY3Rpb25JZDogc3RyaW5nLCBvbkFkZGVkOiAoKSA9PiB2b2lkIH0pIHtcclxuICAgIGNvbnN0IHsgdG9hc3QgfSA9IHVzZVRvYXN0KCk7XHJcbiAgICBjb25zdCBbb3Blbiwgc2V0T3Blbl0gPSB1c2VTdGF0ZShmYWxzZSk7XHJcblxyXG4gICAgLy8gVW5pZmllZCBzdGF0ZVxyXG4gICAgY29uc3QgW3RpdGxlLCBzZXRUaXRsZV0gPSB1c2VTdGF0ZShcIlwiKTtcclxuICAgIGNvbnN0IFt2aWRlb1VybCwgc2V0VmlkZW9VcmxdID0gdXNlU3RhdGUoXCJcIik7XHJcbiAgICBjb25zdCBbcGRmVXJsLCBzZXRQZGZVcmxdID0gdXNlU3RhdGUoXCJcIik7XHJcbiAgICBjb25zdCBbdGV4dENvbnRlbnQsIHNldFRleHRDb250ZW50XSA9IHVzZVN0YXRlKFwiXCIpO1xyXG5cclxuICAgIC8vIFVwbG9hZCBzdGF0ZVxyXG4gICAgY29uc3QgW2RvY1R5cGUsIHNldERvY1R5cGVdID0gdXNlU3RhdGU8XCJsaW5rXCIgfCBcInVwbG9hZFwiPihcInVwbG9hZFwiKTtcclxuICAgIGNvbnN0IFt1cGxvYWRpbmcsIHNldFVwbG9hZGluZ10gPSB1c2VTdGF0ZShmYWxzZSk7XHJcblxyXG4gICAgY29uc3QgaGFuZGxlRmlsZVVwbG9hZCA9IGFzeW5jIChlOiBSZWFjdC5DaGFuZ2VFdmVudDxIVE1MSW5wdXRFbGVtZW50PikgPT4ge1xyXG4gICAgICAgIGNvbnN0IGZpbGUgPSBlLnRhcmdldC5maWxlcz8uWzBdO1xyXG4gICAgICAgIGlmICghZmlsZSkgcmV0dXJuO1xyXG5cclxuICAgICAgICB0cnkge1xyXG4gICAgICAgICAgICBzZXRVcGxvYWRpbmcodHJ1ZSk7XHJcbiAgICAgICAgICAgIGNvbnN0IGZpbGVFeHQgPSBmaWxlLm5hbWUuc3BsaXQoJy4nKS5wb3AoKTtcclxuICAgICAgICAgICAgY29uc3QgZmlsZU5hbWUgPSBgJHtEYXRlLm5vdygpfS0ke01hdGgucmFuZG9tKCkudG9TdHJpbmcoMzYpLnN1YnN0cmluZygyKX0uJHtmaWxlRXh0fWA7XHJcbiAgICAgICAgICAgIGNvbnN0IGZpbGVQYXRoID0gYCR7ZmlsZU5hbWV9YDtcclxuXHJcbiAgICAgICAgICAgIGNvbnN0IHsgZXJyb3I6IHVwbG9hZEVycm9yIH0gPSBhd2FpdCBzdXBhYmFzZS5zdG9yYWdlXHJcbiAgICAgICAgICAgICAgICAuZnJvbSgnY291cnNlX2NvbnRlbnQnKVxyXG4gICAgICAgICAgICAgICAgLnVwbG9hZChmaWxlUGF0aCwgZmlsZSk7XHJcblxyXG4gICAgICAgICAgICBpZiAodXBsb2FkRXJyb3IpIHRocm93IHVwbG9hZEVycm9yO1xyXG5cclxuICAgICAgICAgICAgY29uc3QgeyBkYXRhIH0gPSBzdXBhYmFzZS5zdG9yYWdlXHJcbiAgICAgICAgICAgICAgICAuZnJvbSgnY291cnNlX2NvbnRlbnQnKVxyXG4gICAgICAgICAgICAgICAgLmdldFB1YmxpY1VybChmaWxlUGF0aCk7XHJcblxyXG4gICAgICAgICAgICBzZXRQZGZVcmwoZGF0YS5wdWJsaWNVcmwpO1xyXG4gICAgICAgICAgICB0b2FzdCh7IHRpdGxlOiBcIkZpbGUgdXBsb2FkZWQgc3VjY2Vzc2Z1bGx5XCIgfSk7XHJcbiAgICAgICAgfSBjYXRjaCAoZXJyb3I6IGFueSkge1xyXG4gICAgICAgICAgICB0b2FzdCh7IHZhcmlhbnQ6IFwiZGVzdHJ1Y3RpdmVcIiwgdGl0bGU6IFwiVXBsb2FkIGZhaWxlZFwiLCBkZXNjcmlwdGlvbjogZXJyb3IubWVzc2FnZSB9KTtcclxuICAgICAgICB9IGZpbmFsbHkge1xyXG4gICAgICAgICAgICBzZXRVcGxvYWRpbmcoZmFsc2UpO1xyXG4gICAgICAgIH1cclxuICAgIH07XHJcblxyXG4gICAgY29uc3QgaGFuZGxlQWRkID0gYXN5bmMgKCkgPT4ge1xyXG4gICAgICAgIGlmICghdGl0bGUpIHtcclxuICAgICAgICAgICAgdG9hc3QoeyB2YXJpYW50OiBcImRlc3RydWN0aXZlXCIsIHRpdGxlOiBcIkVycm9yXCIsIGRlc2NyaXB0aW9uOiBcIlRpdGxlIGlzIHJlcXVpcmVkXCIgfSk7XHJcbiAgICAgICAgICAgIHJldHVybjtcclxuICAgICAgICB9XHJcblxyXG4gICAgICAgIGNvbnN0IHsgZXJyb3IgfSA9IGF3YWl0IHN1cGFiYXNlLmZyb20oJ3NlY3Rpb25fY29udGVudHMnKS5pbnNlcnQoW3tcclxuICAgICAgICAgICAgc2VjdGlvbl9pZDogc2VjdGlvbklkLFxyXG4gICAgICAgICAgICB0aXRsZSxcclxuICAgICAgICAgICAgdHlwZTogJ3RleHQnLCAvLyBVc2UgYSB2YWxpZCBFTlVNIHZhbHVlIGFzIHBsYWNlaG9sZGVyXHJcbiAgICAgICAgICAgIHZpZGVvX3VybDogdmlkZW9VcmwgfHwgbnVsbCxcclxuICAgICAgICAgICAgcGRmX3VybDogcGRmVXJsIHx8IG51bGwsXHJcbiAgICAgICAgICAgIGNvbnRlbnRfdGV4dDogdGV4dENvbnRlbnQgfHwgbnVsbFxyXG4gICAgICAgIH1dKTtcclxuXHJcbiAgICAgICAgaWYgKGVycm9yKSB7XHJcbiAgICAgICAgICAgIHRvYXN0KHsgdmFyaWFudDogXCJkZXN0cnVjdGl2ZVwiLCB0aXRsZTogXCJFcnJvclwiLCBkZXNjcmlwdGlvbjogZXJyb3IubWVzc2FnZSB9KTtcclxuICAgICAgICB9IGVsc2Uge1xyXG4gICAgICAgICAgICB0b2FzdCh7IHRpdGxlOiBcIkxlc3NvbiBhZGRlZCBzdWNjZXNzZnVsbHlcIiB9KTtcclxuICAgICAgICAgICAgc2V0T3BlbihmYWxzZSk7XHJcbiAgICAgICAgICAgIG9uQWRkZWQoKTtcclxuICAgICAgICAgICAgLy8gUmVzZXRcclxuICAgICAgICAgICAgc2V0VGl0bGUoXCJcIik7XHJcbiAgICAgICAgICAgIHNldFZpZGVvVXJsKFwiXCIpO1xyXG4gICAgICAgICAgICBzZXRQZGZVcmwoXCJcIik7XHJcbiAgICAgICAgICAgIHNldFRleHRDb250ZW50KFwiXCIpO1xyXG4gICAgICAgICAgICBzZXREb2NUeXBlKFwidXBsb2FkXCIpO1xyXG4gICAgICAgIH1cclxuICAgIH07XHJcblxyXG4gICAgcmV0dXJuIChcclxuICAgICAgICA8RGlhbG9nIG9wZW49e29wZW59IG9uT3BlbkNoYW5nZT17c2V0T3Blbn0+XHJcbiAgICAgICAgICAgIDxEaWFsb2dUcmlnZ2VyIGFzQ2hpbGQ+XHJcbiAgICAgICAgICAgICAgICA8QnV0dG9uIHZhcmlhbnQ9XCJvdXRsaW5lXCIgc2l6ZT1cInNtXCIgY2xhc3NOYW1lPVwiZ2FwLTJcIj48UGx1cyBjbGFzc05hbWU9XCJoLTMgdy0zXCIgLz4gQWRkIExlc3NvbjwvQnV0dG9uPlxyXG4gICAgICAgICAgICA8L0RpYWxvZ1RyaWdnZXI+XHJcbiAgICAgICAgICAgIDxEaWFsb2dDb250ZW50IGNsYXNzTmFtZT1cInNtOm1heC13LWxnXCI+XHJcbiAgICAgICAgICAgICAgICA8RGlhbG9nSGVhZGVyPlxyXG4gICAgICAgICAgICAgICAgICAgIDxEaWFsb2dUaXRsZT5BZGQgTGVzc29uIENvbnRlbnQ8L0RpYWxvZ1RpdGxlPlxyXG4gICAgICAgICAgICAgICAgPC9EaWFsb2dIZWFkZXI+XHJcblxyXG4gICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJzcGFjZS15LTQgcHktNCBtYXgtaC1bNzB2aF0gb3ZlcmZsb3cteS1hdXRvIHByLTJcIj5cclxuICAgICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInNwYWNlLXktMlwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICA8TGFiZWw+TGVzc29uIFRpdGxlPC9MYWJlbD5cclxuICAgICAgICAgICAgICAgICAgICAgICAgPElucHV0IHZhbHVlPXt0aXRsZX0gb25DaGFuZ2U9e2UgPT4gc2V0VGl0bGUoZS50YXJnZXQudmFsdWUpfSBwbGFjZWhvbGRlcj1cImUuZy4gUGFydCAxOiBCYXNpY3NcIiAvPlxyXG4gICAgICAgICAgICAgICAgICAgIDwvZGl2PlxyXG5cclxuICAgICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInNwYWNlLXktMlwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICA8TGFiZWw+VmlkZW8gVVJMIChZb3VUdWJlKTwvTGFiZWw+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZmxleCBnYXAtMlwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgPFZpZGVvIGNsYXNzTmFtZT1cInctNCBoLTQgbXQtMyB0ZXh0LW11dGVkLWZvcmVncm91bmRcIiAvPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgPElucHV0IHZhbHVlPXt2aWRlb1VybH0gb25DaGFuZ2U9e2UgPT4gc2V0VmlkZW9VcmwoZS50YXJnZXQudmFsdWUpfSBwbGFjZWhvbGRlcj1cImh0dHBzOi8veW91dHViZS5jb20vLi4uXCIgLz5cclxuICAgICAgICAgICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgICAgICAgPC9kaXY+XHJcblxyXG4gICAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwic3BhY2UteS0yXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgIDxMYWJlbD5Eb2N1bWVudCAoUERGIC8gUFBUKTwvTGFiZWw+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgIDxUYWJzIHZhbHVlPXtkb2NUeXBlfSBvblZhbHVlQ2hhbmdlPXsodjogYW55KSA9PiBzZXREb2NUeXBlKHYpfSBjbGFzc05hbWU9XCJ3LWZ1bGxcIj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxUYWJzTGlzdCBjbGFzc05hbWU9XCJncmlkIHctZnVsbCBncmlkLWNvbHMtMiBoLTggbWItMlwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxUYWJzVHJpZ2dlciB2YWx1ZT1cInVwbG9hZFwiIGNsYXNzTmFtZT1cInRleHQteHNcIj5VcGxvYWQgRmlsZTwvVGFic1RyaWdnZXI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPFRhYnNUcmlnZ2VyIHZhbHVlPVwibGlua1wiIGNsYXNzTmFtZT1cInRleHQteHNcIj5FeHRlcm5hbCBMaW5rPC9UYWJzVHJpZ2dlcj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvVGFic0xpc3Q+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICA8VGFic0NvbnRlbnQgdmFsdWU9XCJ1cGxvYWRcIiBjbGFzc05hbWU9XCJtdC0wXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJib3JkZXItMiBib3JkZXItZGFzaGVkIHJvdW5kZWQtbGcgcC02IGZsZXggZmxleC1jb2wgaXRlbXMtY2VudGVyIGp1c3RpZnktY2VudGVyIHRleHQtY2VudGVyIGhvdmVyOmJnLW11dGVkLzUwIHRyYW5zaXRpb24tY29sb3JzXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHt1cGxvYWRpbmcgPyAoXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImZsZXggZmxleC1jb2wgaXRlbXMtY2VudGVyIGdhcC0yXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPExvYWRlcjIgY2xhc3NOYW1lPVwiaC04IHctOCBhbmltYXRlLXNwaW4gdGV4dC1wcmltYXJ5XCIgLz5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8cCBjbGFzc05hbWU9XCJ0ZXh0LXNtIHRleHQtbXV0ZWQtZm9yZWdyb3VuZFwiPlVwbG9hZGluZy4uLjwvcD5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICApIDogcGRmVXJsICYmIHBkZlVybC5pbmNsdWRlcyhcInN1cGFiYXNlXCIpID8gKFxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJmbGV4IGZsZXgtY29sIGl0ZW1zLWNlbnRlciBnYXAtMlwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxGaWxlVGV4dCBjbGFzc05hbWU9XCJoLTggdy04IHRleHQtZ3JlZW4tNTAwXCIgLz5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8cCBjbGFzc05hbWU9XCJ0ZXh0LXNtIGZvbnQtbWVkaXVtIHRleHQtZ3JlZW4tNjAwXCI+RmlsZSBVcGxvYWRlZDwvcD5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8QnV0dG9uIHZhcmlhbnQ9XCJnaG9zdFwiIHNpemU9XCJzbVwiIG9uQ2xpY2s9eygpID0+IHNldFBkZlVybChcIlwiKX0gY2xhc3NOYW1lPVwiaC02IHRleHQteHMgdGV4dC1kZXN0cnVjdGl2ZVwiPlJlbW92ZTwvQnV0dG9uPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICkgOiAoXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInctZnVsbFwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxMYWJlbCBodG1sRm9yPVwiZmlsZS11cGxvYWRcIiBjbGFzc05hbWU9XCJjdXJzb3ItcG9pbnRlciBmbGV4IGZsZXgtY29sIGl0ZW1zLWNlbnRlciBnYXAtMiB3LWZ1bGxcIj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPFVwbG9hZENsb3VkIGNsYXNzTmFtZT1cImgtOCB3LTggdGV4dC1tdXRlZC1mb3JlZ3JvdW5kXCIgLz5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPHNwYW4gY2xhc3NOYW1lPVwidGV4dC1zbSBmb250LW1lZGl1bVwiPkNsaWNrIHRvIHVwbG9hZCBQREYgb3IgUFBUPC9zcGFuPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8c3BhbiBjbGFzc05hbWU9XCJ0ZXh0LXhzIHRleHQtbXV0ZWQtZm9yZWdyb3VuZFwiPk1heCAxME1CPC9zcGFuPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvTGFiZWw+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPElucHV0XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGlkPVwiZmlsZS11cGxvYWRcIlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB0eXBlPVwiZmlsZVwiXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGFjY2VwdD1cIi5wZGYsLnBwdCwucHB0eFwiXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGNsYXNzTmFtZT1cImhpZGRlblwiXHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIG9uQ2hhbmdlPXtoYW5kbGVGaWxlVXBsb2FkfVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIC8+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgKX1cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvVGFic0NvbnRlbnQ+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICA8VGFic0NvbnRlbnQgdmFsdWU9XCJsaW5rXCIgY2xhc3NOYW1lPVwibXQtMFwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZmxleCBnYXAtMlwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8RmlsZVRleHQgY2xhc3NOYW1lPVwidy00IGgtNCBtdC0zIHRleHQtbXV0ZWQtZm9yZWdyb3VuZFwiIC8+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxJbnB1dCB2YWx1ZT17cGRmVXJsfSBvbkNoYW5nZT17ZSA9PiBzZXRQZGZVcmwoZS50YXJnZXQudmFsdWUpfSBwbGFjZWhvbGRlcj1cImh0dHBzOi8vLi4uXCIgLz5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvVGFic0NvbnRlbnQ+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgIDwvVGFicz5cclxuICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuXHJcbiAgICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJzcGFjZS15LTJcIj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgPExhYmVsPlRleHQgQ29udGVudDwvTGFiZWw+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgIDxUZXh0YXJlYVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgdmFsdWU9e3RleHRDb250ZW50fVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgb25DaGFuZ2U9e2UgPT4gc2V0VGV4dENvbnRlbnQoZS50YXJnZXQudmFsdWUpfVxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgcm93cz17Nn1cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIHBsYWNlaG9sZGVyPVwiUmVhZGluZyBtYXRlcmlhbCBmb3IgdGhpcyBsZXNzb24uLi5cIlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAvPlxyXG4gICAgICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgPC9kaXY+XHJcblxyXG4gICAgICAgICAgICAgICAgPERpYWxvZ0Zvb3Rlcj5cclxuICAgICAgICAgICAgICAgICAgICA8QnV0dG9uIHZhcmlhbnQ9XCJvdXRsaW5lXCIgb25DbGljaz17KCkgPT4gc2V0T3BlbihmYWxzZSl9PkNhbmNlbDwvQnV0dG9uPlxyXG4gICAgICAgICAgICAgICAgICAgIDxCdXR0b24gb25DbGljaz17aGFuZGxlQWRkfSBkaXNhYmxlZD17dXBsb2FkaW5nfT5TYXZlIExlc3NvbjwvQnV0dG9uPlxyXG4gICAgICAgICAgICAgICAgPC9EaWFsb2dGb290ZXI+XHJcbiAgICAgICAgICAgIDwvRGlhbG9nQ29udGVudD5cclxuICAgICAgICA8L0RpYWxvZz5cclxuICAgICk7XHJcbn1cclxuIl0sIm5hbWVzIjpbInVzZVN0YXRlIiwidXNlRWZmZWN0IiwidXNlUGFyYW1zIiwiTGluayIsInVzZVNlYXJjaFBhcmFtcyIsIkFkbWluTGF5b3V0IiwiQnV0dG9uIiwiSW5wdXQiLCJUZXh0YXJlYSIsIkxhYmVsIiwiQWNjb3JkaW9uIiwiQWNjb3JkaW9uQ29udGVudCIsIkFjY29yZGlvbkl0ZW0iLCJBY2NvcmRpb25UcmlnZ2VyIiwiRGlhbG9nIiwiRGlhbG9nQ29udGVudCIsIkRpYWxvZ0Zvb3RlciIsIkRpYWxvZ0hlYWRlciIsIkRpYWxvZ1RpdGxlIiwiRGlhbG9nVHJpZ2dlciIsIlRhYnMiLCJUYWJzQ29udGVudCIsIlRhYnNMaXN0IiwiVGFic1RyaWdnZXIiLCJDYXJkIiwiQ2FyZENvbnRlbnQiLCJCYWRnZSIsInVzZVRvYXN0Iiwic3VwYWJhc2UiLCJQbHVzIiwiVmlkZW8iLCJGaWxlVGV4dCIsIlR5cGUiLCJFZGl0MiIsIlRyYXNoMiIsIlVwbG9hZENsb3VkIiwiQ2hldnJvbkxlZnQiLCJMb2FkZXIyIiwiQ2hlY2tDaXJjbGUiLCJYQ2lyY2xlIiwiRG93bmxvYWQiLCJFeWUiLCJBZG1pbkNvdXJzZURldGFpbCIsImlkIiwic2VhcmNoUGFyYW1zIiwidG9hc3QiLCJjb3Vyc2UiLCJzZXRDb3Vyc2UiLCJsb2FkaW5nIiwic2V0TG9hZGluZyIsImFjdGl2ZVRhYiIsInNldEFjdGl2ZVRhYiIsImdldCIsInNlY3Rpb25zIiwic2V0U2VjdGlvbnMiLCJlbnJvbGxtZW50cyIsInNldEVucm9sbG1lbnRzIiwiZmV0Y2hDb3Vyc2VEYXRhIiwiZGF0YSIsImNvdXJzZURhdGEiLCJlcnJvciIsImNvdXJzZUVycm9yIiwiZnJvbSIsInNlbGVjdCIsImVxIiwic2luZ2xlIiwiY29uc29sZSIsInZhcmlhbnQiLCJ0aXRsZSIsImRlc2NyaXB0aW9uIiwiZW5yb2xsbWVudERhdGEiLCJzZWN0aW9uRGF0YSIsInNlY3Rpb25FcnJvciIsIm9yZGVyIiwiYXNjZW5kaW5nIiwic29ydGVkU2VjdGlvbnMiLCJtYXAiLCJzZWN0aW9uIiwiaXRlbXMiLCJzZWN0aW9uX2NvbnRlbnRzIiwic29ydCIsImEiLCJiIiwib3JkZXJfaW5kZXgiLCJoYW5kbGVDcmVhdGVTZWN0aW9uIiwiaW5zZXJ0IiwiY291cnNlX2lkIiwibGVuZ3RoIiwibWVzc2FnZSIsImhhbmRsZUFwcHJvdmVFbnJvbGxtZW50IiwiZW5yb2xsbWVudElkIiwidXBkYXRlIiwic3RhdHVzIiwiaGFuZGxlRGVjbGluZUVucm9sbG1lbnQiLCJoYW5kbGVEZWxldGVFbnJvbGxtZW50IiwiY29uZmlybSIsImRlbGV0ZSIsImV4cG9ydFRvQ1NWIiwiY3N2Um93cyIsImhlYWRlcnMiLCJwdXNoIiwiam9pbiIsImZvckVhY2giLCJlbnJvbGxtZW50Iiwicm93Iiwic3R1ZGVudCIsImZ1bGxfbmFtZSIsInJlcGxhY2UiLCJlbWFpbCIsIkRhdGUiLCJlbnJvbGxlZF9hdCIsInRvTG9jYWxlRGF0ZVN0cmluZyIsInRyYW5zYWN0aW9uX2lkIiwiY3N2RGF0YSIsImJsb2IiLCJCbG9iIiwidHlwZSIsInVybCIsIndpbmRvdyIsIlVSTCIsImNyZWF0ZU9iamVjdFVSTCIsImRvY3VtZW50IiwiY3JlYXRlRWxlbWVudCIsInNldEF0dHJpYnV0ZSIsImJvZHkiLCJhcHBlbmRDaGlsZCIsImNsaWNrIiwicmVtb3ZlQ2hpbGQiLCJkaXYiLCJjbGFzc05hbWUiLCJ0byIsInNpemUiLCJoMSIsInAiLCJ0YXJnZXQiLCJ2YWx1ZSIsIm9uVmFsdWVDaGFuZ2UiLCJoMiIsIkFkZFNlY3Rpb25EaWFsb2ciLCJvbkNyZWF0ZSIsInNwYW4iLCJBZGRDb250ZW50RGlhbG9nIiwic2VjdGlvbklkIiwib25BZGRlZCIsIml0ZW0iLCJ2aWRlb191cmwiLCJwZGZfdXJsIiwiY29udGVudF90ZXh0IiwiZGVmYXVsdFZhbHVlIiwiZGlzYWJsZWQiLCJvbkNsaWNrIiwiYXZhdGFyX3VybCIsImltZyIsInNyYyIsImFsdCIsImNvbXBsZXRlZCIsInNldFRpdGxlIiwib3BlbiIsInNldE9wZW4iLCJvbk9wZW5DaGFuZ2UiLCJhc0NoaWxkIiwib25DaGFuZ2UiLCJlIiwicGxhY2Vob2xkZXIiLCJ2aWRlb1VybCIsInNldFZpZGVvVXJsIiwicGRmVXJsIiwic2V0UGRmVXJsIiwidGV4dENvbnRlbnQiLCJzZXRUZXh0Q29udGVudCIsImRvY1R5cGUiLCJzZXREb2NUeXBlIiwidXBsb2FkaW5nIiwic2V0VXBsb2FkaW5nIiwiaGFuZGxlRmlsZVVwbG9hZCIsImZpbGUiLCJmaWxlcyIsImZpbGVFeHQiLCJuYW1lIiwic3BsaXQiLCJwb3AiLCJmaWxlTmFtZSIsIm5vdyIsIk1hdGgiLCJyYW5kb20iLCJ0b1N0cmluZyIsInN1YnN0cmluZyIsImZpbGVQYXRoIiwidXBsb2FkRXJyb3IiLCJzdG9yYWdlIiwidXBsb2FkIiwiZ2V0UHVibGljVXJsIiwicHVibGljVXJsIiwiaGFuZGxlQWRkIiwic2VjdGlvbl9pZCIsInYiLCJpbmNsdWRlcyIsImh0bWxGb3IiLCJhY2NlcHQiLCJyb3dzIl0sIm1hcHBpbmdzIjoiOzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7QUFBQSxTQUFTQSxRQUFRLEVBQUVDLFNBQVMsUUFBUSxRQUFRO0FBQzVDLFNBQVNDLFNBQVMsRUFBRUMsSUFBSSxFQUFFQyxlQUFlLFFBQVEsbUJBQW1CO0FBQ3BFLFNBQVNDLFdBQVcsUUFBUSxrQ0FBa0M7QUFDOUQsU0FBU0MsTUFBTSxRQUFRLHlCQUF5QjtBQUNoRCxTQUFTQyxLQUFLLFFBQVEsd0JBQXdCO0FBQzlDLFNBQVNDLFFBQVEsUUFBUSwyQkFBMkI7QUFDcEQsU0FBU0MsS0FBSyxRQUFRLHdCQUF3QjtBQUM5QyxTQUFTQyxTQUFTLEVBQUVDLGdCQUFnQixFQUFFQyxhQUFhLEVBQUVDLGdCQUFnQixRQUFRLDRCQUE0QjtBQUN6RyxTQUFTQyxNQUFNLEVBQUVDLGFBQWEsRUFBcUJDLFlBQVksRUFBRUMsWUFBWSxFQUFF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

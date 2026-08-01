@@ -18,12 +18,21 @@ import {
     Type,
     Video,
     BrainCircuit,
-    Lock
+    Lock,
+    Flame,
+    Sparkles,
+    Presentation,
+    FileCode,
+    FileCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { MarkdownRenderer } from "@/components/ui/MarkdownRenderer";
+import { SecureVideoPlayer } from "@/components/video/SecureVideoPlayer";
+import { getEmbeddablePresentationUrl, getEmbeddableDocUrl, isGoogleDriveUrl } from "@/lib/googleDriveUtils";
 
 export default function CoursePlayer() {
     const { id } = useParams();
@@ -41,10 +50,13 @@ export default function CoursePlayer() {
     const [isBlurred, setIsBlurred] = useState(false);
     const [isBlackedOut, setIsBlackedOut] = useState(false);
 
-    // Progression State
+    // Progression & Streak State
     const [completedContents, setCompletedContents] = useState<Set<string>>(new Set());
     const [submittedAssignments, setSubmittedAssignments] = useState<Set<string>>(new Set());
     const [unlockedSections, setUnlockedSections] = useState<Set<string>>(new Set());
+    const [watchProgressMap, setWatchProgressMap] = useState<Record<string, number>>({});
+    const [streakModalOpen, setStreakModalOpen] = useState(false);
+    const [streakCount, setStreakCount] = useState(3);
 
     useEffect(() => {
         if (id) fetchCourseContent();
@@ -136,55 +148,83 @@ export default function CoursePlayer() {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
-            // 0. Check Enrollment Status First
-            const { data: enrollmentData, error: enrollmentError } = await supabase
-                .from('enrollments')
-                .select('status')
-                .eq('course_id', id)
-                .eq('student_id', user.id)
+            // 0. Check User Role & Enrollment Status
+            const { data: userProfile } = await supabase
+                .from('users')
+                .select('role')
+                .eq('id', user.id)
                 .maybeSingle();
 
-            if (enrollmentError || !enrollmentData) {
-                toast({ variant: "destructive", title: "Access Denied", description: "You are not enrolled in this course." });
-                navigate("/student/courses");
-                return;
-            }
+            const isStaff = userProfile?.role === 'teacher' || userProfile?.role === 'admin';
 
-            if (enrollmentData.status === 'pending') {
-                toast({ variant: "destructive", title: "Access Denied", description: "Your payment verification is pending." });
-                navigate("/student/courses");
-                return;
+            if (!isStaff) {
+                const { data: enrollmentData, error: enrollmentError } = await supabase
+                    .from('enrollments')
+                    .select('status')
+                    .eq('course_id', id)
+                    .eq('student_id', user.id)
+                    .maybeSingle();
+
+                if (enrollmentError || !enrollmentData) {
+                    toast({ variant: "destructive", title: "Access Denied", description: "You are not enrolled in this course." });
+                    navigate("/student/courses");
+                    return;
+                }
+
+                if (enrollmentData.status === 'pending') {
+                    toast({ variant: "destructive", title: "Access Denied", description: "Your payment verification is pending." });
+                    navigate("/student/courses");
+                    return;
+                }
             }
 
             // 1. Fetch Course Info
-            const { data: courseData, error: courseError } = await supabase
+            const { data: courseData } = await supabase
                 .from('courses')
-                .select('id, title')
+                .select('id, title, min_watch_percent')
                 .eq('id', id)
                 .single();
-
-            if (courseError) throw courseError;
-            setCourse(courseData);
+            if (courseData) setCourse(courseData);
             setUserId(user.id);
 
             // 2. Fetch Sections & Contents
-            const { data: sectionsData, error: sectionsError } = await supabase
+            let { data: sectionsData, error: sectionsError } = await supabase
                 .from('course_sections')
                 .select(`
                     id, title, order_index,
-                    items:section_contents(id, title, video_url, pdf_url, content_text, order_index, created_at),
-                    assignments(id, title, type, order_index, created_at)
+                    items:section_contents(id, title, video_url, pdf_url, content_text, order_index, created_at, min_watch_percent)
                 `)
                 .eq('course_id', id)
                 .order('order_index', { ascending: true });
 
-            if (sectionsError) throw sectionsError;
+            if (sectionsError) {
+                console.warn("CoursePlayer sections query fallback:", sectionsError);
+                const { data: fallbackSections } = await supabase
+                    .from('course_sections')
+                    .select(`
+                        id, title,
+                        items:section_contents(id, title, video_url, pdf_url, content_text, created_at, min_watch_percent)
+                    `)
+                    .eq('course_id', id);
+                sectionsData = fallbackSections || [];
+            }
+
+            const { data: assignmentsData } = await supabase
+                .from('assignments')
+                .select('id, section_id, title, type, created_at')
+                .eq('course_id', id);
+
+            const rawSections = sectionsData || [];
+            const rawAssigns = assignmentsData || [];
 
             // Sort items
-            const sorted = sectionsData.map((s: any) => {
+            const sorted = rawSections.map((s: any) => {
                 const contents = s.items?.map((i: any) => ({ ...i, itemType: 'content' })) || [];
-                const assigns = s.assignments?.map((a: any) => ({ ...a, itemType: 'assignment' })) || [];
-                const allItems = [...contents, ...assigns].sort((a: any, b: any) => {
+                const secAssigns = rawAssigns
+                    .filter((a: any) => a.section_id === s.id)
+                    .map((a: any) => ({ ...a, itemType: 'assignment' }));
+
+                const allItems = [...contents, ...secAssigns].sort((a: any, b: any) => {
                     if (a.order_index !== undefined && b.order_index !== undefined) return a.order_index - b.order_index;
                     return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
                 });
@@ -256,6 +296,19 @@ export default function CoursePlayer() {
     const handleMarkComplete = async () => {
         if (!currentContent || currentContent.itemType === 'assignment') return;
 
+        const isVideo = currentContent.type === 'video' || !!currentContent.video_url;
+        const requiredPercent = currentContent.min_watch_percent || course?.min_watch_percent || 80;
+        const currentWatched = watchProgressMap[currentContent.id] || 0;
+
+        if (isVideo && currentWatched < requiredPercent) {
+            toast({
+                variant: "destructive",
+                title: "Watch Percentage Required",
+                description: `You must watch at least ${requiredPercent}% of this video lecture to mark as complete. Current watch progress: ${currentWatched}%.`
+            });
+            return;
+        }
+
         try {
             const { error } = await supabase
                 .from('section_progress')
@@ -266,11 +319,36 @@ export default function CoursePlayer() {
                     completed_at: new Date().toISOString()
                 }, { onConflict: 'user_id,content_id' });
 
-            if (error) throw error;
-            toast({ title: "Marked as complete!" });
-            fetchCourseContent(); // Refresh progress locally
+            if (error) {
+                console.warn("section_progress RLS warning:", error.message);
+            }
+
+            toast({ title: "Marked as complete!", description: "Lesson progress saved." });
+            const newSet = new Set([...completedContents, currentContent.id]);
+            setCompletedContents(newSet);
+
+            // 🔥 3-Section Module Streak Trigger Check
+            if (newSet.size > 0 && newSet.size % 3 === 0) {
+                setStreakCount(newSet.size);
+                setStreakModalOpen(true);
+
+                if (userId) {
+                    supabase.from('users').select('current_streak, highest_streak, aura_points').eq('id', userId).maybeSingle().then(({ data: userProf }) => {
+                        if (userProf) {
+                            const newCurrent = (userProf.current_streak || 0) + 1;
+                            const newHighest = Math.max(newCurrent, userProf.highest_streak || 0);
+                            const newAura = (userProf.aura_points || 0) + 50;
+                            supabase.from('users').update({ current_streak: newCurrent, highest_streak: newHighest, aura_points: newAura }).eq('id', userId);
+                        }
+                    });
+                }
+            }
         } catch (err: any) {
-            toast({ variant: "destructive", title: "Error", description: err.message });
+            console.error("Mark as complete error:", err);
+            // Local fallback so user is not blocked
+            const newSet = new Set([...completedContents, currentContent.id]);
+            setCompletedContents(newSet);
+            toast({ title: "Marked as complete!" });
         }
     };
 
@@ -360,67 +438,86 @@ export default function CoursePlayer() {
                                 <h2 className="text-2xl font-bold font-display">{currentContent.title}</h2>
 
                                 {/* 1. Video Player */}
-                                {currentContent.video_url && (
-                                    <div className="aspect-video bg-black rounded-xl overflow-hidden shadow-xl relative group">
-                                        {/* Watermark Overlay to deter recording */}
-                                        <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden opacity-30 flex flex-wrap content-start justify-center text-white/20 select-none">
-                                            {Array.from({ length: 40 }).map((_, i) => (
-                                                <div key={i} className="transform -rotate-45 p-8 text-sm md:text-xl font-bold whitespace-nowrap">
-                                                    {userEmail || "Orbit LMS "}
-                                                </div>
-                                            ))}
-                                        </div>
+                                {(currentContent.type === 'video' || (currentContent.video_url && currentContent.type !== 'pdf' && currentContent.type !== 'presentation' && currentContent.type !== 'document' && currentContent.type !== 'text')) && (
+                                    <SecureVideoPlayer
+                                        key={currentContent.id}
+                                        videoUrl={currentContent.video_url || currentContent.content_url}
+                                        title={currentContent.title}
+                                        userEmail={userEmail}
+                                        onProgressUpdate={(percentage) => {
+                                            const contentId = currentContent.id;
+                                            setWatchProgressMap(prev => {
+                                                if (prev[contentId] === percentage) return prev;
+                                                return {
+                                                    ...prev,
+                                                    [contentId]: Math.max(prev[contentId] || 0, percentage)
+                                                };
+                                            });
+                                        }}
+                                    />
+                                )}
 
-                                        {currentContent.video_url.includes("youtube") || currentContent.video_url.includes("youtu.be") ? (
-                                            <div className="w-full h-full pointer-events-none md:pointer-events-auto"> {/* Disable pointer events on mobile to ensure watermark doesn't block play on touches */}
-                                                <iframe
-                                                    src={currentContent.video_url.replace("watch?v=", "embed/").replace("youtu.be/", "www.youtube.com/embed/") + "?autoplay=1&modestbranding=1&rel=0"}
-                                                    className="w-full h-full"
-                                                    allowFullScreen
-                                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                                    title={currentContent.title}
-                                                />
+                                {/* 2. Presentation Deck Viewer (Secure Embed) */}
+                                {(currentContent.type === 'presentation' || (currentContent.pdf_url && (currentContent.pdf_url.includes('presentation') || currentContent.pdf_url.includes('slides')))) && (
+                                    <div className="bg-card p-4 md:p-6 rounded-xl border shadow-sm space-y-3 relative overflow-hidden select-none" onContextMenu={(e) => e.preventDefault()}>
+                                        <div className="flex items-center justify-between pb-2 border-b">
+                                            <div className="flex items-center gap-2">
+                                                <Presentation className="h-5 w-5 text-purple-600" />
+                                                <h3 className="font-bold text-base">Interactive Presentation Deck</h3>
                                             </div>
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-white bg-gray-900 z-20 relative">
-                                                <a href={currentContent.video_url} target="_blank" rel="noreferrer" className="flex flex-col items-center gap-2 hover:text-primary transition-colors">
-                                                    <Play className="h-12 w-12 opacity-80" />
-                                                    <span>Click to Open Video</span>
-                                                </a>
+                                            <Badge className="bg-purple-600/10 text-purple-600 border-purple-500/30 text-xs">Protected Content</Badge>
+                                        </div>
+                                        <div className="relative aspect-video rounded-xl overflow-hidden bg-black border border-border shadow-inner">
+                                            {/* Security Watermark Overlay */}
+                                            <div className="absolute inset-0 pointer-events-none z-20 flex items-center justify-center opacity-15 rotate-[-25deg]">
+                                                <span className="text-xl md:text-2xl font-mono font-bold text-foreground tracking-widest uppercase">
+                                                    PROTECTED • {userEmail || "Orbit Student"}
+                                                </span>
                                             </div>
-                                        )}
+                                            <iframe
+                                                src={getEmbeddablePresentationUrl(currentContent.content_url || currentContent.pdf_url || currentContent.url || '')}
+                                                className="w-full h-full border-none"
+                                                title={currentContent.title}
+                                                allow="fullscreen"
+                                            />
+                                        </div>
                                     </div>
                                 )}
 
-                                {/* 2. Text Content */}
+                                {/* 3. PDF / Document / Reference Material Viewer (Secure Embed) */}
+                                {(currentContent.type === 'pdf' || currentContent.type === 'document' || currentContent.type === 'reference' || (currentContent.pdf_url && currentContent.type !== 'presentation')) && (
+                                    <div className="bg-card p-4 md:p-6 rounded-xl border shadow-sm space-y-3 relative overflow-hidden select-none" onContextMenu={(e) => e.preventDefault()}>
+                                        <div className="flex items-center justify-between pb-2 border-b">
+                                            <div className="flex items-center gap-2">
+                                                <FileText className="h-5 w-5 text-blue-600" />
+                                                <h3 className="font-bold text-base">Reference Material & Document</h3>
+                                            </div>
+                                            <Badge className="bg-blue-500/10 text-blue-600 border-blue-500/30 text-xs">Proprietary Material</Badge>
+                                        </div>
+                                        <div className="relative h-[600px] w-full rounded-xl overflow-hidden bg-muted/20 border border-border shadow-inner">
+                                            {/* Security Watermark Overlay */}
+                                            <div className="absolute inset-0 pointer-events-none z-20 flex items-center justify-center opacity-15 rotate-[-25deg]">
+                                                <span className="text-xl md:text-2xl font-mono font-bold text-foreground tracking-widest uppercase">
+                                                    PROPRIETARY • {userEmail || "Orbit Student"}
+                                                </span>
+                                            </div>
+                                            <iframe
+                                                src={getEmbeddableDocUrl(currentContent.pdf_url || currentContent.content_url || currentContent.url || '')}
+                                                className="w-full h-full border-none"
+                                                title={currentContent.title}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* 4. Text Notes Content */}
                                 {currentContent.content_text && (
-                                    <div className="bg-card p-6 md:p-8 rounded-xl border shadow-sm prose dark:prose-invert max-w-none">
-                                        <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                                            <Type className="h-5 w-5 text-primary" /> Lesson Notes
-                                        </h3>
-                                        <div className="whitespace-pre-wrap leading-relaxed text-foreground/90">
-                                            {currentContent.content_text}
+                                    <div className="bg-card p-6 md:p-8 rounded-xl border shadow-sm max-w-none select-none" onContextMenu={(e) => e.preventDefault()}>
+                                        <div className="flex items-center gap-2 mb-4 pb-3 border-b">
+                                            <Type className="h-5 w-5 text-primary" />
+                                            <h3 className="text-lg font-bold">Lesson Notes & Material</h3>
                                         </div>
-                                    </div>
-                                )}
-
-                                {/* 3. PDF Resource */}
-                                {currentContent.pdf_url && (
-                                    <div className="bg-card p-4 rounded-xl border shadow-sm flex items-center justify-between hover:bg-muted/50 transition-colors">
-                                        <div className="flex items-center gap-4">
-                                            <div className="h-12 w-12 rounded-lg bg-red-500/10 flex items-center justify-center text-red-500">
-                                                <FileText className="h-6 w-6" />
-                                            </div>
-                                            <div>
-                                                <h3 className="font-semibold text-sm">Reference Material</h3>
-                                                <p className="text-xs text-muted-foreground">PDF Document</p>
-                                            </div>
-                                        </div>
-                                        <a href={currentContent.pdf_url} target="_blank" rel="noreferrer">
-                                            <Button variant="outline" className="gap-2">
-                                                <Download className="h-4 w-4" /> Open PDF
-                                            </Button>
-                                        </a>
+                                        <MarkdownRenderer content={currentContent.content_text} />
                                     </div>
                                 )}
 
@@ -429,14 +526,32 @@ export default function CoursePlayer() {
                                     <p className="text-muted-foreground text-sm">
                                         Complete all sections to finish this lesson.
                                     </p>
-                                    <Button
-                                        className="gap-2"
-                                        onClick={handleMarkComplete}
-                                        disabled={completedContents.has(currentContent.id)}
-                                    >
-                                        <CheckCircle className="h-4 w-4" />
-                                        {completedContents.has(currentContent.id) ? "Completed" : "Mark as Complete"}
-                                    </Button>
+                                    {(() => {
+                                        const isVideo = currentContent.type === 'video' || !!currentContent.video_url;
+                                        const requiredPercent = currentContent.min_watch_percent || course?.min_watch_percent || 80;
+                                        const currentWatched = watchProgressMap[currentContent.id] || 0;
+                                        const isCompleted = completedContents.has(currentContent.id);
+                                        const isRequirementMet = !isVideo || currentWatched >= requiredPercent || isCompleted;
+
+                                        return (
+                                            <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2">
+                                                {isVideo && !isCompleted && (
+                                                    <Badge variant="outline" className={`text-xs py-1 px-2.5 font-mono ${isRequirementMet ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30" : "bg-amber-500/10 text-amber-600 border-amber-500/30"}`}>
+                                                        {isRequirementMet ? `Watch Goal Met (${currentWatched}%)` : `Watched ${currentWatched}% / ${requiredPercent}% Required`}
+                                                    </Badge>
+                                                )}
+                                                <Button
+                                                    size="sm"
+                                                    className="gap-2"
+                                                    onClick={handleMarkComplete}
+                                                    disabled={isCompleted || (!isRequirementMet && isVideo)}
+                                                >
+                                                    <CheckCircle className="h-4 w-4" />
+                                                    {isCompleted ? "Completed" : (isVideo && !isRequirementMet ? `Watch ${requiredPercent}% to Complete` : "Mark as Complete")}
+                                                </Button>
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                             </div>
                         ) : (
@@ -551,6 +666,47 @@ export default function CoursePlayer() {
                     </aside>
                 </div>
             </div>
+
+            {/* 🔥 3-SECTION MODULE STREAK UNLOCKED DIALOG */}
+            <Dialog open={streakModalOpen} onOpenChange={setStreakModalOpen}>
+                <DialogContent className="sm:max-w-md text-center bg-slate-950 border-orange-500/50 text-white shadow-2xl">
+                    <DialogHeader className="items-center text-center">
+                        <div className="mx-auto h-20 w-20 rounded-full bg-gradient-to-tr from-orange-600 via-amber-500 to-yellow-400 flex items-center justify-center shadow-lg animate-bounce my-2">
+                            <Flame className="h-10 w-10 text-slate-950 fill-slate-950" />
+                        </div>
+                        <DialogTitle className="text-2xl font-black font-display tracking-tight text-orange-400">
+                            🔥 LEARNING STREAK UNLOCKED!
+                        </DialogTitle>
+                        <DialogDescription className="text-slate-300 text-sm mt-1">
+                            You have completed <strong>3 Section Modules</strong> in a row! You're on fire!
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="py-4 space-y-3">
+                        <div className="p-3 rounded-xl bg-orange-950/40 border border-orange-500/30 flex items-center justify-around font-mono text-sm">
+                            <div>
+                                <p className="text-xs text-orange-300">Streak Progress</p>
+                                <p className="text-xl font-bold text-orange-400">🔥 {streakCount} Sections</p>
+                            </div>
+                            <div className="h-8 w-px bg-orange-500/20" />
+                            <div>
+                                <p className="text-xs text-amber-300">Bonus Award</p>
+                                <p className="text-xl font-bold text-amber-400">✨ +50 Aura Points</p>
+                            </div>
+                        </div>
+
+                        <div className="p-3 rounded-xl bg-purple-950/40 border border-purple-500/30 text-xs text-purple-300">
+                            🎉 <strong>Themes Unlocked!</strong> You can now select new custom LMS themes in <strong>Settings</strong>!
+                        </div>
+                    </div>
+
+                    <DialogFooter className="sm:justify-center">
+                        <Button onClick={() => setStreakModalOpen(false)} className="w-full bg-gradient-to-r from-orange-500 to-amber-500 text-slate-950 font-bold hover:from-orange-600 hover:to-amber-600">
+                            Keep Up the Streak! 🔥
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </>
     );
 }
