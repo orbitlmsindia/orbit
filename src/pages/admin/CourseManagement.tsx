@@ -41,7 +41,11 @@ import {
   LayoutGrid,
   List,
   RefreshCw,
-  Users
+  Users,
+  Star,
+  Sparkles,
+  Award,
+  Check
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
@@ -52,9 +56,11 @@ export default function CourseManagement() {
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [addCourseModalOpen, setAddCourseModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [courses, setCourses] = useState<any[]>([]);
-
-  const [teachers, setTeachers] = useState<any[]>([]);
+  // Featured Settings State
+  const [featuredConfig, setFeaturedConfig] = useState<{ mode: "most_enrolled" | "manual" }>(() => {
+    const saved = localStorage.getItem("orbit_featured_settings");
+    return saved ? JSON.parse(saved) : { mode: "most_enrolled" };
+  });
 
   // Form State
   const [newCourse, setNewCourse] = useState({
@@ -84,8 +90,9 @@ export default function CourseManagement() {
     const { data: coursesData, error: coursesError } = await supabase
       .from('courses')
       .select(`
-        id, title, description, is_published, is_deletion_requested, deletion_requested_at, created_at,
-        teacher:users!teacher_id(full_name)
+        id, title, description, is_published, is_featured, is_deletion_requested, deletion_requested_at, created_at,
+        teacher:users!teacher_id(full_name),
+        enrollments(count)
       `)
       .order('created_at', { ascending: false });
 
@@ -100,18 +107,48 @@ export default function CourseManagement() {
         description: c.description,
         instructor: c.teacher?.full_name || "Unassigned",
         category: "General",
-        students: 0,
+        students: c.enrollments?.[0]?.count || 0,
         lessons: 0,
         completion: 0,
         status: c.is_published ? "published" : "draft",
         is_deletion_requested: c.is_deletion_requested,
         deletion_requested_at: c.deletion_requested_at,
         visibility: c.is_published,
+        is_featured: c.is_featured || false,
         created_at: c.created_at
       }));
       setCourses(formatted);
     }
     setLoading(false);
+  };
+
+  const handleToggleFeatured = async (id: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('courses')
+        .update({ is_featured: !currentStatus })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: !currentStatus ? "Starred as Featured ⭐" : "Removed from Featured ⭐",
+        description: "Homepage featured courses updated."
+      });
+      fetchData();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error updating featured status", description: err.message });
+    }
+  };
+
+  const handleSaveFeaturedMode = (mode: "most_enrolled" | "manual") => {
+    const newConfig = { mode };
+    setFeaturedConfig(newConfig);
+    localStorage.setItem("orbit_featured_settings", JSON.stringify(newConfig));
+    toast({
+      title: "Homepage Featured Mode Saved! 🌟",
+      description: mode === "most_enrolled" ? "Displaying courses with highest student enrollments." : "Displaying courses manually starred by Admin."
+    });
   };
 
   const handleCreateCourse = async () => {
@@ -283,6 +320,44 @@ export default function CourseManagement() {
   return (
     <AdminLayout>
       <div className="space-y-6 animate-fade-in">
+        {/* Homepage Featured Selection Control Bar */}
+        <Card className="border-2 border-primary/20 bg-primary/5 shadow-sm">
+          <CardContent className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-primary/10 rounded-xl border border-primary/30 text-primary">
+                <Sparkles className="h-5 w-5 text-amber-500 fill-amber-500/20" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
+                  Homepage "Featured Orbit Courses" Control Panel
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Choose how courses are displayed on the public landing page featured section.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                size="sm"
+                variant={featuredConfig.mode === "most_enrolled" ? "default" : "outline"}
+                onClick={() => handleSaveFeaturedMode("most_enrolled")}
+                className="gap-1.5 text-xs font-bold"
+              >
+                <Users className="h-3.5 w-3.5" /> Most Enrolled (Auto)
+              </Button>
+              <Button
+                size="sm"
+                variant={featuredConfig.mode === "manual" ? "default" : "outline"}
+                onClick={() => handleSaveFeaturedMode("manual")}
+                className="gap-1.5 text-xs font-bold"
+              >
+                <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" /> Admin Starred (Manual)
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Header */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
@@ -396,15 +471,27 @@ export default function CourseManagement() {
                   <Link to={`/admin/courses/${course.id}/edit`} className="block">
                     <div className="relative h-36 bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
                       <BookOpen className="h-12 w-12 text-primary/50" />
+                      <div className="absolute top-3 left-3 flex items-center gap-1 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/20 text-[10px] font-bold text-white">
+                        <Users className="h-3 w-3 text-primary" /> {course.students} Enrolled
+                      </div>
                       <div className="absolute top-3 right-3 flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleToggleFeatured(course.id, course.is_featured);
+                          }}
+                          className={`h-7 w-7 rounded-full ${course.is_featured ? "bg-amber-500 text-slate-950 hover:bg-amber-600" : "bg-black/40 text-slate-400 hover:text-amber-400"}`}
+                          title={course.is_featured ? "Starred as Featured" : "Star as Featured"}
+                        >
+                          <Star className={`h-4 w-4 ${course.is_featured ? "fill-slate-950" : ""}`} />
+                        </Button>
                         <Badge variant={course.status === "published" ? "default" : "secondary"}>
                           {course.status}
                         </Badge>
-                        {course.is_deletion_requested && (
-                          <Badge className="bg-amber-500 text-slate-900 font-bold border-amber-600 animate-pulse">
-                            Deletion Requested ⚠️
-                          </Badge>
-                        )}
                       </div>
                     </div>
 
@@ -499,6 +586,6 @@ export default function CourseManagement() {
           />
         )}
       </div>
-    </AdminLayout >
+    </AdminLayout>
   );
 }

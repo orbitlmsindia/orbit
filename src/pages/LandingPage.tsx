@@ -110,14 +110,56 @@ export default function LandingPage() {
 
   const fetchFeaturedCourses = async () => {
     try {
-      const { data } = await supabase
-        .from("courses")
-        .select("id, title, description, thumbnail_url, credit_points, is_published")
-        .eq("is_published", true)
-        .limit(6);
+      const savedInst = localStorage.getItem("orbit_institute_settings");
+      const defaultInst = savedInst ? JSON.parse(savedInst) : {};
 
-      if (data && data.length > 0) {
-        setPublishedCourses(data);
+      const savedFeaturedSettings = localStorage.getItem("orbit_featured_settings");
+      const featuredConfig = savedFeaturedSettings ? JSON.parse(savedFeaturedSettings) : { mode: "most_enrolled" };
+
+      const { data: rawCourses } = await supabase
+        .from("courses")
+        .select(`
+          id, title, description, thumbnail_url, price, original_price, currency,
+          organization_name, organization_logo_url, credit_points, is_published,
+          is_featured, created_at,
+          enrollments(count)
+        `)
+        .eq("is_published", true);
+
+      if (rawCourses && rawCourses.length > 0) {
+        let formatted = rawCourses.map((c: any) => {
+          const studentCount = c.enrollments?.[0]?.count || 0;
+          return {
+            id: c.id,
+            title: c.title,
+            description: c.description,
+            thumbnail_url: c.thumbnail_url || "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=500&auto=format&fit=crop&q=80",
+            price: parseFloat(c.price) || 0,
+            original_price: parseFloat(c.original_price) || 0,
+            currency: c.currency || "INR",
+            organization_name: c.organization_name?.trim() || defaultInst.name || "Orbit LMS Innovation Academy",
+            organization_logo_url: c.organization_logo_url?.trim() || defaultInst.logoUrl || "https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=150&auto=format&fit=crop&q=80",
+            credit_points: c.credit_points || 3,
+            studentsCount: studentCount,
+            is_featured: c.is_featured || false,
+            created_at: c.created_at
+          };
+        });
+
+        // Filter or Sort based on Admin Settings Mode
+        if (featuredConfig.mode === "manual") {
+          const manualFeatured = formatted.filter(c => c.is_featured);
+          if (manualFeatured.length > 0) {
+            formatted = manualFeatured;
+          } else {
+            formatted.sort((a, b) => b.studentsCount - a.studentsCount);
+          }
+        } else {
+          // Automatic mode: Sort by Most Enrolled Students
+          formatted.sort((a, b) => b.studentsCount - a.studentsCount);
+        }
+
+        setPublishedCourses(formatted.slice(0, 6));
       } else {
         // Fallback demo courses preview
         setPublishedCourses([
@@ -126,6 +168,11 @@ export default function LandingPage() {
             title: "Full-Stack Web Development & Cloud Computing",
             description: "Master modern React, Node.js, Next.js, PostgreSQL, and cloud deployments with hands-on projects.",
             credit_points: 4,
+            price: 2499,
+            original_price: 4999,
+            studentsCount: 142,
+            organization_name: defaultInst.name || "Orbit LMS Innovation Academy",
+            organization_logo_url: defaultInst.logoUrl || "https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=150&auto=format&fit=crop&q=80",
             thumbnail_url: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=500&auto=format&fit=crop&q=80"
           },
           {
@@ -133,6 +180,11 @@ export default function LandingPage() {
             title: "Data Science, AI & Machine Learning Specialization",
             description: "Explore Python data analysis, neural networks, predictive modeling, and AI application engineering.",
             credit_points: 5,
+            price: 3499,
+            original_price: 6999,
+            studentsCount: 98,
+            organization_name: defaultInst.name || "Orbit LMS Innovation Academy",
+            organization_logo_url: defaultInst.logoUrl || "https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=150&auto=format&fit=crop&q=80",
             thumbnail_url: "https://images.unsplash.com/photo-1555949963-ff9fe0c870eb?w=500&auto=format&fit=crop&q=80"
           },
           {
@@ -140,6 +192,11 @@ export default function LandingPage() {
             title: "Cybersecurity & Network Defense Fundamentals",
             description: "Understand network security architecture, vulnerability assessment, ethical hacking, and encryption protocols.",
             credit_points: 3,
+            price: 1999,
+            original_price: 3999,
+            studentsCount: 85,
+            organization_name: defaultInst.name || "Orbit LMS Innovation Academy",
+            organization_logo_url: defaultInst.logoUrl || "https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=150&auto=format&fit=crop&q=80",
             thumbnail_url: "https://images.unsplash.com/photo-1563986768609-322da13575f3?w=500&auto=format&fit=crop&q=80"
           }
         ]);
@@ -410,6 +467,8 @@ export default function LandingPage() {
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
+                whileHover={{ y: -6, scale: 1.02 }}
+                transition={{ duration: 0.3 }}
                 className="bg-card border rounded-2xl overflow-hidden shadow-md flex flex-col hover:shadow-xl transition-all"
               >
                 <div className="h-44 w-full bg-muted relative overflow-hidden">
@@ -418,6 +477,10 @@ export default function LandingPage() {
                     alt={course.title}
                     className="w-full h-full object-cover"
                   />
+                  <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/20">
+                    <img src={course.organization_logo_url} alt="Org" className="h-4 w-4 rounded-full object-cover" />
+                    <span className="text-[10px] font-bold text-white truncate max-w-[120px]">{course.organization_name}</span>
+                  </div>
                   <div className="absolute top-3 right-3">
                     <Badge className="bg-primary text-primary-foreground font-bold font-mono text-xs shadow-md gap-1">
                       <GraduationCap className="h-3.5 w-3.5" /> 🎓 {course.credit_points || 3} Credits
@@ -427,6 +490,25 @@ export default function LandingPage() {
 
                 <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
                   <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground font-semibold flex items-center gap-1">
+                        <Users className="h-3.5 w-3.5 text-primary" /> {course.studentsCount} Enrolled Students
+                      </span>
+                      <span className="font-bold text-foreground font-mono">
+                        {course.price > 0 ? (
+                          <>
+                            ₹{course.price.toLocaleString()}{" "}
+                            {course.original_price > course.price && (
+                              <span className="line-through text-muted-foreground text-[10px] ml-1">
+                                ₹{course.original_price.toLocaleString()}
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-emerald-500 font-bold">FREE</span>
+                        )}
+                      </span>
+                    </div>
                     <h3 className="font-bold text-lg line-clamp-2 text-foreground">{course.title}</h3>
                     <p className="text-xs text-muted-foreground line-clamp-3">{course.description || "Comprehensive academic course module."}</p>
                   </div>
@@ -435,7 +517,7 @@ export default function LandingPage() {
                     <span className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
                       <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> Certificate Eligible
                     </span>
-                    <Button size="sm" onClick={() => navigate("/register")} className="gap-1.5 font-bold text-xs">
+                    <Button size="sm" onClick={() => navigate("/register")} className="gap-1.5 font-bold text-xs cursor-pointer">
                       <Eye className="h-3.5 w-3.5" /> Preview Course
                     </Button>
                   </div>
