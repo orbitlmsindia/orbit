@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getTopicRelatedThumbnail } from "@/lib/thumbnailUtils";
 import { StudentLayout } from "@/components/layout/StudentLayout";
+import { CertificateCourseDetailModal } from "@/components/courses/CertificateCourseDetailModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -165,9 +166,36 @@ export default function StudentCourses() {
                     currency,
                     organization_name,
                     organization_logo_url,
+                    course_domain,
+                    course_status,
+                    course_language,
+                    course_level,
+                    course_type,
+                    intended_audience,
+                    duration_hours,
+                    start_date,
+                    end_date,
+                    enrollment_end_date,
+                    exam_date,
+                    exam_reg_end_date,
+                    books_references,
+                    syllabus_modules,
+                    assessment_internal_marks,
+                    assessment_external_marks,
+                    assessment_total_marks,
+                    min_pass_internal_pct,
+                    min_pass_internal_marks,
+                    min_pass_external_pct,
+                    min_pass_external_marks,
+                    min_pass_total_pct,
+                    min_pass_total_marks,
+                    instructor_name,
+                    instructor_designation,
+                    instructor_department,
+                    instructor_photo_url,
                     teacher:users!teacher_id(full_name, email, avatar_url, role),
                     enrollments(count),
-                    course_sections(id, title, section_contents(id))
+                    course_sections(id, title, order_index, week_number, allocated_hours, topic_name, section_contents(id))
                 `)
                 .eq('is_published', true)
                 .order('created_at', { ascending: false });
@@ -191,6 +219,17 @@ export default function StudentCourses() {
 
                     const savedInst = localStorage.getItem("orbit_institute_settings");
                     const defaultInst = savedInst ? JSON.parse(savedInst) : {};
+
+                    // Auto-derive syllabus modules from curriculum sections if not explicitly set
+                    const autoSyllabusModules = (c.syllabus_modules && Array.isArray(c.syllabus_modules) && c.syllabus_modules.length > 0)
+                        ? c.syllabus_modules
+                        : (sections && sections.length > 0)
+                            ? sections.map((sec: any, idx: number) => ({
+                                module_no: sec.week_number ? `Week ${sec.week_number}` : `Module-${idx + 1}`,
+                                content: sec.title ? (sec.topic_name ? `${sec.title}: ${sec.topic_name}` : sec.title) : (sec.topic_name || `Module ${idx + 1}`),
+                                hrs: Number(sec.allocated_hours) || 4
+                            }))
+                            : [];
 
                     return {
                         id: c.id,
@@ -218,102 +257,213 @@ export default function StudentCourses() {
                         currency: c.currency || 'INR',
                         organization_name: c.organization_name?.trim() || defaultInst.name || 'Orbit LMS Innovation Academy',
                         organization_logo_url: c.organization_logo_url?.trim() || defaultInst.logoUrl || 'https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=150&auto=format&fit=crop&q=80',
-                        teacher_id: c.teacher_id
+                        teacher_id: c.teacher_id,
+                        course_sections: sections,
+                        
+                        // Pass along all dynamic certificate fields
+                        course_domain: c.course_domain,
+                        course_status: c.course_status,
+                        course_language: c.course_language,
+                        course_level: c.course_level,
+                        course_type: c.course_type,
+                        intended_audience: c.intended_audience,
+                        duration_hours: c.duration_hours,
+                        start_date: c.start_date,
+                        end_date: c.end_date,
+                        enrollment_end_date: c.enrollment_end_date,
+                        exam_date: c.exam_date,
+                        exam_reg_end_date: c.exam_reg_end_date,
+                        books_references: c.books_references,
+                        syllabus_modules: autoSyllabusModules,
+                        assessment_internal_marks: c.assessment_internal_marks,
+                        assessment_external_marks: c.assessment_external_marks,
+                        assessment_total_marks: c.assessment_total_marks,
+                        min_pass_internal_pct: c.min_pass_internal_pct,
+                        min_pass_internal_marks: c.min_pass_internal_marks,
+                        min_pass_external_pct: c.min_pass_external_pct,
+                        min_pass_external_marks: c.min_pass_external_marks,
+                        min_pass_total_pct: c.min_pass_total_pct,
+                        min_pass_total_marks: c.min_pass_total_marks,
+                        instructor_name: c.instructor_name,
+                        instructor_designation: c.instructor_designation,
+                        instructor_department: c.instructor_department,
+                        instructor_photo_url: c.instructor_photo_url
                     };
                 });
             }
 
-            // Default Fallback Solo Courses across domains if DB table is empty or unpopulated
+            // Default Fallback Solo Certificate Courses across the 5 Reference Domains
             const fallbackCourses = [
+                // Domain 1: Artificial Intelligence & Machine Learning
                 {
-                    id: "demo-course-1",
-                    title: "Full-Stack Web Development & Next.js Architecture",
-                    description: "Master modern React 19, TypeScript, Next.js App Router, Node.js microservices, and PostgreSQL database design with hands-on projects.",
-                    domain: "Software Engineering",
-                    creditPoints: 4,
-                    totalModules: 8,
-                    durationWeeks: 8,
-                    durationHours: 32,
-                    objectives: "Build production-grade full-stack web applications with authentication, server actions, and cloud deployment.",
-                    instructor: "Dr. Mohit Mehta",
-                    instructorEmail: "mohit@orbitlms.edu.in",
+                    id: "cert-ai-1",
+                    title: "Foundations of Artificial Intelligence & Machine Learning",
+                    description: "Introduces fundamental concepts, techniques, and applications of AI and ML. Covers intelligent agents, data preprocessing, supervised/unsupervised learning, and model evaluation.",
+                    domain: "Artificial Intelligence & Machine Learning",
+                    course_domain: "Artificial Intelligence & Machine Learning",
+                    creditPoints: 5,
+                    totalModules: 12,
+                    durationWeeks: 12,
+                    durationHours: 60,
+                    instructor_name: "Er. Harshvardhan Purohit",
+                    instructor_designation: "Founder & CEO, SIN Education and Technology",
+                    instructor_department: "Department of Technology, JIET, Jodhpur",
+                    instructor: "Er. Harshvardhan Purohit",
+                    instructorEmail: "harsh@orbitlms.edu.in",
+                    instructor_photo_url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80",
                     students: 142,
+                    image: "https://images.unsplash.com/photo-1555949963-ff9fe0c870eb?w=500&auto=format&fit=crop&q=80",
+                    price: 0,
+                    start_date: "17 Aug 2026",
+                    end_date: "09 Oct 2026",
+                    enrollment_end_date: "17 Aug 2026",
+                    exam_date: "25 Oct 2026",
+                    exam_reg_end_date: "28 Aug 2026",
+                    books_references: [
+                        "Pattern Recognition and Machine Learning by Christopher M. Bishop",
+                        "Artificial Intelligence: A Modern Approach by Stuart Russell & Peter Norvig",
+                        "Hands-On Machine Learning with Scikit-Learn, Keras, and TensorFlow by Aurélien Géron"
+                    ],
+                    syllabus_modules: [
+                        { module_no: "Module-1", content: "Introduction to AI: History, Scope, Applications, AI vs ML vs DL", hrs: 5 },
+                        { module_no: "Module-2", content: "Intelligent Agents, Problem Solving & Search Techniques", hrs: 5 },
+                        { module_no: "Module-3", content: "Mathematical Foundations: Linear Algebra & Probability", hrs: 5 },
+                        { module_no: "Module-4", content: "Statistics for Machine Learning", hrs: 5 },
+                        { module_no: "Module-5", content: "Data Types, Data Collection & Pre-processing", hrs: 5 },
+                        { module_no: "Module-6", content: "Feature Scaling, Normalization & Encoding Techniques", hrs: 5 },
+                        { module_no: "Module-7", content: "Introduction to Supervised Learning Algorithms", hrs: 5 },
+                        { module_no: "Module-8", content: "Introduction to Unsupervised Learning Algorithms", hrs: 5 },
+                        { module_no: "Module-9", content: "Evaluation Metrics & Model Performance Basics", hrs: 5 },
+                        { module_no: "Module-10", content: "Python for AI-ML: NumPy, Pandas, Matplotlib", hrs: 5 },
+                        { module_no: "Module-11", content: "Ethical AI, Bias, Fairness & Responsible AI", hrs: 5 },
+                        { module_no: "Module-12", content: "Case Studies & Mini Project", hrs: 5 }
+                    ]
+                },
+                {
+                    id: "cert-ai-2",
+                    title: "Machine Learning Algorithms & Model Development",
+                    description: "Advanced model building using Decision Trees, SVMs, Ensemble Methods, Gradient Boosting, and Hyperparameter Tuning.",
+                    domain: "Artificial Intelligence & Machine Learning",
+                    course_domain: "Artificial Intelligence & Machine Learning",
+                    creditPoints: 5,
+                    totalModules: 12,
+                    durationWeeks: 12,
+                    durationHours: 60,
+                    instructor_name: "Dr. Mohit Mehta",
+                    instructor_designation: "Head of AI Research, Orbit Academy",
+                    instructor_department: "Department of Technology, JIET, Jodhpur",
+                    instructor: "Dr. Mohit Mehta",
+                    students: 98,
                     image: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=500&auto=format&fit=crop&q=80"
                 },
                 {
-                    id: "demo-course-2",
-                    title: "Data Science, Neural Networks & Generative AI",
-                    description: "Explore Python data analysis, pandas, PyTorch neural networks, predictive modeling, and LLM application engineering.",
-                    domain: "Data Science & AI",
+                    id: "cert-ai-3",
+                    title: "Deep Learning & Intelligent Systems",
+                    description: "Neural Networks, CNNs, RNNs, Transformers, PyTorch, and Computer Vision architectures.",
+                    domain: "Artificial Intelligence & Machine Learning",
+                    course_domain: "Artificial Intelligence & Machine Learning",
                     creditPoints: 5,
-                    totalModules: 10,
-                    durationWeeks: 10,
-                    durationHours: 40,
-                    objectives: "Train machine learning models, build RAG pipelines, and integrate AI APIs into enterprise apps.",
-                    instructor: "Prof. Harshvardhan Purohit",
-                    instructorEmail: "harsh@orbitlms.edu.in",
-                    students: 98,
-                    image: "https://images.unsplash.com/photo-1555949963-ff9fe0c870eb?w=500&auto=format&fit=crop&q=80"
-                },
-                {
-                    id: "demo-course-3",
-                    title: "Cyber Security & Defensive Network Infrastructure",
-                    description: "Understand network security architecture, vulnerability assessment, ethical hacking principles, and incident response.",
-                    domain: "Cyber Security",
-                    creditPoints: 4,
-                    totalModules: 6,
-                    durationWeeks: 6,
-                    durationHours: 24,
-                    objectives: "Conduct security audits, implement encryption protocols, and defend cloud infrastructure against cyber threats.",
-                    instructor: "Vikramaditya Sharma",
-                    instructorEmail: "vikram@orbitlms.edu.in",
-                    students: 76,
-                    image: "https://images.unsplash.com/photo-1563986768609-322da13575f3?w=500&auto=format&fit=crop&q=80"
-                },
-                {
-                    id: "demo-course-4",
-                    title: "Cloud Computing, Kubernetes & DevOps Pipeline Mastery",
-                    description: "Design automated CI/CD pipelines with GitHub Actions, Docker containers, Kubernetes clusters, and AWS/GCP cloud services.",
-                    domain: "Cloud Computing & DevOps",
-                    creditPoints: 4,
-                    totalModules: 8,
-                    durationWeeks: 8,
-                    durationHours: 32,
-                    objectives: "Containerize microservices, manage multi-region cloud deployments, and automate zero-downtime releases.",
-                    instructor: "Ananya Roy",
-                    instructorEmail: "ananya@orbitlms.edu.in",
+                    totalModules: 12,
+                    durationWeeks: 12,
+                    durationHours: 60,
+                    instructor_name: "Er. Harshvardhan Purohit",
+                    instructor_designation: "Founder & CEO, SIN Education and Technology",
+                    instructor_department: "Department of Technology, JIET, Jodhpur",
+                    instructor: "Er. Harshvardhan Purohit",
                     students: 110,
-                    image: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=500&auto=format&fit=crop&q=80"
+                    image: "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=500&auto=format&fit=crop&q=80"
                 },
                 {
-                    id: "demo-course-5",
-                    title: "UI/UX Design Systems & Micro-Interactions",
-                    description: "Craft modern design systems in Figma, master typography, user research, wireframing, and interactive micro-animations.",
-                    domain: "UI/UX & Product Design",
-                    creditPoints: 3,
-                    totalModules: 4,
-                    durationWeeks: 4,
-                    durationHours: 16,
-                    objectives: "Design accessible, highly polished web and mobile user interfaces from wireframe to interactive prototype.",
-                    instructor: "Sophia Patel",
-                    instructorEmail: "sophia@orbitlms.edu.in",
+                    id: "cert-ai-4",
+                    title: "Advanced AI, MLOps & Research Applications",
+                    description: "Deploying models to production, ML Pipelines, MLflow, Model Monitoring, and RAG architectures.",
+                    domain: "Artificial Intelligence & Machine Learning",
+                    course_domain: "Artificial Intelligence & Machine Learning",
+                    creditPoints: 5,
+                    totalModules: 12,
+                    durationWeeks: 12,
+                    durationHours: 60,
+                    instructor_name: "Dr. Mohit Mehta",
+                    instructor_designation: "Head of AI Research",
+                    instructor: "Dr. Mohit Mehta",
                     students: 85,
-                    image: "https://images.unsplash.com/photo-1581291518857-4e27b48ff24e?w=500&auto=format&fit=crop&q=80"
+                    image: "https://images.unsplash.com/photo-1507146426996-ef05306b995a?w=500&auto=format&fit=crop&q=80"
                 },
+
+                // Domain 2: Intelligent Data Analytics & Prompt Engineering
                 {
-                    id: "demo-course-6",
-                    title: "Cross-Platform Mobile App Development with React Native",
-                    description: "Build native iOS and Android applications with single codebase React Native, Expo, and push notifications.",
-                    domain: "Web & Mobile Development",
-                    creditPoints: 4,
-                    totalModules: 6,
-                    durationWeeks: 6,
-                    durationHours: 24,
-                    objectives: "Deploy mobile applications to App Store and Google Play with smooth 60fps animations.",
-                    instructor: "Rohan Kapoor",
-                    instructorEmail: "rohan@orbitlms.edu.in",
-                    students: 64,
-                    image: "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=500&auto=format&fit=crop&q=80"
+                    id: "cert-data-1",
+                    title: "Intelligent Data Analytics & Prompt Engineering",
+                    description: "Master modern data analytics pipelines, SQL window functions, statistical inference, and advanced prompt engineering for generative AI systems.",
+                    domain: "Intelligent Data Analytics & Prompt Engineering",
+                    course_domain: "Intelligent Data Analytics & Prompt Engineering",
+                    creditPoints: 5,
+                    totalModules: 12,
+                    durationWeeks: 12,
+                    durationHours: 60,
+                    instructor_name: "Prof. Ananya Roy",
+                    instructor_designation: "Senior Data Architect & AI Researcher",
+                    instructor_department: "Department of Computer Science & Analytics",
+                    instructor: "Prof. Ananya Roy",
+                    students: 130,
+                    image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=500&auto=format&fit=crop&q=80"
+                },
+
+                // Domain 3: Embedded Robotics & Product Design
+                {
+                    id: "cert-robotics-1",
+                    title: "Embedded Robotics & Product Design",
+                    description: "Comprehensive hands-on certificate course covering Microcontrollers, Embedded C, Sensor Integration, ROS (Robot Operating System), and Hardware Prototyping.",
+                    domain: "Embedded Robotics & Product Design",
+                    course_domain: "Embedded Robotics & Product Design",
+                    creditPoints: 5,
+                    totalModules: 12,
+                    durationWeeks: 12,
+                    durationHours: 60,
+                    instructor_name: "Er. Vikramaditya Sharma",
+                    instructor_designation: "Lead Robotics & Hardware Engineer",
+                    instructor_department: "Department of Robotics & Mechatronics",
+                    instructor: "Er. Vikramaditya Sharma",
+                    students: 95,
+                    image: "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=500&auto=format&fit=crop&q=80"
+                },
+
+                // Domain 4: Mastering Object Oriented Programming
+                {
+                    id: "cert-oop-1",
+                    title: "Mastering Object Oriented Programming",
+                    description: "Deep dive into C++, Java, Solid Principles, Design Patterns, Memory Management, and High-Performance Software Architecture.",
+                    domain: "Mastering Object Oriented Programming",
+                    course_domain: "Mastering Object Oriented Programming",
+                    creditPoints: 5,
+                    totalModules: 12,
+                    durationWeeks: 12,
+                    durationHours: 60,
+                    instructor_name: "Dr. Rajesh K. Varma",
+                    instructor_designation: "Professor of Software Engineering",
+                    instructor_department: "Department of Computer Science",
+                    instructor: "Dr. Rajesh K. Varma",
+                    students: 160,
+                    image: "https://images.unsplash.com/photo-1515879218367-8466d910aaa4?w=500&auto=format&fit=crop&q=80"
+                },
+
+                // Domain 5: Civil Engineering & Traditional Knowledge Systems
+                {
+                    id: "cert-civil-1",
+                    title: "Civil Engineering & Traditional Knowledge Systems",
+                    description: "Blends modern structural engineering & GIS mapping with traditional architecture, sustainable building practices, and heritage conservation.",
+                    domain: "Civil Engineering & Traditional Knowledge Systems",
+                    course_domain: "Civil Engineering & Traditional Knowledge Systems",
+                    creditPoints: 5,
+                    totalModules: 12,
+                    durationWeeks: 12,
+                    durationHours: 60,
+                    instructor_name: "Prof. Suresh Chandra",
+                    instructor_designation: "Head of Infrastructure & Heritage Studies",
+                    instructor_department: "Department of Civil Engineering",
+                    instructor: "Prof. Suresh Chandra",
+                    students: 75,
+                    image: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=500&auto=format&fit=crop&q=80"
                 }
             ];
 
@@ -1351,382 +1501,22 @@ export default function StudentCourses() {
                 </DialogContent>
             </Dialog>
 
-            {/* PRE-ENROLLMENT COURSE OVERVIEW & SYLLABUS PREVIEW MODAL */}
-            <Dialog 
-                open={!!selectedCourseForPreview} 
-                onOpenChange={(open) => !open && setSelectedCourseForPreview(null)}
-            >
-                <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
-                    {selectedCourseForPreview && (() => {
-                        const course = selectedCourseForPreview;
-                        const status = enrolledCourseStatus[course.id];
-                        const isEnrolled = status === 'approved';
-                        const isPending = status === 'pending';
-
-                        return (
-                            <>
-                                {/* Dialog Top Header / Banner */}
-                                <div className="relative h-44 bg-gradient-to-r from-primary/90 to-primary text-primary-foreground p-6 flex flex-col justify-end shrink-0 overflow-hidden">
-                                    <img 
-                                        src={course.image} 
-                                        alt={course.title}
-                                        className="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-30"
-                                    />
-                                    <div className="relative z-10 space-y-2">
-                                        <div className="flex items-center gap-2">
-                                            <Badge className="bg-background/90 text-foreground backdrop-blur-md border-none font-semibold">
-                                                {course.domain}
-                                            </Badge>
-                                            {isEnrolled && <Badge variant="success">Enrolled</Badge>}
-                                            {isPending && <Badge className="bg-yellow-500 text-white">Pending Approval</Badge>}
-                                        </div>
-                                        <h2 className="text-2xl font-display font-bold leading-tight line-clamp-1">{course.title}</h2>
-                                        <div className="flex items-center gap-4 text-xs opacity-90">
-                                            <span>Instructor: <strong>{course.instructor}</strong></span>
-                                            <span>•</span>
-                                            <span>{course.students} enrolled students</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Modal Tabs Content */}
-                                <Tabs defaultValue="overview" className="flex-1 flex flex-col overflow-hidden">
-                                    <div className="px-6 pt-3 border-b bg-muted/20">
-                                        <TabsList className="grid grid-cols-3 w-full max-w-md">
-                                            <TabsTrigger value="overview">Overview & Objectives</TabsTrigger>
-                                            <TabsTrigger value="instructor">Instructor Intro</TabsTrigger>
-                                            <TabsTrigger value="syllabus">Modules & Syllabus</TabsTrigger>
-                                        </TabsList>
-                                    </div>
-
-                                    <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                                        {/* TAB 1: OVERVIEW & OBJECTIVES */}
-                                        <TabsContent value="overview" className="mt-0 space-y-6">
-                                            {/* Description */}
-                                            <div>
-                                                <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-2">
-                                                    <Info className="h-4 w-4 text-primary" /> About This Course
-                                                </h3>
-                                                <p className="text-sm leading-relaxed text-foreground bg-card p-4 rounded-xl border">
-                                                    {course.description || "No general description provided by instructor."}
-                                                </p>
-                                            </div>
-
-                                            {/* Academic Credit & Domain Certification Pathway */}
-                                            <div className="p-4 rounded-xl border border-purple-500/30 bg-purple-500/5 space-y-2">
-                                                <div className="flex items-center justify-between">
-                                                    <h3 className="text-sm font-bold text-purple-700 dark:text-purple-300 flex items-center gap-2">
-                                                        <Award className="h-4 w-4 text-purple-600" /> Academic Credit & Domain Certification Pathway
-                                                    </h3>
-                                                    <Badge className="bg-purple-600 text-white text-xs font-bold font-mono">
-                                                        +{(course.creditPoints ?? course.credit_points ?? 3)} Credits
-                                                    </Badge>
-                                                </div>
-                                                <p className="text-xs text-foreground/90 leading-relaxed">
-                                                    • <strong>Course Credit Weightage:</strong> Completing this course awards <strong>{(course.creditPoints ?? course.credit_points ?? 3)} Academic Credits</strong> under the <strong>{course.domain}</strong> domain pathway.
-                                                </p>
-                                                <p className="text-xs text-muted-foreground leading-relaxed">
-                                                    • <strong>20-Credit Domain Certification Rule:</strong> Completing courses in the <strong>{course.domain}</strong> domain until accumulating <strong>20 Credits</strong> unlocks an official <strong>Domain Mastery Certificate</strong>.
-                                                </p>
-                                            </div>
-
-                                            {/* Objectives */}
-                                            <div>
-                                                <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-2">
-                                                    <CheckCircle2 className="h-4 w-4 text-green-600" /> Learning Objectives & Outcomes
-                                                </h3>
-                                                <div className="bg-card p-4 rounded-xl border space-y-2 text-sm text-foreground">
-                                                    {course.objectives ? (
-                                                        <div className="whitespace-pre-line leading-relaxed">
-                                                            {course.objectives}
-                                                        </div>
-                                                    ) : (
-                                                        <ul className="space-y-2 list-disc list-inside text-muted-foreground">
-                                                            <li>Master essential principles and core concepts in {course.domain}.</li>
-                                                            <li>Gain practical hands-on experience through structured modules.</li>
-                                                            <li>Complete assignments and quizzes to demonstrate proficiency.</li>
-                                                        </ul>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            {/* General Instructions */}
-                                            <div>
-                                                <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-2">
-                                                    <FileText className="h-4 w-4 text-primary" /> General Instructions & Guidelines
-                                                </h3>
-                                                <div className="bg-muted/30 p-4 rounded-xl border text-sm text-foreground space-y-2">
-                                                    {course.instructions ? (
-                                                        <div className="whitespace-pre-line leading-relaxed">
-                                                            {course.instructions}
-                                                        </div>
-                                                    ) : (
-                                                        <div className="space-y-1.5 text-xs text-muted-foreground">
-                                                            <p>• Access course material anytime from your student portal.</p>
-                                                            <p>• Minimum 80% video watch progress is required to mark lessons as completed.</p>
-                                                            <p>• Complete quizzes and submit assignments before deadlines for final evaluation.</p>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            {/* Exam Policy */}
-                                            <div>
-                                                <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-2">
-                                                    <Award className="h-4 w-4 text-purple-600" /> Exam Policy & Evaluation Rules
-                                                </h3>
-                                                <div className="bg-purple-500/5 border border-purple-500/20 p-4 rounded-xl text-sm text-foreground space-y-2">
-                                                    {course.exam_policy ? (
-                                                        <div className="whitespace-pre-line leading-relaxed">
-                                                            {course.exam_policy}
-                                                        </div>
-                                                    ) : (
-                                                        <div className="space-y-1.5 text-xs text-muted-foreground">
-                                                            <p>• <strong>Passing Threshold:</strong> Minimum 70% aggregate score required on quizzes & assessments for completion certificate.</p>
-                                                            <p>• <strong>Attempt Limits:</strong> Quizzes permit up to 3 attempt submissions.</p>
-                                                            <p>• <strong>Submission Rules:</strong> Assignments must be turned in prior to deadline dates.</p>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </TabsContent>
-
-                                        {/* TAB 2: INSTRUCTOR INTRO */}
-                                        <TabsContent value="instructor" className="mt-0 space-y-4">
-                                            <div className="bg-card border p-5 rounded-2xl space-y-5">
-                                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="h-16 w-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-xl overflow-hidden shrink-0">
-                                                            {course.instructorAvatar ? (
-                                                                <img src={course.instructorAvatar} alt={course.instructor} className="h-full w-full object-cover" />
-                                                            ) : (
-                                                                course.instructor.charAt(0)
-                                                            )}
-                                                        </div>
-                                                        <div>
-                                                            <h3 className="font-bold text-lg">{course.instructor}</h3>
-                                                            <p className="text-xs text-primary font-semibold">Course Instructor & Subject Matter Expert</p>
-                                                            {course.instructorEmail && (
-                                                                <p className="text-xs text-muted-foreground mt-0.5">📧 {course.instructorEmail}</p>
-                                                            )}
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Social Links */}
-                                                    {course.instructor_socials && (course.instructor_socials.linkedin || course.instructor_socials.youtube || course.instructor_socials.twitter || course.instructor_socials.instagram) && (
-                                                        <div className="flex flex-wrap items-center gap-1.5 shrink-0">
-                                                            {course.instructor_socials.linkedin && (
-                                                                <a href={course.instructor_socials.linkedin} target="_blank" rel="noopener noreferrer">
-                                                                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1 border-blue-500/30 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950">
-                                                                        <Globe className="h-3.5 w-3.5" /> LinkedIn ↗
-                                                                    </Button>
-                                                                </a>
-                                                            )}
-                                                            {course.instructor_socials.youtube && (
-                                                                <a href={course.instructor_socials.youtube} target="_blank" rel="noopener noreferrer">
-                                                                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1 border-red-500/30 text-red-600 hover:bg-red-50 dark:hover:bg-red-950">
-                                                                        <Video className="h-3.5 w-3.5" /> YouTube ↗
-                                                                    </Button>
-                                                                </a>
-                                                            )}
-                                                            {course.instructor_socials.twitter && (
-                                                                <a href={course.instructor_socials.twitter} target="_blank" rel="noopener noreferrer">
-                                                                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1 border-sky-500/30 text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-950">
-                                                                        <Globe className="h-3.5 w-3.5" /> X ↗
-                                                                    </Button>
-                                                                </a>
-                                                            )}
-                                                            {course.instructor_socials.instagram && (
-                                                                <a href={course.instructor_socials.instagram} target="_blank" rel="noopener noreferrer">
-                                                                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1 border-pink-500/30 text-pink-600 hover:bg-pink-50 dark:hover:bg-pink-950">
-                                                                        <Globe className="h-3.5 w-3.5" /> Instagram ↗
-                                                                    </Button>
-                                                                </a>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                {/* Qualifications & Experience Overview (LinkedIn Style) */}
-                                                {course.instructor_qualifications && (
-                                                    <div className="pt-3 border-t border-border space-y-3">
-                                                        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                                                            <GraduationCap className="h-4 w-4 text-primary" /> Qualifications & Experience Overview
-                                                        </h4>
-
-                                                        {Array.isArray(course.instructor_qualifications) && course.instructor_qualifications.length > 0 ? (
-                                                            <div className="space-y-2.5">
-                                                                {course.instructor_qualifications.map((q: any, idx: number) => (
-                                                                    <div key={idx} className="p-3.5 rounded-xl border bg-muted/20 flex items-start gap-3">
-                                                                        <div className="h-10 w-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold overflow-hidden shrink-0">
-                                                                            {q.image_url ? (
-                                                                                <img src={q.image_url} alt={q.title} className="h-full w-full object-cover" />
-                                                                            ) : (
-                                                                                <GraduationCap className="h-5 w-5" />
-                                                                            )}
-                                                                        </div>
-                                                                        <div className="space-y-0.5 flex-1">
-                                                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                                                                                <h5 className="font-bold text-sm text-foreground">{q.title}</h5>
-                                                                                {q.year && (
-                                                                                    <Badge variant="outline" className="text-[10px] shrink-0 font-mono w-fit">
-                                                                                        📅 {q.year}
-                                                                                    </Badge>
-                                                                                )}
-                                                                            </div>
-                                                                            {q.institution && (
-                                                                                <p className="text-xs font-semibold text-primary">🏛️ {q.institution}</p>
-                                                                            )}
-                                                                            {q.description && (
-                                                                                <p className="text-xs text-muted-foreground pt-1 leading-relaxed">{q.description}</p>
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        ) : (
-                                                            <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-primary/10 text-primary border border-primary/20 text-xs font-semibold">
-                                                                <GraduationCap className="h-4 w-4 shrink-0" />
-                                                                <span>{typeof course.instructor_qualifications === 'object' ? JSON.stringify(course.instructor_qualifications) : course.instructor_qualifications}</span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
-
-                                                {/* Embedded Video Introduction (YouTube / Google Drive / MP4) */}
-                                                {course.instructor_video_url && (
-                                                    <div className="pt-3 border-t border-border space-y-2">
-                                                        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                                                            <Video className="h-4 w-4 text-red-500" /> Instructor Introduction Video
-                                                        </h4>
-                                                        <div className="relative aspect-video rounded-xl overflow-hidden bg-black border border-border shadow-sm">
-                                                            <iframe
-                                                                src={getEmbeddableVideoUrl(course.instructor_video_url)}
-                                                                className="w-full h-full border-none"
-                                                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                                                                allowFullScreen
-                                                                title="Instructor Video Introduction"
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                <div className="pt-3 border-t border-border">
-                                                    <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Instructor Message & Bio</h4>
-                                                    <div className="text-sm leading-relaxed text-foreground bg-muted/20 p-4 rounded-xl border">
-                                                        {course.instructor_intro ? (
-                                                            <div className="whitespace-pre-line">{course.instructor_intro}</div>
-                                                        ) : (
-                                                            <p className="text-muted-foreground italic">
-                                                                "Welcome! I will be guiding you step-by-step through the modules of this course. Feel free to reach out with any questions during live sessions or assignment reviews."
-                                                            </p>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </TabsContent>
-
-                                        {/* TAB 3: MODULES & SYLLABUS (PREVIEW WITHOUT ENROLLMENT) */}
-                                        <TabsContent value="syllabus" className="mt-0 space-y-4">
-                                            <div className="flex items-center justify-between">
-                                                <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                                                    <BookOpen className="h-4 w-4 text-primary" /> Content Index & Curriculum
-                                                </h3>
-                                                <span className="text-xs text-muted-foreground">{previewCurriculum.length} Modules</span>
-                                            </div>
-
-                                            {loadingCurriculum ? (
-                                                <div className="flex py-12 justify-center items-center">
-                                                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                                                </div>
-                                            ) : previewCurriculum.length > 0 ? (
-                                                <Accordion type="single" collapsible defaultValue="module-0" className="w-full space-y-3">
-                                                    {previewCurriculum.map((section: any, sIdx: number) => (
-                                                        <AccordionItem key={section.id} value={`module-${sIdx}`} className="border rounded-xl px-4 bg-card">
-                                                            <AccordionTrigger className="hover:no-underline py-3">
-                                                                <div className="flex items-center gap-3 text-left">
-                                                                    <span className="h-6 w-6 rounded-full bg-primary/10 text-primary font-mono text-xs flex items-center justify-center shrink-0 font-bold">
-                                                                        {sIdx + 1}
-                                                                    </span>
-                                                                    <div>
-                                                                        <h4 className="font-bold text-sm leading-snug">{section.title}</h4>
-                                                                        <p className="text-xs text-muted-foreground font-normal">{section.items?.length || 0} Lessons & Activities</p>
-                                                                    </div>
-                                                                </div>
-                                                            </AccordionTrigger>
-                                                            <AccordionContent className="pb-3 pt-1 space-y-2">
-                                                                {section.items?.length > 0 ? (
-                                                                    section.items.map((item: any, iIdx: number) => (
-                                                                        <div key={item.id || iIdx} className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30 border border-border/50 text-xs">
-                                                                            <div className="flex items-center gap-2.5 min-w-0">
-                                                                                {item.itemType === 'assignment' ? (
-                                                                                    <HelpCircle className="h-4 w-4 text-purple-500 shrink-0" />
-                                                                                ) : item.video_url ? (
-                                                                                    <Video className="h-4 w-4 text-blue-500 shrink-0" />
-                                                                                ) : (
-                                                                                    <FileText className="h-4 w-4 text-green-500 shrink-0" />
-                                                                                )}
-                                                                                <span className="font-medium truncate">{item.title}</span>
-                                                                            </div>
-                                                                            <div className="flex items-center gap-2 shrink-0">
-                                                                                <Badge variant="outline" className="text-[10px] py-0 px-1.5">
-                                                                                    {item.itemType === 'assignment' ? (item.type === 'quiz' ? 'Quiz' : 'Assignment') : (item.video_url ? 'Video Lesson' : 'Reading')}
-                                                                                </Badge>
-                                                                                <Lock className="h-3 w-3 text-muted-foreground/60" />
-                                                                            </div>
-                                                                        </div>
-                                                                    ))
-                                                                ) : (
-                                                                    <p className="text-xs text-muted-foreground italic px-2">No lesson items added to this module yet.</p>
-                                                                )}
-                                                            </AccordionContent>
-                                                        </AccordionItem>
-                                                    ))}
-                                                </Accordion>
-                                            ) : (
-                                                <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-xl">
-                                                    No public modules listed for this course yet.
-                                                </div>
-                                            )}
-                                        </TabsContent>
-                                    </div>
-                                </Tabs>
-
-                                {/* Modal Footer CTA */}
-                                    <div className="p-4 border-t bg-card flex items-center justify-between gap-4 shrink-0">
-                                        <div>
-                                            <p className="text-xs font-semibold text-muted-foreground">Course Status</p>
-                                            <p className="text-sm font-bold text-foreground">
-                                                {isEnrolled ? "Enrolled Student" : isPending ? "Verification Pending" : "Available for Enrollment"}
-                                            </p>
-                                        </div>
-
-                                        <div className="flex items-center gap-2">
-                                            <Button variant="outline" onClick={() => setSelectedCourseForPreview(null)}>
-                                                Close
-                                            </Button>
-                                            {isEnrolled ? (
-                                                <Link to={`/student/courses/${course.id}/learn`}>
-                                                    <Button className="gap-2 font-bold" variant="secondary">
-                                                        <PlayCircle className="h-4 w-4 text-primary" /> Start / Continue Course
-                                                    </Button>
-                                                </Link>
-                                            ) : isPending ? (
-                                                <Button variant="outline" disabled className="gap-2">
-                                                    <Clock className="h-4 w-4 text-yellow-500" /> Pending Admin Approval
-                                                </Button>
-                                            ) : (
-                                                <Button className="gap-2 font-bold" onClick={() => handleEnrollClick(course)}>
-                                                    <GraduationCap className="h-4 w-4" /> Enroll Now
-                                                </Button>
-                                            )}
-                                        </div>
-                                    </div>
-                                </>
-                        );
-                    })()}
-                </DialogContent>
-            </Dialog>
+            {/* CERTIFICATE COURSE PREVIEW MODAL */}
+            <CertificateCourseDetailModal
+                course={selectedCourseForPreview}
+                isOpen={!!selectedCourseForPreview}
+                onClose={() => setSelectedCourseForPreview(null)}
+                isEnrolled={selectedCourseForPreview ? enrolledCourseStatus[selectedCourseForPreview.id] === 'approved' : false}
+                isPending={selectedCourseForPreview ? enrolledCourseStatus[selectedCourseForPreview.id] === 'pending' : false}
+                onEnroll={(course) => {
+                    if (enrolledCourseStatus[course.id] === 'approved') {
+                        navigate(`/student/courses/${course.id}/learn`);
+                    } else {
+                        setSelectedCourseForPreview(null);
+                        handleEnrollClick(course);
+                    }
+                }}
+            />
 
             {/* ENROLLMENT / PAYMENT DIALOG */}
             <Dialog open={enrollmentDialog.isOpen} onOpenChange={(open) => { setEnrollmentDialog(prev => ({ ...prev, isOpen: open })); if (!open) { setCouponApplied(null); setCouponCode(""); setCouponError(""); } }}>

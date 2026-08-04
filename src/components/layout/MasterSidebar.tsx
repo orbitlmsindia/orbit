@@ -35,7 +35,7 @@ const mainNavItems = [
 ];
 
 export function MasterSidebar() {
-    const { state } = useSidebar();
+    const { state, isMobile, setOpenMobile } = useSidebar();
     const location = useLocation();
     const navigate = useNavigate();
     const currentPath = location.pathname;
@@ -64,6 +64,9 @@ export function MasterSidebar() {
                     <NavLink
                         to={item.url}
                         end={item.url === "/master"}
+                        onClick={() => {
+                            if (isMobile) setOpenMobile(false);
+                        }}
                         className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all hover:bg-sidebar-accent group"
                         activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
                     >

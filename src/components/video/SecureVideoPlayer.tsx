@@ -22,6 +22,7 @@ interface SecureVideoPlayerProps {
   title?: string;
   userEmail?: string;
   className?: string;
+  initialProgress?: number;
   onProgressUpdate?: (percentage: number) => void;
 }
 
@@ -44,6 +45,7 @@ export function SecureVideoPlayer({
   title = "Recorded Lecture",
   userEmail = "student@orbitlms.com",
   className = "",
+  initialProgress = 0,
   onProgressUpdate,
 }: SecureVideoPlayerProps) {
   const { toast } = useToast();
@@ -68,8 +70,8 @@ export function SecureVideoPlayer({
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
 
   // Real-Time Watch Telemetry
-  const maxWatchedPercentRef = useRef<number>(0);
-  const [watchedPercent, setWatchedPercent] = useState<number>(0);
+  const maxWatchedPercentRef = useRef<number>(initialProgress);
+  const [watchedPercent, setWatchedPercent] = useState<number>(initialProgress);
 
   const youtubeVideoId = getYouTubeVideoId(videoUrl);
   const isDrive = isGoogleDriveUrl(videoUrl);
@@ -271,22 +273,22 @@ export function SecureVideoPlayer({
     };
   }, [toast]);
 
+  // Sync initial watched percentage when videoUrl or initialProgress prop changes
+  useEffect(() => {
+    const init = initialProgress || 0;
+    maxWatchedPercentRef.current = init;
+    setWatchedPercent(init);
+  }, [videoUrl, initialProgress]);
+
   // Active watch telemetry loop
   useEffect(() => {
-    maxWatchedPercentRef.current = 0;
-    setWatchedPercent(0);
-
-    const interval = setInterval(() => {
-      if (duration > 0 && currentTime >= 0) {
-        const actualPct = Math.min(100, Math.max(0, Math.round((currentTime / duration) * 100)));
-        if (actualPct > 0) {
-          updateProgress(actualPct);
-        }
+    if (duration > 0 && currentTime >= 0) {
+      const actualPct = Math.min(100, Math.max(0, Math.round((currentTime / duration) * 100)));
+      if (actualPct > 0) {
+        updateProgress(actualPct);
       }
-    }, 300);
-
-    return () => clearInterval(interval);
-  }, [videoUrl, currentTime, duration, updateProgress]);
+    }
+  }, [currentTime, duration, updateProgress]);
 
   // Controls Play / Pause
   const togglePlay = () => {
@@ -498,26 +500,28 @@ export function SecureVideoPlayer({
         ))}
       </div>
 
-      {/* ── 4. PLAYER HEADER BADGES ── */}
-      <div className="absolute top-3 left-3 z-40 flex items-center gap-2 pointer-events-none bg-black/70 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 text-white text-[11px] font-medium shadow">
-        <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-        <span>{isDrive ? "Google Drive Protected" : isYouTube ? "YouTube DRM Protected" : "LMS Secure Stream"}</span>
-      </div>
-
-      <div className="absolute top-3 right-3 z-40 flex items-center gap-2">
-        <div className="pointer-events-none bg-black/80 backdrop-blur-md px-3 py-1 rounded-full border border-emerald-500/30 text-white text-xs font-mono shadow">
-          Watched: <span className="font-bold text-emerald-400">{watchedPercent}%</span>
+      {/* ── 4. PLAYER HEADER BAR ── */}
+      <div className="absolute top-0 left-0 right-0 z-40 bg-gradient-to-b from-black/85 via-black/40 to-transparent p-2.5 flex items-center justify-between pointer-events-none">
+        <div className="flex items-center gap-2 bg-black/80 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10 text-white text-[11px] font-medium shadow pointer-events-auto">
+          <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+          <span className="truncate">{isDrive ? "Google Drive Protected" : isYouTube ? "YouTube Protected" : "LMS Secure Stream"}</span>
         </div>
 
-        {/* Fullscreen Button */}
-        <button
-          type="button"
-          onClick={toggleContainerFullscreen}
-          className="p-1.5 rounded-full bg-black/70 hover:bg-purple-600 text-white backdrop-blur-md border border-white/20 transition-all cursor-pointer pointer-events-auto"
-          title={isFullscreen ? "Exit Fullscreen" : "Secure Fullscreen"}
-        >
-          {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
-        </button>
+        <div className="flex items-center gap-2 pointer-events-auto">
+          <div className="bg-black/80 backdrop-blur-md px-2.5 py-1 rounded-full border border-emerald-500/30 text-white text-xs font-mono shadow">
+            Watched: <span className="font-bold text-emerald-400">{watchedPercent}%</span>
+          </div>
+
+          {/* Fullscreen Button */}
+          <button
+            type="button"
+            onClick={toggleContainerFullscreen}
+            className="p-1.5 rounded-full bg-black/80 hover:bg-purple-600 text-white backdrop-blur-md border border-white/20 transition-all cursor-pointer"
+            title={isFullscreen ? "Exit Fullscreen" : "Secure Fullscreen"}
+          >
+            {isFullscreen ? <Minimize className="h-3.5 w-3.5" /> : <Maximize className="h-3.5 w-3.5" />}
+          </button>
+        </div>
       </div>
 
       {/* ── 5. VIDEO ENGINE (NATIVE MP4 vs IFRAME STREAM) ── */}
@@ -554,7 +558,8 @@ export function SecureVideoPlayer({
           />
         )}
 
-        {/* ── 6. ANTI-EXTRACTION CORNER LOGO MASKS (Non-blocking playback clicks) ── */}
+        {/* ── 6. ANTI-EXTRACTION CORNER MASKS ── */}
+        {/* Top Right Extraction Protection */}
         <div
           className="absolute top-0 right-0 w-16 h-12 z-[40] pointer-events-auto cursor-pointer bg-transparent"
           onClick={(e) => {
@@ -567,9 +572,25 @@ export function SecureVideoPlayer({
           }}
           title="Protected Stream"
         />
+
+        {/* Bottom Right YouTube Link Guard Overlay */}
+        {isYouTube && (
+          <div
+            className="absolute bottom-2 right-2 w-36 h-10 z-[45] pointer-events-auto cursor-pointer bg-transparent"
+            onClick={(e) => {
+              e.stopPropagation();
+              toast({
+                variant: "destructive",
+                title: "External YouTube Access Restricted",
+                description: "Direct YouTube navigation is disabled to preserve course watch progress tracking.",
+              });
+            }}
+            title="Protected Stream"
+          />
+        )}
       </div>
 
-      {/* ── 7. CUSTOM PLAYER CONTROLS BAR (With 2x Speed Mode & Scrubber) ── */}
+      {/* ── 7. CUSTOM PLAYER CONTROLS BAR ── */}
       <div className="absolute bottom-0 left-0 right-0 z-50 bg-gradient-to-t from-black/95 via-black/80 to-transparent p-3 flex flex-col gap-2 transition-opacity duration-300 opacity-95 hover:opacity-100">
         {/* Timeline Scrubber */}
         {duration > 0 && (
@@ -588,12 +609,12 @@ export function SecureVideoPlayer({
         )}
 
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
             {/* Play / Pause Toggle */}
             <button
               type="button"
               onClick={togglePlay}
-              className="p-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center gap-1 transition-all"
+              className="p-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center gap-1 transition-all shrink-0"
             >
               {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             </button>
@@ -602,43 +623,43 @@ export function SecureVideoPlayer({
             <button
               type="button"
               onClick={toggleMute}
-              className="p-1.5 text-gray-300 hover:text-white transition-colors"
+              className="p-1.5 text-gray-300 hover:text-white transition-colors shrink-0"
             >
               {isMuted ? <VolumeX className="h-4 w-4 text-red-400" /> : <Volume2 className="h-4 w-4" />}
             </button>
 
-            <span className="text-xs text-gray-300 font-medium line-clamp-1">{title}</span>
-          </div>
+            {/* Speed Selector Menu */}
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowSpeedMenu(!showSpeedMenu)}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-mono font-bold transition-all border border-white/10"
+              >
+                <Gauge className="h-3.5 w-3.5 text-purple-400" />
+                <span>{playbackRate}x</span>
+              </button>
 
-          {/* Speed Selector Menu */}
-          <div className="relative flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowSpeedMenu(!showSpeedMenu)}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-mono font-bold transition-all border border-white/10"
-            >
-              <Gauge className="h-3.5 w-3.5 text-purple-400" />
-              <span>{playbackRate}x</span>
-            </button>
+              {showSpeedMenu && (
+                <div className="absolute bottom-10 left-0 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-1.5 z-50 flex flex-col gap-1 min-w-[110px] animate-scale-in">
+                  <span className="text-[10px] text-gray-400 px-2 py-1 uppercase font-bold tracking-wider">Playback Speed</span>
+                  {[0.5, 1, 1.25, 1.5, 2].map((rate) => (
+                    <button
+                      key={rate}
+                      type="button"
+                      onClick={() => changeSpeed(rate)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-mono text-left transition-colors flex items-center justify-between ${
+                        playbackRate === rate ? "bg-purple-600 text-white font-bold" : "text-gray-300 hover:bg-slate-800"
+                      }`}
+                    >
+                      <span>{rate === 1 ? "1.0x (Normal)" : `${rate}x`}</span>
+                      {rate === 2 && <span className="text-[9px] bg-amber-400 text-black px-1 rounded font-bold">FAST</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
-            {showSpeedMenu && (
-              <div className="absolute bottom-10 right-0 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-1.5 z-50 flex flex-col gap-1 min-w-[100px] animate-scale-in">
-                <span className="text-[10px] text-gray-400 px-2 py-1 uppercase font-bold tracking-wider">Playback Speed</span>
-                {[0.5, 1, 1.25, 1.5, 2].map((rate) => (
-                  <button
-                    key={rate}
-                    type="button"
-                    onClick={() => changeSpeed(rate)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-mono text-left transition-colors flex items-center justify-between ${
-                      playbackRate === rate ? "bg-purple-600 text-white font-bold" : "text-gray-300 hover:bg-slate-800"
-                    }`}
-                  >
-                    <span>{rate === 1 ? "1.0x (Normal)" : `${rate}x`}</span>
-                    {rate === 2 && <span className="text-[9px] bg-amber-400 text-black px-1 rounded font-bold">FAST</span>}
-                  </button>
-                ))}
-              </div>
-            )}
+            <span className="text-xs text-gray-300 font-medium truncate hidden sm:inline-block ml-1">{title}</span>
           </div>
         </div>
       </div>

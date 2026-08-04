@@ -24,35 +24,34 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
             if (isMounted) setSession(session);
             
-            // Server-side authorization check for Admin panel
+            // Authorization check for Admin & Finance panels
             if (location.pathname.startsWith('/admin')) {
                 const { data: user } = await supabase.from('users').select('role').eq('id', session.user.id).single();
-                
-                if (user?.role === 'admin') {
+                if (user?.role === 'admin' || user?.role === 'super_admin') {
                     if (isMounted) setIsAuthorized(true);
                 } else {
-                    // Check for secure impersonation token from server
                     const token = sessionStorage.getItem('impersonationToken');
                     const collegeId = sessionStorage.getItem('collegeId');
-                    
                     if (token && collegeId) {
                         const { data: isValid, error } = await supabase.rpc('verify_impersonation', { 
                             p_token: token, 
                             p_college_id: collegeId 
                         });
-                        
                         if (isValid && !error) {
                             if (isMounted) setIsAuthorized(true);
                         } else {
                             if (isMounted) setIsAuthorized(false);
-                            // Clear invalid spoofed tokens
-                            sessionStorage.removeItem('impersonator');
-                            sessionStorage.removeItem('impersonationToken');
-                            sessionStorage.removeItem('collegeId');
                         }
                     } else {
                         if (isMounted) setIsAuthorized(false);
                     }
+                }
+            } else if (location.pathname.startsWith('/finance')) {
+                const { data: user } = await supabase.from('users').select('role').eq('id', session.user.id).single();
+                if (user?.role === 'finance' || user?.role === 'admin' || user?.role === 'super_admin') {
+                    if (isMounted) setIsAuthorized(true);
+                } else {
+                    if (isMounted) setIsAuthorized(false);
                 }
             } else {
                 if (isMounted) setIsAuthorized(true);

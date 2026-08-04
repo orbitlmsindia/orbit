@@ -1,7 +1,8 @@
 import { ReactNode } from "react";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { TeacherSidebar } from "./TeacherSidebar";
-import { TopBar } from "./TopBar"; // Reusing TopBar for now, might need custom one later
+import { TopBar } from "./TopBar";
+import { MobileNav } from "./MobileNav";
 
 interface TeacherLayoutProps {
     children: ReactNode;
@@ -14,13 +15,15 @@ export function TeacherLayout({ children }: TeacherLayoutProps) {
                 <TeacherSidebar />
                 <SidebarInset className="flex-1 flex flex-col min-w-0">
                     <TopBar />
-                    <main className="flex-1 p-4 lg:p-6 overflow-auto bg-background/50">
-                        <div className="max-w-7xl mx-auto w-full space-y-6">
+                    <main className="flex-1 p-3 sm:p-4 lg:p-6 overflow-auto bg-background/50 pb-20 lg:pb-6">
+                        <div className="max-w-7xl mx-auto w-full space-y-4 sm:space-y-6">
                             {children}
                         </div>
                     </main>
+                    <MobileNav />
                 </SidebarInset>
             </div>
         </SidebarProvider>
     );
 }
+

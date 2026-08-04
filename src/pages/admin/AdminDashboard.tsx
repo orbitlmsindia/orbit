@@ -275,26 +275,26 @@ export default function AdminDashboard() {
             <h1 className="text-2xl lg:text-3xl font-display font-bold text-foreground">
               Admin Dashboard
             </h1>
-            <p className="text-muted-foreground mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               Overview of your institute's performance
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" size="icon" onClick={fetchDashboardData} disabled={loading}>
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             </Button>
-            <Button variant="outline" className="gap-2">
+            <Button variant="outline" className="gap-2 text-xs sm:text-sm">
               <Calendar className="h-4 w-4" />
-              Last 30 Days
+              <span>Last 30 Days</span>
             </Button>
-            <Button className="gap-2">
-              Download Report
+            <Button className="gap-2 text-xs sm:text-sm">
+              <span>Download Report</span>
             </Button>
           </div>
         </div>
 
         {/* Stats Grid */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <StatCard
             title="Total Students"
             value={stats.students.toString()}
@@ -321,7 +321,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Charts Row */}
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           {/* Attendance Chart */}
           <Card>
             <CardHeader className="pb-2">

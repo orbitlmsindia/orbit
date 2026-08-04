@@ -2,6 +2,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { StudentSidebar } from "./StudentSidebar";
 import { TopBar } from "./TopBar";
+import { MobileNav } from "./MobileNav";
 import { supabase } from "@/lib/supabase";
 import { AlertTriangle, Video, X, Bell } from "lucide-react";
 
@@ -53,10 +54,10 @@ function UrgentNotificationPopup() {
     if (!visible || urgentNotifs.length === 0) return null;
 
     return (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-            <div className="relative w-full max-w-lg mx-4 bg-background border-2 border-amber-500/60 rounded-2xl shadow-2xl shadow-amber-500/20 overflow-hidden">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-300 p-4">
+            <div className="relative w-full max-w-lg bg-background border-2 border-amber-500/60 rounded-2xl shadow-2xl shadow-amber-500/20 overflow-hidden max-h-[90vh] flex flex-col">
                 {/* Header */}
-                <div className="bg-gradient-to-r from-amber-500 to-red-500 px-6 py-4 flex items-center justify-between">
+                <div className="bg-gradient-to-r from-amber-500 to-red-500 px-6 py-4 flex items-center justify-between shrink-0">
                     <div className="flex items-center gap-3 text-white">
                         <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center animate-pulse">
                             <AlertTriangle className="h-5 w-5" />
@@ -75,7 +76,7 @@ function UrgentNotificationPopup() {
                 </div>
 
                 {/* Notification List */}
-                <div className="max-h-[50vh] overflow-y-auto p-4 space-y-3">
+                <div className="max-h-[50vh] overflow-y-auto p-4 space-y-3 flex-1">
                     {urgentNotifs.map((notif) => (
                         <div
                             key={notif.id}
@@ -102,7 +103,7 @@ function UrgentNotificationPopup() {
                 </div>
 
                 {/* Footer */}
-                <div className="p-4 border-t bg-muted/30">
+                <div className="p-4 border-t bg-muted/30 shrink-0">
                     <button
                         onClick={handleDismissAll}
                         className="w-full py-2.5 px-4 rounded-lg bg-gradient-to-r from-amber-500 to-red-500 text-white font-bold text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
@@ -122,11 +123,12 @@ export function StudentLayout({ children, showTopBar = true }: StudentLayoutProp
                 <StudentSidebar />
                 <SidebarInset className="flex-1 flex flex-col min-w-0">
                     {showTopBar && <TopBar />}
-                    <main className="flex-1 p-4 lg:p-6 overflow-auto bg-background/50">
-                        <div className="max-w-7xl mx-auto w-full space-y-6">
+                    <main className="flex-1 p-3 sm:p-4 lg:p-6 overflow-auto bg-background/50 pb-20 lg:pb-6">
+                        <div className="max-w-7xl mx-auto w-full space-y-4 sm:space-y-6">
                             {children}
                         </div>
                     </main>
+                    <MobileNav />
                 </SidebarInset>
             </div>
             {/* Urgent notification popup on app load */}
@@ -134,3 +136,4 @@ export function StudentLayout({ children, showTopBar = true }: StudentLayoutProp
         </SidebarProvider>
     );
 }
+

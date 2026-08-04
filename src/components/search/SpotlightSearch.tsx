@@ -328,9 +328,9 @@ export function SpotlightSearch({ open: externalOpen, onOpenChange }: SpotlightS
 
   return (
     <Dialog open={isOpen} onOpenChange={setOpen}>
-      <DialogContent className="sm:max-w-2xl p-0 overflow-hidden gap-0 border-border bg-card shadow-2xl rounded-2xl">
+      <DialogContent className="w-full max-w-[95vw] sm:max-w-2xl p-0 overflow-hidden gap-0 border-border bg-card shadow-2xl rounded-2xl max-h-[90vh] flex flex-col">
         {/* Search Header */}
-        <div className="flex items-center px-4 border-b border-border bg-muted/20">
+        <div className="flex items-center px-3 sm:px-4 border-b border-border bg-muted/20 shrink-0">
           <Search className="h-5 w-5 text-primary shrink-0 mr-3" />
           <Input
             value={query}

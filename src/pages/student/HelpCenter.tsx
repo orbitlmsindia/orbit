@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { StudentLayout } from "@/components/layout/StudentLayout";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Mail, Phone, Building2, GraduationCap, Ticket, Send } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Search, Mail, Phone, Building2, GraduationCap, Ticket, Send, CheckCircle, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function StudentHelpCenter() {
@@ -20,6 +21,26 @@ export default function StudentHelpCenter() {
     });
     const [submitting, setSubmitting] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
+    const [myTickets, setMyTickets] = useState<any[]>([]);
+
+    useEffect(() => {
+        fetchMyTickets();
+    }, []);
+
+    const fetchMyTickets = async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { data } = await supabase
+                .from('tickets')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false });
+
+            if (data) setMyTickets(data);
+        } catch (e) {}
+    };
 
     const handleTicketSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -47,6 +68,7 @@ export default function StudentHelpCenter() {
                 description: "Your support ticket has been sent to the admin team.",
             });
             setTicket({ subject: "", category: "", description: "" });
+            fetchMyTickets();
         } catch (error: any) {
             console.error("Error submitting ticket:", error);
             toast({

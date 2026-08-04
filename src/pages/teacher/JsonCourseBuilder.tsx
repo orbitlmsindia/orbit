@@ -345,7 +345,7 @@ export default function JsonCourseBuilder() {
         </div>
 
         {/* Structural Approach Toggle */}
-        <div className="flex items-center gap-2 p-1.5 rounded-xl border bg-muted/30">
+        <div className="flex flex-wrap items-center gap-2 p-1.5 rounded-xl border bg-muted/30">
           <span className="text-xs font-bold text-muted-foreground px-2">Structure:</span>
           <Button
             size="sm"
@@ -368,17 +368,19 @@ export default function JsonCourseBuilder() {
 
       {/* Mode Selector Tabs */}
       <Tabs defaultValue="full-course" className="space-y-6" onValueChange={(val: any) => setBuilderMode(val)}>
-        <TabsList className="grid grid-cols-3 max-w-2xl">
-          <TabsTrigger value="full-course" className="gap-2 font-bold text-xs">
-            <BookOpen className="h-4 w-4" /> Complete Course Importer
-          </TabsTrigger>
-          <TabsTrigger value="module-import" className="gap-2 font-bold text-xs">
-            <Layers className="h-4 w-4" /> {structuringApproach === "weekly" ? "Weekly Module Importer" : "Section Importer"}
-          </TabsTrigger>
-          <TabsTrigger value="quiz-import" className="gap-2 font-bold text-xs">
-            <HelpCircle className="h-4 w-4" /> Specific Quiz Importer
-          </TabsTrigger>
-        </TabsList>
+        <div className="w-full overflow-x-auto pb-1 scrollbar-none">
+          <TabsList className="inline-flex min-w-max h-auto p-1 bg-muted rounded-lg border gap-1">
+            <TabsTrigger value="full-course" className="gap-2 font-bold text-xs px-3 py-1.5">
+              <BookOpen className="h-4 w-4" /> Complete Course Importer
+            </TabsTrigger>
+            <TabsTrigger value="module-import" className="gap-2 font-bold text-xs px-3 py-1.5">
+              <Layers className="h-4 w-4" /> {structuringApproach === "weekly" ? "Weekly Module Importer" : "Section Importer"}
+            </TabsTrigger>
+            <TabsTrigger value="quiz-import" className="gap-2 font-bold text-xs px-3 py-1.5">
+              <HelpCircle className="h-4 w-4" /> Specific Quiz Importer
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* ─── 1. COMPLETE COURSE IMPORTER TAB ───────────────────────── */}
         <TabsContent value="full-course">
@@ -386,7 +388,7 @@ export default function JsonCourseBuilder() {
             {/* Left Column: Code Editor & Upload */}
             <div className="lg:col-span-3 space-y-4">
               <Card className="border border-border bg-card/60 backdrop-blur-md shadow-sm">
-                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2">
                   <div>
                     <CardTitle className="text-base font-semibold">Course JSON Editor</CardTitle>
                     <CardDescription>Upload or paste course structure JSON according to your selected {structuringApproach} approach</CardDescription>

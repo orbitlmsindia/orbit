@@ -548,29 +548,31 @@ export default function Settings() {
                 </div>
 
                 <Tabs defaultValue="institute" className="space-y-6">
-                    <TabsList className="flex flex-wrap gap-1 h-auto p-1">
-                        <TabsTrigger value="credit-policy" className="gap-2">
-                            <Award className="h-4 w-4 text-purple-600" /> Credit & Certification Policy
-                        </TabsTrigger>
-                        <TabsTrigger value="institute" className="gap-2">
-                            <Building2 className="h-4 w-4" /> Institute & Letterhead
-                        </TabsTrigger>
-                        <TabsTrigger value="backup" className="gap-2">
-                            <Database className="h-4 w-4" /> Backup & Restore
-                        </TabsTrigger>
-                        <TabsTrigger value="profile" className="gap-2">
-                            <User className="h-4 w-4" /> Profile
-                        </TabsTrigger>
-                        <TabsTrigger value="appearance" className="gap-2">
-                            <Palette className="h-4 w-4" /> Appearance
-                        </TabsTrigger>
-                        <TabsTrigger value="security" className="gap-2">
-                            <Lock className="h-4 w-4" /> Security
-                        </TabsTrigger>
-                        <TabsTrigger value="coupons" className="gap-2">
-                            <Ticket className="h-4 w-4 text-emerald-600" /> Coupons & Discounts
-                        </TabsTrigger>
-                    </TabsList>
+                    <div className="w-full overflow-x-auto pb-1 scrollbar-none">
+                        <TabsList className="inline-flex min-w-max h-auto p-1.5 bg-muted rounded-lg border gap-1 justify-start">
+                            <TabsTrigger value="credit-policy" className="gap-2 px-3 py-1.5 text-xs sm:text-sm">
+                                <Award className="h-4 w-4 text-purple-600" /> Credit & Certification Policy
+                            </TabsTrigger>
+                            <TabsTrigger value="institute" className="gap-2 px-3 py-1.5 text-xs sm:text-sm">
+                                <Building2 className="h-4 w-4" /> Institute & Letterhead
+                            </TabsTrigger>
+                            <TabsTrigger value="backup" className="gap-2 px-3 py-1.5 text-xs sm:text-sm">
+                                <Database className="h-4 w-4" /> Backup & Restore
+                            </TabsTrigger>
+                            <TabsTrigger value="profile" className="gap-2 px-3 py-1.5 text-xs sm:text-sm">
+                                <User className="h-4 w-4" /> Profile
+                            </TabsTrigger>
+                            <TabsTrigger value="appearance" className="gap-2 px-3 py-1.5 text-xs sm:text-sm">
+                                <Palette className="h-4 w-4" /> Appearance
+                            </TabsTrigger>
+                            <TabsTrigger value="security" className="gap-2 px-3 py-1.5 text-xs sm:text-sm">
+                                <Lock className="h-4 w-4" /> Security
+                            </TabsTrigger>
+                            <TabsTrigger value="coupons" className="gap-2 px-3 py-1.5 text-xs sm:text-sm">
+                                <Ticket className="h-4 w-4 text-emerald-600" /> Coupons & Discounts
+                            </TabsTrigger>
+                        </TabsList>
+                    </div>
 
                     {/* Academic Credit Policy & Domain Certification Tab */}
                     <TabsContent value="credit-policy">

@@ -721,5 +721,132 @@ ALTER TABLE public.users ADD COLUMN IF NOT EXISTS current_streak INTEGER DEFAULT
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS highest_streak INTEGER DEFAULT 0;
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS unlocked_themes TEXT[] DEFAULT ARRAY['default', 'dark', 'system']::TEXT[];
 
+-- ── 26. CERTIFICATE COURSE SCHEMA & SEED DATA MIGRATION ──
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS course_domain TEXT DEFAULT 'Artificial Intelligence & Machine Learning';
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS course_status TEXT DEFAULT 'Upcoming';
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS course_language TEXT DEFAULT 'English';
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS course_level TEXT DEFAULT 'Undergraduate/Postgraduate';
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS course_type TEXT DEFAULT 'Elective';
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS intended_audience TEXT DEFAULT 'UG/PG students, research scholars, faculty members, and industry professionals with basic programming knowledge.';
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS duration_hours INTEGER DEFAULT 60;
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS start_date DATE DEFAULT '2026-08-17';
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS end_date DATE DEFAULT '2026-10-09';
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS enrollment_end_date DATE DEFAULT '2026-08-17';
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS exam_date DATE DEFAULT '2026-10-25';
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS exam_reg_end_date DATE DEFAULT '2026-08-28';
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS books_references JSONB DEFAULT '[
+    "Pattern Recognition and Machine Learning by Christopher M. Bishop",
+    "Artificial Intelligence: A Modern Approach by Stuart Russell & Peter Norvig",
+    "Hands-On Machine Learning with Scikit-Learn, Keras, and TensorFlow by Aurélien Géron"
+]'::jsonb;
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS syllabus_modules JSONB DEFAULT '[
+    {"module_no": "Module-1", "content": "Introduction to AI: History, Scope, Applications, AI vs ML vs DL", "hrs": 5},
+    {"module_no": "Module-2", "content": "Intelligent Agents, Problem Solving & Search Techniques", "hrs": 5},
+    {"module_no": "Module-3", "content": "Mathematical Foundations: Linear Algebra & Probability", "hrs": 5},
+    {"module_no": "Module-4", "content": "Statistics for Machine Learning", "hrs": 5},
+    {"module_no": "Module-5", "content": "Data Types, Data Collection & Pre-processing", "hrs": 5},
+    {"module_no": "Module-6", "content": "Feature Scaling, Normalization & Encoding Techniques", "hrs": 5},
+    {"module_no": "Module-7", "content": "Introduction to Supervised Learning Algorithms", "hrs": 5},
+    {"module_no": "Module-8", "content": "Introduction to Unsupervised Learning Algorithms", "hrs": 5},
+    {"module_no": "Module-9", "content": "Evaluation Metrics & Model Performance Basics", "hrs": 5},
+    {"module_no": "Module-10", "content": "Python for AI-ML: NumPy, Pandas, Matplotlib", "hrs": 5},
+    {"module_no": "Module-11", "content": "Ethical AI, Bias, Fairness & Responsible AI", "hrs": 5},
+    {"module_no": "Module-12", "content": "Case Studies & Mini Project", "hrs": 5}
+]'::jsonb;
+
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS assessment_internal_marks INTEGER DEFAULT 30;
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS assessment_external_marks INTEGER DEFAULT 70;
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS assessment_total_marks INTEGER DEFAULT 100;
+
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS min_pass_internal_pct INTEGER DEFAULT 40;
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS min_pass_internal_marks INTEGER DEFAULT 12;
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS min_pass_external_pct INTEGER DEFAULT 40;
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS min_pass_external_marks INTEGER DEFAULT 28;
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS min_pass_total_pct INTEGER DEFAULT 50;
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS min_pass_total_marks INTEGER DEFAULT 50;
+
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS instructor_name TEXT DEFAULT 'Er. Harshvardhan Purohit';
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS instructor_designation TEXT DEFAULT 'Founder & CEO, SIN Education and Technology';
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS instructor_department TEXT DEFAULT 'Department of Technology, JIET, Jodhpur';
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS instructor_photo_url TEXT DEFAULT 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80';
+
 NOTIFY pgrst, 'reload schema';
+
+-- ── 27. MASTER TENANT CUSTOMIZATION, FINANCE ROLE, INR & TICKETS MIGRATION ──
+ALTER TYPE public.user_role ADD VALUE IF NOT EXISTS 'finance';
+
+ALTER TABLE public.colleges ADD COLUMN IF NOT EXISTS currency TEXT DEFAULT 'INR';
+ALTER TABLE public.colleges ADD COLUMN IF NOT EXISTS max_students INTEGER DEFAULT 1000;
+ALTER TABLE public.colleges ADD COLUMN IF NOT EXISTS enabled_features JSONB DEFAULT '[
+  "live_classes",
+  "certificates",
+  "gamification",
+  "quizzes",
+  "assignments",
+  "ai_json_builder",
+  "leaderboard",
+  "ticket_raising",
+  "coupon_engine",
+  "attendance_tracker"
+]';
+
+CREATE TABLE IF NOT EXISTS public.tickets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
+    subject TEXT NOT NULL,
+    category TEXT NOT NULL,
+    description TEXT NOT NULL,
+    status TEXT DEFAULT 'open' CHECK (status IN ('open', 'in_progress', 'resolved', 'closed')),
+    admin_reply TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view their own tickets" ON public.tickets;
+CREATE POLICY "Users can view their own tickets" ON public.tickets
+    FOR SELECT USING (auth.uid() = user_id OR EXISTS (
+        SELECT 1 FROM public.users WHERE id = auth.uid() AND role::text IN ('admin', 'super_admin', 'finance')
+    ));
+
+DROP POLICY IF EXISTS "Users can insert their own tickets" ON public.tickets;
+CREATE POLICY "Users can insert their own tickets" ON public.tickets
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Admins can update tickets" ON public.tickets;
+CREATE POLICY "Admins can update tickets" ON public.tickets
+    FOR UPDATE USING (EXISTS (
+        SELECT 1 FROM public.users WHERE id = auth.uid() AND role::text IN ('admin', 'super_admin', 'finance')
+    ));
+
+DO $$
+BEGIN
+    BEGIN
+        INSERT INTO auth.users (id, email, encrypted_password, email_confirmed_at, aud, role)
+        VALUES 
+            (gen_random_uuid(), 'master@orbitlms.edu.in', crypt('Master123@', gen_salt('bf')), NOW(), 'authenticated', 'authenticated'),
+            (gen_random_uuid(), 'finance@sintechnologies.in', crypt('Finance123@', gen_salt('bf')), NOW(), 'authenticated', 'authenticated')
+        ON CONFLICT (email) DO NOTHING;
+    EXCEPTION WHEN OTHERS THEN
+        NULL;
+    END;
+
+    EXECUTE '
+        INSERT INTO public.users (id, email, full_name, role, status)
+        SELECT 
+            id, 
+            email, 
+            CASE WHEN email = ''master@orbitlms.edu.in'' THEN ''Master Super Admin'' ELSE ''Finance Department Manager'' END,
+            (CASE WHEN email = ''master@orbitlms.edu.in'' THEN ''super_admin'' ELSE ''finance'' END)::user_role,
+            ''active''
+        FROM auth.users 
+        WHERE email IN (''master@orbitlms.edu.in'', ''finance@sintechnologies.in'')
+        ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role
+    ';
+END $$;
+
+NOTIFY pgrst, 'reload schema';
+
+
 

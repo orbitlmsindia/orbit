@@ -6,13 +6,57 @@
 
 ---
 
-## 🔑 Demo Access Credentials (Role-Wise Test Accounts)
+## 🔑 Admin Dashboard Access Methods & Demo Credentials
+
+### 🛡️ How to Access the Admin Control Dashboard (`/admin`)
+
+Orbit LMS provides 4 simple methods to access the **Institutional Admin Control Suite**:
+
+```
+ ┌───────────────────────────────────────────────────────────────────────────────────────────┐
+ │                                ADMIN DASHBOARD ACCESS PATHS                               │
+ ├───────────────────────────────────────────────────────────────────────────────────────────┤
+ │ 1. Direct Login       ➔  Navigate to /login ➔ Sign in with Admin Email & Password           │
+ │ 2. Master Provision   ➔  Navigate to /master/colleges ➔ Click 'Access College Admin'      │
+ │ 3. Direct Route       ➔  Navigate directly to http://localhost:5173/admin (Active Session) │
+ │ 4. SQL Promotion      ➔  Promote any user: UPDATE users SET role = 'admin' WHERE email=...│
+ └───────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Method 1: Direct Authentication Portal (`/login`)
+1. Open [http://localhost:5173/login](file:///d:/Orbitlms/src/pages/Login.tsx) in your browser.
+2. Enter the Admin credentials:
+   - **Email**: `pragyagoyal1717@gmail.com`
+   - **Password**: `987654321`
+3. Click **Sign In**. The system verifies the user role (`role: 'admin'`) from the `users` table and automatically redirects to the Admin Dashboard at `/admin`.
+
+#### Method 2: Multi-Tenant Master Admin Provisioning (`/master/colleges`)
+1. Open [http://localhost:5173/master/login](file:///d:/Orbitlms/src/pages/master/MasterLogin.tsx).
+2. Authenticate as Master Admin: `master@orbitlms.edu.in` / `Master123@`.
+3. In **Colleges & Tenants**, select any institution and click **Access College Admin** or provision a new College Admin (`admin@<shortName>.edu.in` with default password `AdminPassword123@`).
+
+#### Method 3: Direct URL Navigation (Active Session)
+- Once authenticated as an Admin user, navigate directly to `http://localhost:5173/admin` to access system overview, user management, course catalog, monitoring, calendar, and settings.
+
+#### Method 4: Supabase Role Promotion SQL Command
+To convert any registered user account into an Institutional Administrator, run this query in the Supabase SQL Editor:
+```sql
+UPDATE public.users 
+SET role = 'admin', status = 'active' 
+WHERE email = 'your_admin_email@example.com';
+```
+
+---
+
+### 🔑 Role-Wise Test Credentials Table
 
 | Role | Email Address | Password | Master Control Privileges |
 | :--- | :--- | :--- | :--- |
-| 🛡️ **Administrator (Master Control)** | `pragyagoyal1717@gmail.com` | `987654321` | Full System Administration, Letterhead Branding, Backup/Restore, Points Override |
-| 👨‍🏫 **Teacher / Instructor** | `harshvardhanpurohit2020@gmail.com` | `Harsh123@` | Course Creator, JSON Importer, Live Sessions, Bulk Student Credentials, Credit Assignment |
-| 🎓 **Student / Learner** | `ceo@sintechnologies.in` | `Harsh123@` | Gamified Dashboard, ✨ Aura XP Ledger, Leaderboard, Watermarked Anti-Piracy Player |
+| 🛡️ **Institutional Admin** | `pragyagoyal1717@gmail.com` | `987654321` | Admin Dashboard, User Approvals, Points Override, Letterhead Branding, System Monitoring |
+| 👑 **Master SaaS Admin** | `master@orbitlms.edu.in` | `Master123@` | Multi-College Provisioning, SaaS Feature Toggles (Checkboxes), Billing & Global Analytics |
+| 💰 **Finance Officer** | `finance@sintechnologies.in` | `Finance123@` | Fee Verification, UTR Receipt Approvals, GST Tax Invoices in ₹ INR, Course Pricing |
+| 👨‍🏫 **Teacher / Instructor** | `harshvardhanpurohit2020@gmail.com` | `Harsh123@` | Course Creator, JSON Importer, Certificate Programs, Live Classes, Attendance, Grading |
+| 🎓 **Student / Learner** | `ceo@sintechnologies.in` | `Harsh123@` | Gamified Dashboard, ✨ Aura XP Ledger, Leaderboard, Watermarked Video Player, Transcripts |
 
 ---
 

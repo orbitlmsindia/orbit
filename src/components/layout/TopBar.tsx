@@ -117,9 +117,9 @@ export function TopBar({
   };
 
   return (
-    <header className="h-16 border-b border-border/40 bg-background/95 backdrop-blur-md sticky top-0 z-40 px-4 md:px-6 flex items-center justify-between">
+    <header className="h-16 border-b border-border/40 bg-background/95 backdrop-blur-md sticky top-0 z-40 px-3 sm:px-4 md:px-6 flex items-center justify-between gap-2">
       {/* Left section: Sidebar trigger & Mobile Menu */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         <SidebarTrigger />
         <div className="hidden md:flex items-center gap-2 text-muted-foreground text-xs">
           <span>Press</span>
@@ -134,51 +134,55 @@ export function TopBar({
         </div>
       </div>
 
-      {/* Center Search Bar */}
-      <div className="flex-1 max-w-md mx-4">
+      {/* Center Search Bar - Full on sm+, compact icon button on mobile */}
+      <div className="flex-1 max-w-md mx-1 sm:mx-4">
         <button
           type="button"
           onClick={() => setSpotlightOpen(true)}
-          className="w-full h-9 px-3 rounded-lg border border-input bg-muted/30 text-muted-foreground text-xs flex items-center justify-between hover:bg-muted/50 transition-colors"
+          className="w-full h-9 px-2.5 sm:px-3 rounded-lg border border-input bg-muted/30 text-muted-foreground text-xs flex items-center justify-between hover:bg-muted/50 transition-colors"
         >
-          <span className="flex items-center gap-2">
-            <Search className="h-3.5 w-3.5" />
-            <span>Search courses, students, settings...</span>
+          <span className="flex items-center gap-2 truncate">
+            <Search className="h-3.5 w-3.5 shrink-0" />
+            <span className="hidden sm:inline truncate">Search courses, students, settings...</span>
+            <span className="sm:hidden text-xs truncate">Search...</span>
           </span>
-          <span className="font-mono text-[10px] bg-background border px-1.5 py-0.5 rounded">⌘G</span>
+          <span className="hidden sm:inline font-mono text-[10px] bg-background border px-1.5 py-0.5 rounded">⌘G</span>
         </button>
       </div>
 
       {/* Right Action Icons & User Profile */}
-      <div className="flex items-center gap-2 sm:gap-3">
+      <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
         {/* Gamified Aura Points & Credits Navbar Ledger Pill */}
         <button
           type="button"
           onClick={() => setLedgerSheetOpen(true)}
-          className="h-9 px-3 rounded-full border bg-muted/40 hover:bg-muted/70 transition-all flex items-center gap-2 cursor-pointer text-xs font-mono font-semibold shadow-xs"
+          className="h-8 sm:h-9 px-2 sm:px-3 rounded-full border bg-muted/40 hover:bg-muted/70 transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer text-[11px] sm:text-xs font-mono font-semibold shadow-xs"
           title="Click to view Gamified Ledger & Credits"
         >
           <span className="text-amber-500 font-bold flex items-center gap-1">
-            <Sparkles className="h-3.5 w-3.5 text-amber-500 fill-amber-500/20" /> ✨ {auraPoints}
+            <Sparkles className="h-3.5 w-3.5 text-amber-500 fill-amber-500/20 shrink-0" />
+            <span>{auraPoints}</span>
           </span>
-          <span className="text-muted-foreground">•</span>
+          <span className="text-muted-foreground text-[10px]">•</span>
           <span className="text-primary font-bold flex items-center gap-1">
-            <Award className="h-3.5 w-3.5 text-primary" /> 🎓 {totalCredits}
+            <Award className="h-3.5 w-3.5 text-primary shrink-0" />
+            <span>{totalCredits}</span>
           </span>
         </button>
         {/* Notifications Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative cursor-pointer hover:bg-accent rounded-full">
-              <Bell className="h-5 w-5 text-muted-foreground" />
+            <Button variant="ghost" size="icon" className="relative cursor-pointer hover:bg-accent rounded-full h-8 w-8 sm:h-9 sm:w-9">
+              <Bell className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
               {unreadCount > 0 && (
-                <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center bg-primary text-primary-foreground text-[10px] font-bold rounded-full shadow-sm animate-pulse">
+                <Badge className="absolute -top-1 -right-1 h-4 w-4 sm:h-5 sm:w-5 p-0 flex items-center justify-center bg-primary text-primary-foreground text-[9px] sm:text-[10px] font-bold rounded-full shadow-sm animate-pulse">
                   {unreadCount}
                 </Badge>
               )}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80 md:w-96 p-0 rounded-2xl shadow-xl border border-border bg-card overflow-hidden">
+          <DropdownMenuContent align="end" className="w-[calc(100vw-2rem)] sm:w-96 max-w-sm p-0 rounded-2xl shadow-xl border border-border bg-card overflow-hidden">
+
             <div className="p-3.5 border-b border-border bg-muted/30 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Bell className="h-4 w-4 text-primary" />

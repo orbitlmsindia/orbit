@@ -62,7 +62,7 @@ const supportItems = [
 ];
 
 export function AdminSidebar() {
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const location = useLocation();
   const navigate = useNavigate();
   const { unreadCount } = useNotifications();
@@ -115,6 +115,9 @@ export function AdminSidebar() {
           <NavLink
             to={item.url}
             end={item.url === "/admin"}
+            onClick={() => {
+              if (isMobile) setOpenMobile(false);
+            }}
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all hover:bg-sidebar-accent group"
             activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
           >

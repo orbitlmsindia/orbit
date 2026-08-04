@@ -53,6 +53,8 @@ import { supabase } from "@/lib/supabase";
 export default function CourseManagement() {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [courses, setCourses] = useState<any[]>([]);
+  const [teachers, setTeachers] = useState<any[]>([]);
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [addCourseModalOpen, setAddCourseModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);

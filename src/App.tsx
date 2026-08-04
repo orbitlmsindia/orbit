@@ -60,6 +60,9 @@ import MasterCollegeDetail from "./pages/master/MasterCollegeDetail";
 import MasterBilling from "./pages/master/MasterBilling";
 import MasterAnalytics from "./pages/master/MasterAnalytics";
 import MasterMonitoring from "./pages/master/MasterMonitoring";
+import FinanceDashboard from "./pages/finance/FinanceDashboard";
+import FinanceTransactions from "./pages/finance/FinanceTransactions";
+import FinanceInvoices from "./pages/finance/FinanceInvoices";
 
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { NotificationProvider } from "@/contexts/NotificationContext";
@@ -129,6 +132,11 @@ const App = () => (
             <Route path="/student/settings" element={<ProtectedRoute><StudentSettings /></ProtectedRoute>} />
             <Route path="/student/help-center" element={<ProtectedRoute><StudentHelpCenter /></ProtectedRoute>} />
             <Route path="/student/notifications" element={<ProtectedRoute><StudentNotifications /></ProtectedRoute>} />
+
+            {/* Finance Department Routes */}
+            <Route path="/finance" element={<ProtectedRoute><FinanceDashboard /></ProtectedRoute>} />
+            <Route path="/finance/transactions" element={<ProtectedRoute><FinanceTransactions /></ProtectedRoute>} />
+            <Route path="/finance/invoices" element={<ProtectedRoute><FinanceInvoices /></ProtectedRoute>} />
 
             {/* Master Admin Routes */}
             <Route path="/master/login" element={<MasterLogin />} />

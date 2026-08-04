@@ -64,6 +64,9 @@ export default function CourseDetail() {
     const { toast } = useToast();
     const [loading, setLoading] = useState(true);
     const [course, setCourse] = useState<any>(null);
+    const [booksText, setBooksText] = useState("");
+    const [syllabusText, setSyllabusText] = useState("");
+    const [jsonError, setJsonError] = useState<string | null>(null);
     const [sections, setSections] = useState<any[]>([]);
     const [enrollments, setEnrollments] = useState<any[]>([]);
     const [activeTab, setActiveTab] = useState("curriculum");
@@ -290,12 +293,16 @@ export default function CourseDetail() {
             setLoading(true);
             const { data: courseData, error: courseError } = await supabase
                 .from('courses')
-                .select('id, title, description, is_published, thumbnail_url, min_watch_percent, credit_points, domain, objectives, instructions, instructor_intro, exam_policy, instructor, instructor_organization, partner_organizations, teacher_id, is_deletion_requested, deletion_requested_at, price, original_price, currency, organization_name, organization_logo_url')
+                .select('id, title, description, is_published, thumbnail_url, min_watch_percent, credit_points, domain, objectives, instructions, instructor_intro, exam_policy, instructor, instructor_organization, partner_organizations, teacher_id, is_deletion_requested, deletion_requested_at, price, original_price, currency, organization_name, organization_logo_url, course_domain, course_status, course_language, course_level, course_type, intended_audience, duration_hours, start_date, end_date, enrollment_end_date, exam_date, exam_reg_end_date, books_references, syllabus_modules, assessment_internal_marks, assessment_external_marks, assessment_total_marks, min_pass_internal_pct, min_pass_internal_marks, min_pass_external_pct, min_pass_external_marks, min_pass_total_pct, min_pass_total_marks, instructor_name, instructor_designation, instructor_department, instructor_photo_url')
                 .eq('id', id)
                 .single();
 
             if (courseError) throw courseError;
             setCourse(courseData);
+            if (courseData) {
+                setBooksText(Array.isArray(courseData.books_references) ? courseData.books_references.join('\n') : "");
+                setSyllabusText(JSON.stringify(courseData.syllabus_modules || [], null, 2));
+            }
 
             await fetchSections();
 
@@ -2126,26 +2133,323 @@ ${liveHTML}
                                 )}
                             </div>
 
+                            {/* Certificate Course Detailed Settings */}
+                            <div className="p-4 rounded-xl border border-primary/20 bg-primary/5 space-y-4">
+                                <h4 className="font-bold text-sm text-foreground flex items-center gap-2">
+                                    <Award className="h-4 w-4 text-primary" /> Certificate Course & Syllabus Configuration
+                                </h4>
+                                <p className="text-xs text-muted-foreground">Customize modules, references, schedule dates, assessment break-up, and minimum passing criteria for student certificates.</p>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>Course Domain</Label>
+                                        <Input
+                                            value={course.course_domain || ""}
+                                            onChange={(e) => setCourse({ ...course, course_domain: e.target.value })}
+                                            placeholder="e.g. Artificial Intelligence & Machine Learning"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Course Language</Label>
+                                        <Input
+                                            value={course.course_language || ""}
+                                            onChange={(e) => setCourse({ ...course, course_language: e.target.value })}
+                                            placeholder="e.g. English, Hindi"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Course Status</Label>
+                                        <select
+                                            className="w-full flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none"
+                                            value={course.course_status || "Upcoming"}
+                                            onChange={(e) => setCourse({ ...course, course_status: e.target.value })}
+                                        >
+                                            <option value="Upcoming">Upcoming</option>
+                                            <option value="Ongoing">Ongoing</option>
+                                            <option value="Completed">Completed</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>Course Level</Label>
+                                        <Input
+                                            value={course.course_level || ""}
+                                            onChange={(e) => setCourse({ ...course, course_level: e.target.value })}
+                                            placeholder="e.g. Undergraduate/Postgraduate"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Course Type</Label>
+                                        <Input
+                                            value={course.course_type || ""}
+                                            onChange={(e) => setCourse({ ...course, course_type: e.target.value })}
+                                            placeholder="e.g. Elective, Core"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Total Duration (Hours)</Label>
+                                        <Input
+                                            type="number"
+                                            value={course.duration_hours || 60}
+                                            onChange={(e) => setCourse({ ...course, duration_hours: e.target.value })}
+                                            placeholder="60"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label>Intended Audience</Label>
+                                    <Textarea
+                                        value={course.intended_audience || ""}
+                                        onChange={(e) => setCourse({ ...course, intended_audience: e.target.value })}
+                                        placeholder="UG/PG students, research scholars, faculty members..."
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>Books & References (One reference per line)</Label>
+                                        <Textarea
+                                            className="min-h-[140px]"
+                                            value={booksText}
+                                            onChange={(e) => setBooksText(e.target.value)}
+                                            placeholder="Pattern Recognition and Machine Learning by Christopher M. Bishop..."
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="flex items-center justify-between">
+                                            <span>Syllabus Outline Modules</span>
+                                            <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-500/30 bg-emerald-50/50 gap-1">
+                                                ⚡ Auto-Synced from Curriculum
+                                            </Badge>
+                                        </Label>
+                                        <div className="p-3 rounded-xl border bg-card text-xs space-y-2 min-h-[140px] max-h-[160px] overflow-y-auto">
+                                            {sections && sections.length > 0 ? (
+                                                sections.map((sec: any, idx: number) => (
+                                                    <div key={sec.id || idx} className="flex justify-between items-center py-1.5 border-b border-border/40 last:border-0">
+                                                        <span className="font-bold text-primary font-mono text-[11px] shrink-0 w-20">
+                                                            {sec.week_number ? `Week ${sec.week_number}` : `Module-${idx + 1}`}
+                                                        </span>
+                                                        <span className="truncate flex-1 font-medium text-foreground px-2">
+                                                            {sec.title}{sec.topic_name ? ` (${sec.topic_name})` : ''}
+                                                        </span>
+                                                        <span className="text-muted-foreground font-mono text-[11px] shrink-0">
+                                                            {sec.allocated_hours || 4} hrs
+                                                        </span>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="h-full flex flex-col items-center justify-center text-center py-6 text-muted-foreground">
+                                                    <p className="font-semibold text-xs text-foreground">No sections created yet</p>
+                                                    <p className="text-[11px] text-muted-foreground pt-1">Sections and weeks added in the Curriculum tab automatically appear here as modules.</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <p className="text-[11px] text-muted-foreground">Modules & hours are automatically fetched from your course sections created in the Curriculum tab.</p>
+                                    </div>
+                                </div>
+
+                                <h5 className="font-bold text-xs uppercase tracking-wider text-muted-foreground pt-2">Schedule & Registration Deadlines</h5>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>Start Date</Label>
+                                        <Input
+                                            type="date"
+                                            value={course.start_date || ""}
+                                            onChange={(e) => setCourse({ ...course, start_date: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>End Date</Label>
+                                        <Input
+                                            type="date"
+                                            value={course.end_date || ""}
+                                            onChange={(e) => setCourse({ ...course, end_date: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Enrollment End Date</Label>
+                                        <Input
+                                            type="date"
+                                            value={course.enrollment_end_date || ""}
+                                            onChange={(e) => setCourse({ ...course, enrollment_end_date: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>Exam Date</Label>
+                                        <Input
+                                            type="date"
+                                            value={course.exam_date || ""}
+                                            onChange={(e) => setCourse({ ...course, exam_date: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Exam Registration End Date</Label>
+                                        <Input
+                                            type="date"
+                                            value={course.exam_reg_end_date || ""}
+                                            onChange={(e) => setCourse({ ...course, exam_reg_end_date: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+
+                                <h5 className="font-bold text-xs uppercase tracking-wider text-muted-foreground pt-2">Syllabus Passing Rules & Marks Breakdown</h5>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>Internal Marks Max</Label>
+                                        <Input
+                                            type="number"
+                                            value={course.assessment_internal_marks || 30}
+                                            onChange={(e) => setCourse({ ...course, assessment_internal_marks: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>External Marks Max</Label>
+                                        <Input
+                                            type="number"
+                                            value={course.assessment_external_marks || 70}
+                                            onChange={(e) => setCourse({ ...course, assessment_external_marks: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Total Marks Max</Label>
+                                        <Input
+                                            type="number"
+                                            value={(Number(course.assessment_internal_marks) || 30) + (Number(course.assessment_external_marks) || 70)}
+                                            disabled
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>Internal Min Pass Pct</Label>
+                                        <Input
+                                            type="number"
+                                            value={course.min_pass_internal_pct || 40}
+                                            onChange={(e) => setCourse({ ...course, min_pass_internal_pct: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>External Min Pass Pct</Label>
+                                        <Input
+                                            type="number"
+                                            value={course.min_pass_external_pct || 40}
+                                            onChange={(e) => setCourse({ ...course, min_pass_external_pct: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Total Min Pass Pct</Label>
+                                        <Input
+                                            type="number"
+                                            value={course.min_pass_total_pct || 50}
+                                            onChange={(e) => setCourse({ ...course, min_pass_total_pct: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+
+                                <h5 className="font-bold text-xs uppercase tracking-wider text-muted-foreground pt-2">Instructor Information & Biography</h5>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>Instructor Name</Label>
+                                        <Input
+                                            value={course.instructor_name || ""}
+                                            onChange={(e) => setCourse({ ...course, instructor_name: e.target.value })}
+                                            placeholder="Er. Harshvardhan Purohit"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Instructor Designation</Label>
+                                        <Input
+                                            value={course.instructor_designation || ""}
+                                            onChange={(e) => setCourse({ ...course, instructor_designation: e.target.value })}
+                                            placeholder="Founder & CEO, SIN Education..."
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>Instructor Department</Label>
+                                        <Input
+                                            value={course.instructor_department || ""}
+                                            onChange={(e) => setCourse({ ...course, instructor_department: e.target.value })}
+                                            placeholder="Department of Technology, JIET..."
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Instructor Photo URL</Label>
+                                        <Input
+                                            value={course.instructor_photo_url || ""}
+                                            onChange={(e) => setCourse({ ...course, instructor_photo_url: e.target.value })}
+                                            placeholder="https://images.unsplash.com/..."
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
                             <div className="flex justify-end">
-                                <Button onClick={() => updateCourseInfo({ 
-                                    title: course.title, 
-                                    description: course.description, 
-                                    thumbnail_url: course.thumbnail_url, 
-                                    min_watch_percent: course.min_watch_percent, 
-                                    credit_points: course.credit_points,
-                                    domain: course.domain,
-                                    objectives: course.objectives,
-                                    instructions: course.instructions,
-                                    instructor_intro: course.instructor_intro,
-                                    exam_policy: course.exam_policy,
-                                    instructor_video_url: course.instructor_video_url,
-                                    instructor_qualifications: course.instructor_qualifications,
-                                    instructor_socials: course.instructor_socials,
-                                    price: course.price,
-                                    original_price: course.original_price,
-                                    organization_name: course.organization_name,
-                                    organization_logo_url: course.organization_logo_url
-                                })}>Save Changes</Button>
+                                <Button onClick={() => {
+                                    const autoModules = (sections && sections.length > 0)
+                                        ? sections.map((sec: any, idx: number) => ({
+                                            module_no: sec.week_number ? `Week ${sec.week_number}` : `Module-${idx + 1}`,
+                                            content: sec.title ? (sec.topic_name ? `${sec.title}: ${sec.topic_name}` : sec.title) : (sec.topic_name || `Module ${idx + 1}`),
+                                            hrs: Number(sec.allocated_hours) || 4
+                                        }))
+                                        : null;
+
+                                    updateCourseInfo({ 
+                                        title: course.title, 
+                                        description: course.description, 
+                                        thumbnail_url: course.thumbnail_url, 
+                                        min_watch_percent: course.min_watch_percent, 
+                                        credit_points: course.credit_points,
+                                        domain: course.domain,
+                                        objectives: course.objectives,
+                                        instructions: course.instructions,
+                                        instructor_intro: course.instructor_intro,
+                                        exam_policy: course.exam_policy,
+                                        instructor_video_url: course.instructor_video_url,
+                                        instructor_qualifications: course.instructor_qualifications,
+                                        instructor_socials: course.instructor_socials,
+                                        price: course.price,
+                                        original_price: course.original_price,
+                                        organization_name: course.organization_name,
+                                        organization_logo_url: course.organization_logo_url,
+                                        course_domain: course.course_domain,
+                                        course_status: course.course_status,
+                                        course_language: course.course_language,
+                                        course_level: course.course_level,
+                                        course_type: course.course_type,
+                                        intended_audience: course.intended_audience,
+                                        duration_hours: course.duration_hours ? parseInt(course.duration_hours) : 60,
+                                        start_date: course.start_date,
+                                        end_date: course.end_date,
+                                        enrollment_end_date: course.enrollment_end_date,
+                                        exam_date: course.exam_date,
+                                        exam_reg_end_date: course.exam_reg_end_date,
+                                        assessment_internal_marks: course.assessment_internal_marks ? parseInt(course.assessment_internal_marks) : 30,
+                                        assessment_external_marks: course.assessment_external_marks ? parseInt(course.assessment_external_marks) : 70,
+                                        assessment_total_marks: (Number(course.assessment_internal_marks) || 30) + (Number(course.assessment_external_marks) || 70),
+                                        min_pass_internal_pct: course.min_pass_internal_pct ? parseInt(course.min_pass_internal_pct) : 40,
+                                        min_pass_internal_marks: Math.round(((course.min_pass_internal_pct ? parseInt(course.min_pass_internal_pct) : 40) / 100) * (course.assessment_internal_marks ? parseInt(course.assessment_internal_marks) : 30)),
+                                        min_pass_external_pct: course.min_pass_external_pct ? parseInt(course.min_pass_external_pct) : 40,
+                                        min_pass_external_marks: Math.round(((course.min_pass_external_pct ? parseInt(course.min_pass_external_pct) : 40) / 100) * (course.assessment_external_marks ? parseInt(course.assessment_external_marks) : 70)),
+                                        min_pass_total_pct: course.min_pass_total_pct ? parseInt(course.min_pass_total_pct) : 50,
+                                        min_pass_total_marks: Math.round(((course.min_pass_total_pct ? parseInt(course.min_pass_total_pct) : 50) / 100) * ((Number(course.assessment_internal_marks) || 30) + (Number(course.assessment_external_marks) || 70))),
+                                        instructor_name: course.instructor_name,
+                                        instructor_designation: course.instructor_designation,
+                                        instructor_department: course.instructor_department,
+                                        instructor_photo_url: course.instructor_photo_url,
+                                        books_references: booksText ? booksText.split('\n').map(b => b.trim()).filter(Boolean) : [],
+                                        syllabus_modules: autoModules
+                                    });
+                                }}>Save Changes</Button>
                             </div>
                         </CardContent>
                     </Card>

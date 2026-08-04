@@ -306,12 +306,12 @@ export default function Attendance() {
 
     return (
         <TeacherLayout>
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between animate-fade-in">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">
                 <div>
-                    <h1 className="text-3xl font-display font-bold">Attendance</h1>
-                    <p className="text-muted-foreground">Track and manage student attendance.</p>
+                    <h1 className="text-2xl sm:text-3xl font-display font-bold">Attendance</h1>
+                    <p className="text-xs sm:text-sm text-muted-foreground">Track and manage student attendance.</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
                         <DialogTrigger asChild>
                             <Button variant="outline" className="gap-2">
@@ -419,8 +419,8 @@ export default function Attendance() {
                         </div>
                     </div>
                 </CardHeader>
-                <CardContent>
-                    <div className="border rounded-lg overflow-hidden">
+                <CardContent className="p-3 sm:p-6">
+                    <div className="border rounded-lg overflow-x-auto">
                         {loading ? (
                             <div className="p-8 flex justify-center text-muted-foreground">
                                 <Loader2 className="animate-spin mr-2" /> Loading students...

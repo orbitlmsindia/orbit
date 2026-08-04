@@ -128,14 +128,14 @@ export function StudentReportCardModal({ open, onOpenChange, student }: StudentR
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl overflow-y-auto max-h-[90vh] bg-background text-foreground p-0 border-2">
+      <DialogContent className="w-full max-w-[95vw] sm:max-w-3xl overflow-y-auto max-h-[90vh] bg-background text-foreground p-0 border-2">
         <DialogHeader className="sr-only">
           <DialogTitle>Official Student Academic Report Card</DialogTitle>
           <DialogDescription>Student Progress and Marks Transcript</DialogDescription>
         </DialogHeader>
 
         {/* Printable Letterhead Container */}
-        <div id="printable-report-card" className="p-6 sm:p-8 space-y-6 bg-background">
+        <div id="printable-report-card" className="p-4 sm:p-8 space-y-4 sm:space-y-6 bg-background">
           {/* 1. Official Letterhead Header Banner */}
           <div className="border-b-2 border-primary/50 pb-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -158,27 +158,24 @@ export function StudentReportCardModal({ open, onOpenChange, student }: StudentR
               {institute.registrationNo && (
                 <p className="text-[10px] font-mono text-muted-foreground">{institute.registrationNo}</p>
               )}
-              <p className="text-[10px] text-muted-foreground font-mono">Date Issued: {new Date().toLocaleDateString()}</p>
             </div>
           </div>
 
-          {/* 2. Student Info Card */}
-          <div className="p-4 rounded-xl bg-muted/40 border grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+          {/* 2. Student Info Details Box */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-4 rounded-xl bg-muted/40 border text-xs">
             <div>
-              <span className="text-[10px] uppercase font-semibold text-muted-foreground block">Student Name</span>
-              <span className="font-bold text-sm text-foreground">{student.name}</span>
+              <span className="text-[10px] uppercase font-semibold text-muted-foreground block">Student Full Name</span>
+              <span className="font-bold text-foreground text-sm">{student?.name || "Student"}</span>
             </div>
             <div>
-              <span className="text-[10px] uppercase font-semibold text-muted-foreground block">Student Email</span>
-              <span className="font-mono text-muted-foreground truncate block">{student.email}</span>
+              <span className="text-[10px] uppercase font-semibold text-muted-foreground block">Registration / Student Email</span>
+              <span className="font-mono font-medium text-foreground">{student?.email || "Not Provided"}</span>
             </div>
             <div>
-              <span className="text-[10px] uppercase font-semibold text-muted-foreground block">Cumulative Aura XP</span>
-              <span className="font-mono font-bold text-amber-500">✨ {totalEarnedAura} XP</span>
-            </div>
-            <div>
-              <span className="text-[10px] uppercase font-semibold text-muted-foreground block">Academic Credits</span>
-              <span className="font-mono font-bold text-primary">🎓 {totalEarnedCredits} Credits</span>
+              <span className="text-[10px] uppercase font-semibold text-muted-foreground block">Cumulative Aura & Credits</span>
+              <span className="font-mono font-bold text-amber-500 flex items-center gap-2">
+                ✨ {totalEarnedAura} Aura • 🎓 {totalEarnedCredits} Credits
+              </span>
             </div>
           </div>
 
@@ -204,8 +201,8 @@ export function StudentReportCardModal({ open, onOpenChange, student }: StudentR
               <FileText className="h-4 w-4 text-primary" /> Enrolled Course Progress & Grade Breakdown
             </h4>
 
-            <div className="border rounded-xl overflow-hidden text-xs">
-              <table className="w-full text-left border-collapse">
+            <div className="border rounded-xl overflow-x-auto text-xs">
+              <table className="w-full min-w-[500px] text-left border-collapse">
                 <thead className="bg-muted/70 text-muted-foreground font-semibold uppercase text-[10px]">
                   <tr>
                     <th className="p-3">Course Title</th>
@@ -235,13 +232,13 @@ export function StudentReportCardModal({ open, onOpenChange, student }: StudentR
           </div>
 
           {/* 5. Official Registrar Seal & Footer */}
-          <div className="pt-8 border-t flex items-end justify-between text-xs">
+          <div className="pt-6 sm:pt-8 border-t flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 text-xs">
             <div className="space-y-1">
               <span className="text-[10px] text-muted-foreground block font-mono">Document Security Code: ORBIT-RPT-2026-SECURED</span>
               <p className="text-[11px] text-muted-foreground italic">Generated by Orbit LMS Official Examination Ledger.</p>
             </div>
 
-            <div className="text-right space-y-1">
+            <div className="text-right space-y-1 w-full sm:w-auto">
               {institute.stampUrl ? (
                 <img src={institute.stampUrl} alt="Official Stamp" className="h-10 w-28 object-contain ml-auto border p-0.5 rounded bg-white" />
               ) : (

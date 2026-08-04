@@ -118,7 +118,7 @@ export default function MasterBilling() {
                         <CardDescription>All time finalized earnings</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-3xl font-bold">${totals.revenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                        <p className="text-3xl font-bold">₹{totals.revenue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                     </CardContent>
                 </Card>
                 <Card>
@@ -159,7 +159,7 @@ export default function MasterBilling() {
                                     </Select>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>Cost per Seat ($)</Label>
+                                     <Label>Cost per Seat (₹)</Label>
                                     <Input type="number" step="0.50" min="0" value={cost} onChange={e => setCost(e.target.value)} required />
                                 </div>
                             </div>
@@ -202,7 +202,7 @@ export default function MasterBilling() {
                                     <TableCell className="font-medium">{inv.colleges?.name}</TableCell>
                                     <TableCell>{inv.courses?.title || <span className="text-slate-400 italic">Global Instance Scope</span>}</TableCell>
                                     <TableCell className="text-center">{inv.student_count}</TableCell>
-                                    <TableCell className="text-right font-bold tracking-tight">${inv.total_amount?.toFixed(2)}</TableCell>
+                                    <TableCell className="text-right font-bold tracking-tight text-emerald-400">₹{inv.total_amount?.toLocaleString('en-IN')}</TableCell>
                                     <TableCell>
                                         <Badge variant={inv.status === 'paid' ? 'default' : inv.status === 'cancelled' ? 'destructive' : 'outline'} className={inv.status === 'paid' ? 'bg-emerald-500 hover:bg-emerald-600' : ''}>
                                             {inv.status?.toUpperCase()}

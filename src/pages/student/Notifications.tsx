@@ -1,3 +1,6 @@
+import { useState, useEffect } from "react";
+import { StudentLayout } from "@/components/layout/StudentLayout";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Bell, Loader2, CheckCircle, Clock, Video, Calendar, ExternalLink, Sparkles } from "lucide-react";

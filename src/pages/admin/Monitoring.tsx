@@ -220,7 +220,7 @@ export default function Monitoring() {
       key: "course",
       header: "Course",
       cell: (row: any) => (
-        <Badge variant="outline">{row.course}</Badge>
+        <Badge variant="outline" className="max-w-[160px] truncate block" title={row.course}>{row.course}</Badge>
       ),
     },
     {
@@ -397,13 +397,13 @@ export default function Monitoring() {
             <h1 className="text-2xl lg:text-3xl font-display font-bold text-foreground">
               Monitoring
             </h1>
-            <p className="text-muted-foreground mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               Track student progress, attendance, and submissions
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
             <Select value={selectedCourse} onValueChange={setSelectedCourse}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder="Select course" />
               </SelectTrigger>
               <SelectContent>
@@ -412,15 +412,15 @@ export default function Monitoring() {
                 ))}
               </SelectContent>
             </Select>
-            <Button variant="default" onClick={handleExportStudentReport} className="gap-2 bg-primary text-primary-foreground font-bold shadow-sm">
-              <Download className="h-4 w-4" />
-              Export Student Report (CSV)
+            <Button variant="default" onClick={handleExportStudentReport} className="w-full sm:w-auto gap-2 bg-primary text-primary-foreground font-bold shadow-sm">
+              <Download className="h-4 w-4 shrink-0" />
+              <span>Export Student Report (CSV)</span>
             </Button>
           </div>
         </div>
 
         {/* Summary Cards */}
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <Card>
             <CardContent className="p-4 flex items-center gap-4">
               <div className="p-3 rounded-lg bg-primary/10">

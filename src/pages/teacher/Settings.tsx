@@ -396,23 +396,25 @@ export default function TeacherSettings() {
                 </div>
 
                 <Tabs defaultValue="profile" className="space-y-6">
-                    <TabsList className="grid grid-cols-2 sm:grid-cols-5 w-full sm:w-auto">
-                        <TabsTrigger value="profile" className="gap-2">
-                            <User className="h-4 w-4" /> Profile
-                        </TabsTrigger>
-                        <TabsTrigger value="letterhead" className="gap-2">
-                            <FileText className="h-4 w-4" /> Letterhead & Signatures
-                        </TabsTrigger>
-                        <TabsTrigger value="appearance" className="gap-2">
-                            <Palette className="h-4 w-4" /> Appearance
-                        </TabsTrigger>
-                        <TabsTrigger value="notifications" className="gap-2">
-                            <Bell className="h-4 w-4" /> Notifications
-                        </TabsTrigger>
-                        <TabsTrigger value="security" className="gap-2">
-                            <Lock className="h-4 w-4" /> Security
-                        </TabsTrigger>
-                    </TabsList>
+                    <div className="w-full overflow-x-auto pb-1 scrollbar-none">
+                        <TabsList className="inline-flex min-w-max h-auto p-1 bg-muted rounded-lg border">
+                            <TabsTrigger value="profile" className="gap-2 px-3 py-1.5 text-xs sm:text-sm">
+                                <User className="h-4 w-4" /> Profile
+                            </TabsTrigger>
+                            <TabsTrigger value="letterhead" className="gap-2 px-3 py-1.5 text-xs sm:text-sm">
+                                <FileText className="h-4 w-4" /> Letterhead & Signatures
+                            </TabsTrigger>
+                            <TabsTrigger value="appearance" className="gap-2 px-3 py-1.5 text-xs sm:text-sm">
+                                <Palette className="h-4 w-4" /> Appearance
+                            </TabsTrigger>
+                            <TabsTrigger value="notifications" className="gap-2 px-3 py-1.5 text-xs sm:text-sm">
+                                <Bell className="h-4 w-4" /> Notifications
+                            </TabsTrigger>
+                            <TabsTrigger value="security" className="gap-2 px-3 py-1.5 text-xs sm:text-sm">
+                                <Lock className="h-4 w-4" /> Security
+                            </TabsTrigger>
+                        </TabsList>
+                    </div>
 
                     {/* Profile Tab */}
                     <TabsContent value="profile">

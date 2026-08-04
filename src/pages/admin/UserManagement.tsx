@@ -46,7 +46,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useDepartments } from "@/hooks/useDepartments";
 
 interface NewUserData {
-  userType: "student" | "teacher";
+  userType: "student" | "teacher" | "finance";
   firstName: string;
   lastName: string;
   email: string;
@@ -81,8 +81,19 @@ export default function UserManagement() {
   const [userToReset, setUserToReset] = useState<any>(null);
   const [resetPassword, setResetPassword] = useState("");
 
-  const [students, setStudents] = useState<any[]>([]);
-  const [teachers, setTeachers] = useState<any[]>([]);
+  const [students, setStudents] = useState<any[]>([
+    { id: "1", name: "Harshvardhan Purohit", email: "ceo@sintechnologies.in", role: "student", status: "active", enrolledCourses: 3, aura_points: 120, bonus_credits: 5 },
+    { id: "2", name: "Divyanshu Bohra", email: "divyanshu@gmail.com", role: "student", status: "active", enrolledCourses: 2, aura_points: 80, bonus_credits: 3 }
+  ]);
+  const [teachers, setTeachers] = useState<any[]>([
+    { id: "3", name: "Prof. Harshvardhan Purohit", email: "harshvardhanpurohit2020@gmail.com", role: "teacher", department: "Computer Science", courses: 4, status: "active" }
+  ]);
+  const [financeUsers, setFinanceUsers] = useState<any[]>([
+    { id: "4", name: "Finance Manager", email: "finance@sintechnologies.in", role: "finance", status: "active" }
+  ]);
+  const [adminUsers, setAdminUsers] = useState<any[]>([
+    { id: "5", name: "Pragya Goyal", email: "pragyagoyal1717@gmail.com", role: "admin", status: "active" }
+  ]);
   const [creationSuccess, setCreationSuccess] = useState<{ email: string, password: string } | null>(null);
 
   // View/Edit User State
@@ -127,8 +138,24 @@ export default function UserManagement() {
           joinedDate: u.created_at,
         })) || [];
 
+        const _finance = data?.filter((u: any) => u.role === 'finance').map((u: any) => ({
+          ...u,
+          name: u.full_name,
+          status: u.status || "active",
+          joinedDate: u.created_at,
+        })) || [];
+
+        const _admins = data?.filter((u: any) => u.role === 'admin' || u.role === 'super_admin').map((u: any) => ({
+          ...u,
+          name: u.full_name,
+          status: u.status || "active",
+          joinedDate: u.created_at,
+        })) || [];
+
         setStudents(_students);
         setTeachers(_teachers);
+        setFinanceUsers(_finance);
+        setAdminUsers(_admins);
       }
       setLoading(false);
     };
@@ -812,21 +839,36 @@ export default function UserManagement() {
           </DialogContent>
         </Dialog>
 
+        {/* Role ID Capacity Indicator */}
+        <div className="flex flex-wrap items-center gap-3 p-3 bg-card rounded-lg border text-xs font-mono">
+          <span className="font-semibold text-foreground font-sans flex items-center gap-1.5">
+            <Building2 className="h-3.5 w-3.5 text-emerald-500" /> Organization Role ID Capacity:
+          </span>
+          <span className="text-blue-600 dark:text-blue-400">Students: {students.length} / 1000</span>
+          <span className="text-purple-600 dark:text-purple-400">Teachers: {teachers.length} / 50</span>
+          <span className="text-emerald-600 dark:text-emerald-400">Finance: {financeUsers.length} / 10</span>
+          <span className="text-amber-600 dark:text-amber-400 font-bold">Admins: {adminUsers.length} / 5</span>
+        </div>
+
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <TabsList className="grid w-full sm:w-auto grid-cols-2">
-              <TabsTrigger value="students" className="gap-2">
-                <Users className="h-4 w-4" />
-                Students
-                <Badge variant="secondary" className="ml-1">{students.length}</Badge>
-              </TabsTrigger>
-              <TabsTrigger value="teachers" className="gap-2">
-                <GraduationCap className="h-4 w-4" />
-                Teachers
-                <Badge variant="secondary" className="ml-1">{teachers.length}</Badge>
-              </TabsTrigger>
-            </TabsList>
+            <div className="w-full overflow-x-auto pb-1 scrollbar-none">
+              <TabsList className="inline-flex min-w-max h-auto p-1 bg-muted rounded-lg border gap-1">
+                <TabsTrigger value="students" className="gap-1.5 text-xs sm:text-sm px-3 py-1.5">
+                  <Users className="h-3.5 w-3.5" /> Students <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[10px]">{students.length}</Badge>
+                </TabsTrigger>
+                <TabsTrigger value="teachers" className="gap-1.5 text-xs sm:text-sm px-3 py-1.5">
+                  <GraduationCap className="h-3.5 w-3.5" /> Teachers <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[10px]">{teachers.length}</Badge>
+                </TabsTrigger>
+                <TabsTrigger value="finance" className="gap-1.5 text-xs sm:text-sm px-3 py-1.5">
+                  <Users className="h-3.5 w-3.5 text-emerald-500" /> Finance <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[10px]">{financeUsers.length}</Badge>
+                </TabsTrigger>
+                <TabsTrigger value="admins" className="gap-1.5 text-xs sm:text-sm px-3 py-1.5">
+                  <Building2 className="h-3.5 w-3.5 text-indigo-500" /> Admins <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[10px]">{adminUsers.length}</Badge>
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
             <div className="flex items-center gap-2">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -857,6 +899,22 @@ export default function UserManagement() {
               data={filteredTeachers}
               columns={teacherColumns}
               searchPlaceholder="Search teachers..."
+            />
+          </TabsContent>
+
+          <TabsContent value="finance" className="mt-4">
+            <DataTable
+              data={financeUsers}
+              columns={studentColumns}
+              searchPlaceholder="Search finance officers..."
+            />
+          </TabsContent>
+
+          <TabsContent value="admins" className="mt-4">
+            <DataTable
+              data={adminUsers}
+              columns={studentColumns}
+              searchPlaceholder="Search system admins..."
             />
           </TabsContent>
         </Tabs>

@@ -123,7 +123,7 @@ export default function MasterAnalytics() {
                                 <BarChart data={analytics.revenue}>
                                     <XAxis dataKey="period_label" />
                                     <YAxis />
-                                    <Tooltip formatter={(val) => [`$${val}`, "Revenue"]} />
+                                    <Tooltip formatter={(val: any) => [`₹${Number(val).toLocaleString('en-IN')}`, "Revenue"]} />
                                     <Bar dataKey="amount" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                                 </BarChart>
                             </ResponsiveContainer>
