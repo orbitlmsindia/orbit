@@ -7,6 +7,12 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Users,
   GraduationCap,
   BookOpen,
@@ -17,7 +23,13 @@ import {
   CheckCircle,
   XCircle,
   SearchCode,
-  Mail
+  Mail,
+  Download,
+  FileSpreadsheet,
+  FileText,
+  Printer,
+  Sparkles,
+  ChevronDown
 } from "lucide-react";
 import {
   BarChart,
@@ -36,11 +48,13 @@ import {
 } from "recharts";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
+import { AdminInstitutionalReportModal } from "@/components/reports/AdminInstitutionalReportModal";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
+  const [reportModalOpen, setReportModalOpen] = useState(false);
   const [stats, setStats] = useState({
     students: 0,
     teachers: 0,
@@ -266,6 +280,44 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleQuickExportCSV = () => {
+    try {
+      const nowStr = new Date().toISOString().split("T")[0];
+      let csv = `ORBIT LMS - INSTITUTIONAL PERFORMANCE REPORT\n`;
+      csv += `Generated On,${new Date().toLocaleString()}\n`;
+      csv += `Total Students,${stats.students}\n`;
+      csv += `Total Teachers,${stats.teachers}\n`;
+      csv += `Active Courses,${stats.activeCourses}\n`;
+      csv += `Average Attendance,${stats.avgAttendance}%\n`;
+      csv += `Pending Enrollments,${pendingEnrollments.length}\n\n`;
+
+      csv += `--- TOP COURSES ENROLLMENT MATRIX ---\n`;
+      csv += `Course Name,Enrolled Students,Completion Rate\n`;
+      topCourses.forEach(c => {
+        csv += `"${(c.name || '').replace(/"/g, '""')}",${c.enrolled || 0},${c.completion || 0}%\n`;
+      });
+
+      csv += `\n--- WEEKLY ATTENDANCE ---\n`;
+      csv += `Day,Present,Absent\n`;
+      attendanceData.forEach(a => {
+        csv += `${a.day},${a.present || 0},${a.absent || 0}\n`;
+      });
+
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `orbit_institutional_report_${nowStr}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      toast({ title: "Report Downloaded! 📊", description: `Saved as orbit_institutional_report_${nowStr}.csv` });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Export Error", description: e.message });
+    }
+  };
+
   return (
     <AdminLayout>
       <div className="space-y-6 animate-fade-in">
@@ -280,16 +332,37 @@ export default function AdminDashboard() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="icon" onClick={fetchDashboardData} disabled={loading}>
+            <Button variant="outline" size="icon" onClick={fetchDashboardData} disabled={loading} title="Refresh Dashboard">
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             </Button>
             <Button variant="outline" className="gap-2 text-xs sm:text-sm">
               <Calendar className="h-4 w-4" />
               <span>Last 30 Days</span>
             </Button>
-            <Button className="gap-2 text-xs sm:text-sm">
-              <span>Download Report</span>
-            </Button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button className="gap-2 text-xs sm:text-sm font-bold bg-primary text-primary-foreground shadow-md hover:bg-primary/90">
+                  <Download className="h-4 w-4" />
+                  <span>Download Report</span>
+                  <ChevronDown className="h-3.5 w-3.5 opacity-70" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 p-1.5 space-y-1">
+                <DropdownMenuItem onClick={() => setReportModalOpen(true)} className="cursor-pointer gap-2 font-semibold">
+                  <FileText className="h-4 w-4 text-primary" />
+                  <span>Official Letterhead PDF</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleQuickExportCSV} className="cursor-pointer gap-2 font-semibold text-emerald-600 dark:text-emerald-400">
+                  <FileSpreadsheet className="h-4 w-4 text-emerald-500" />
+                  <span>Export Excel / CSV Report</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setReportModalOpen(true)} className="cursor-pointer gap-2 text-xs text-muted-foreground">
+                  <Printer className="h-3.5 w-3.5" />
+                  <span>Preview & Print Options</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
@@ -594,6 +667,17 @@ export default function AdminDashboard() {
           </Card>
         </div>
       </div>
+
+      {/* Official Institutional Executive Performance Report Modal */}
+      <AdminInstitutionalReportModal
+        open={reportModalOpen}
+        onOpenChange={setReportModalOpen}
+        dashboardStats={stats}
+        attendanceData={attendanceData}
+        courseCompletionData={courseCompletionData}
+        topCourses={topCourses}
+        pendingEnrollments={pendingEnrollments}
+      />
     </AdminLayout>
   );
 }

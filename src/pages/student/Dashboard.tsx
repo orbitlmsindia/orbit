@@ -55,8 +55,9 @@ export default function StudentDashboard() {
 
             setNotifications(notifs || []);
 
-            // 3. Fetch Upcoming Deadlines for enrolled courses
-            const courseIds = enrollments?.map((e: any) => e.course.id) || [];
+            // 3. Fetch Upcoming Deadlines for APPROVED enrolled courses only
+            const approvedEnrollments = enrollments?.filter((e: any) => (e.status === 'approved' || e.status === 'active') && e.course?.id) || [];
+            const courseIds = approvedEnrollments.map((e: any) => e.course.id);
             if (courseIds.length > 0) {
                 const { data: deadlines } = await supabase
                     .from('assignments')

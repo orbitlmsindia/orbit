@@ -33,11 +33,12 @@ export default function StudentAssignments() {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
-            // 1. Get Enrolled Course IDs
+            // 1. Get Approved Enrolled Course IDs
             const { data: enrollments } = await supabase
                 .from('enrollments')
                 .select('course_id')
-                .eq('student_id', user.id);
+                .eq('student_id', user.id)
+                .in('status', ['approved', 'active']);
 
             const courseIds = enrollments?.map(e => e.course_id) || [];
 

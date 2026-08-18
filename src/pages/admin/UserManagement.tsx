@@ -44,6 +44,7 @@ import {
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useDepartments } from "@/hooks/useDepartments";
+import { AdminBulkUserCreatorModal } from "@/components/admin/AdminBulkUserCreatorModal";
 
 interface NewUserData {
   userType: "student" | "teacher" | "finance";
@@ -68,6 +69,7 @@ export default function UserManagement() {
   const { departments, addDepartment, deleteDepartment } = useDepartments();
   const [activeTab, setActiveTab] = useState("students");
   const [addUserModalOpen, setAddUserModalOpen] = useState(false);
+  const [bulkUserModalOpen, setBulkUserModalOpen] = useState(false);
   const [deptModalOpen, setDeptModalOpen] = useState(false);
   const [newDeptName, setNewDeptName] = useState("");
   const [newDeptCode, setNewDeptCode] = useState("");
@@ -642,14 +644,19 @@ export default function UserManagement() {
               Departments ({departments.length})
             </Button>
 
+            <Button variant="default" className="gap-2 bg-primary text-primary-foreground font-bold shadow-sm" onClick={() => setBulkUserModalOpen(true)}>
+              <Sparkles className="h-4 w-4" />
+              Bulk Create IDs (Students & Teachers)
+            </Button>
+
             <Dialog open={addUserModalOpen} onOpenChange={open => {
               if (!open) handleCloseModal();
               else setAddUserModalOpen(true);
             }}>
               <DialogTrigger asChild>
-                <Button className="gap-2" onClick={() => setNewUser(initialNewUserState)}>
+                <Button variant="outline" className="gap-2" onClick={() => setNewUser(initialNewUserState)}>
                   <Plus className="h-4 w-4" />
-                  Add User
+                  Add Single User
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-md">
@@ -1237,6 +1244,13 @@ export default function UserManagement() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Bulk User ID & Password Creator Modal */}
+        <AdminBulkUserCreatorModal
+          open={bulkUserModalOpen}
+          onOpenChange={setBulkUserModalOpen}
+          onSuccess={() => setRefreshTrigger(p => p + 1)}
+        />
 
       </div>
     </AdminLayout>

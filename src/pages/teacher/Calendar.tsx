@@ -48,22 +48,45 @@ export default function TeacherCalendar() {
                     }));
                 }
 
-                // 2. Fetch General Calendar Events
+                // 2. Fetch Calendar Events (General + Teacher's course-specific events)
                 const { data: calEvents } = await supabase
                     .from('calendar_events')
-                    .select('id, title, event_date')
-                    .or(`visibility.eq.all,visibility.eq.teachers`);
+                    .select('id, title, event_date, type, visibility, course_id')
+                    .or(`visibility.eq.all,visibility.eq.teachers${courseIds.length > 0 ? `,course_id.in.(${courseIds.join(',')})` : ''}`);
 
                 const generalEvents = (calEvents || []).map(e => ({
                     id: e.id,
                     title: e.title,
                     date: new Date(e.event_date),
-                    type: 'event',
-                    isGeneral: true
+                    type: e.type || 'event',
+                    courseName: e.course_id ? courseMap.get(e.course_id) : undefined,
+                    isGeneral: !e.course_id
                 }));
 
+                // 3. Fetch Live Classes for teacher's courses
+                let liveEvents: any[] = [];
+                if (courseIds.length > 0) {
+                    const { data: liveData } = await supabase
+                        .from('live_classes')
+                        .select('id, title, scheduled_at, duration_minutes, course_id, meeting_link')
+                        .in('course_id', courseIds)
+                        .not('scheduled_at', 'is', null);
+
+                    liveEvents = (liveData || [])
+                        .filter(l => !generalEvents.some(ge => ge.title.includes(l.title)))
+                        .map(l => ({
+                            id: `live-${l.id}`,
+                            title: `🔴 Live Class: ${l.title}`,
+                            date: new Date(l.scheduled_at),
+                            type: 'live_class',
+                            courseName: courseMap.get(l.course_id),
+                            meetingLink: l.meeting_link,
+                            isMyCourse: true
+                        }));
+                }
+
                 // Merge and sort
-                const allEvents = [...assignmentEvents, ...generalEvents].sort((a, b) => a.date.getTime() - b.date.getTime());
+                const allEvents = [...assignmentEvents, ...generalEvents, ...liveEvents].sort((a, b) => a.date.getTime() - b.date.getTime());
                 setEvents(allEvents);
 
             } catch (error) {

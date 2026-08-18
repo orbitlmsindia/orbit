@@ -42,14 +42,16 @@ import {
     Pencil,
     Eye,
     Users,
+    HelpCircle,
     X
 } from "lucide-react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { isGoogleDriveUrl, getGoogleDriveEmbedUrl } from "@/lib/googleDriveUtils";
 import {
     importSectionsToExistingCourse,
+    normalizeCourseJson,
     validateCourseJson,
     SAMPLE_COURSE_JSON
 } from "@/lib/courseJsonImporter";
@@ -61,6 +63,7 @@ import { ExamPaperDesignerModal } from "@/components/reports/ExamPaperDesignerMo
 
 export default function CourseDetail() {
     const { id } = useParams();
+    const [searchParams] = useSearchParams();
     const { toast } = useToast();
     const [loading, setLoading] = useState(true);
     const [course, setCourse] = useState<any>(null);
@@ -69,12 +72,20 @@ export default function CourseDetail() {
     const [jsonError, setJsonError] = useState<string | null>(null);
     const [sections, setSections] = useState<any[]>([]);
     const [enrollments, setEnrollments] = useState<any[]>([]);
-    const [activeTab, setActiveTab] = useState("curriculum");
+    const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "curriculum");
+
+    useEffect(() => {
+        const tabParam = searchParams.get("tab");
+        if (tabParam) {
+            setActiveTab(tabParam);
+        }
+    }, [searchParams]);
 
     // Add Section / Module State
     const [newSectionTitle, setNewSectionTitle] = useState("");
     const [addSectionOpen, setAddSectionOpen] = useState(false);
     const [structuringApproach, setStructuringApproach] = useState<"weekly" | "section">("weekly");
+    const [approachManuallySet, setApproachManuallySet] = useState<boolean>(false);
     const [weekNumber, setWeekNumber] = useState<number>(1);
     const [allocatedHours, setAllocatedHours] = useState<string>("4.0");
     const [topicName, setTopicName] = useState<string>("");
@@ -354,15 +365,37 @@ export default function CourseDetail() {
             // 2. Fetch assignments separately by course_id to guarantee relation independence
             const { data: assignmentsData, error: assignsError } = await supabase
                 .from('assignments')
-                .select('id, section_id, title, type, points, description, time_limit_minutes, questions, teacher_drive_url, submission_mode, created_at')
+                .select('id, section_id, title, type, points, description, time_limit_minutes, due_date, is_graded, teacher_drive_url, created_at')
                 .eq('course_id', id);
 
             if (assignsError) {
                 console.warn("fetchSections assignments query warning:", assignsError);
             }
 
+            let rawAssigns = assignmentsData || [];
+
+            // Also fetch questions from assignment_questions for all quizzes
+            const quizIds = rawAssigns.filter((a: any) => a.type === 'quiz').map((a: any) => a.id);
+            if (quizIds.length > 0) {
+                const { data: allQs } = await supabase
+                    .from('assignment_questions')
+                    .select('id, assignment_id, question_text, type, options, points, correct_answer, order_index')
+                    .in('assignment_id', quizIds)
+                    .order('order_index', { ascending: true });
+
+                const qMap: Record<string, any[]> = {};
+                (allQs || []).forEach((q: any) => {
+                    if (!qMap[q.assignment_id]) qMap[q.assignment_id] = [];
+                    qMap[q.assignment_id].push(q);
+                });
+
+                rawAssigns = rawAssigns.map((a: any) => ({
+                    ...a,
+                    questions: qMap[a.id] || []
+                }));
+            }
+
             const rawSections = sectionsData || [];
-            const rawAssigns = assignmentsData || [];
 
             let sorted = rawSections.map((s: any) => {
                 const contents = s.items?.map((i: any) => ({ ...i, itemType: 'content' })) || [];
@@ -382,20 +415,12 @@ export default function CourseDetail() {
             const assignedIds = new Set(sorted.flatMap((s: any) => (s.items || []).filter((i: any) => i.itemType === 'assignment').map((i: any) => i.id)));
             const unassignedAssigns = rawAssigns.filter((a: any) => !assignedIds.has(a.id)).map((a: any) => ({ ...a, itemType: 'assignment' }));
 
-            if (unassignedAssigns.length > 0) {
-                if (sorted.length > 0) {
-                    sorted[0].items = [...sorted[0].items, ...unassignedAssigns];
-                } else {
-                    sorted.push({
-                        id: 'unassigned',
-                        title: 'Course Quizzes & Assessments',
-                        items: unassignedAssigns
-                    });
-                }
+            if (unassignedAssigns.length > 0 && sorted.length > 0) {
+                sorted[0].items = [...sorted[0].items, ...unassignedAssigns];
             }
 
             setSections(sorted);
-            if (sorted.some((s: any) => s.week_number)) {
+            if (!approachManuallySet && sorted.some((s: any) => s.week_number)) {
                 setStructuringApproach("weekly");
             }
         } catch (err) {
@@ -484,12 +509,40 @@ export default function CourseDetail() {
         if (!confirm(`Are you sure you want to delete the section "${sectionTitle}" and all of its contents (lessons, videos, quizzes)?`)) return;
 
         try {
-            const { error } = await supabase
-                .from('course_sections')
-                .delete()
-                .eq('id', sectionId);
+            if (sectionId === 'unassigned' || !sectionId) {
+                await supabase
+                    .from('assignments')
+                    .delete()
+                    .eq('course_id', id);
+            } else {
+                // 1. Delete associated lessons & contents
+                await supabase
+                    .from('section_contents')
+                    .delete()
+                    .eq('section_id', sectionId);
 
-            if (error) throw error;
+                // 2. Delete associated quizzes / assignments
+                await supabase
+                    .from('assignments')
+                    .delete()
+                    .eq('section_id', sectionId);
+
+                // 3. Delete section row
+                const { error } = await supabase
+                    .from('course_sections')
+                    .delete()
+                    .eq('id', sectionId);
+
+                if (error) throw error;
+
+                // 4. If this is the only or last section, also delete any leftover orphan assignments
+                if (sections.length <= 1) {
+                    await supabase
+                        .from('assignments')
+                        .delete()
+                        .eq('course_id', id);
+                }
+            }
 
             toast({ title: "Section Deleted", description: `"${sectionTitle}" has been removed.` });
             fetchSections(); // refresh
@@ -507,7 +560,57 @@ export default function CourseDetail() {
 
             if (error) throw error;
 
-            toast({ title: "Enrollment Approved", description: "The student now has access to the course." });
+            // Clear/resolve the notification for this enrollment across all teachers & admins
+            try {
+                const enrObj = enrollments.find(e => e.id === enrollmentId);
+                const studentName = enrObj?.student?.full_name;
+                const txnId = enrObj?.transaction_id;
+
+                await supabase
+                    .from('notifications')
+                    .delete()
+                    .eq('enrollment_id', enrollmentId);
+
+                if (studentName) {
+                    await supabase
+                        .from('notifications')
+                        .delete()
+                        .eq('course_id', id)
+                        .ilike('message', `%${studentName}%`);
+
+                    await supabase
+                        .from('notifications')
+                        .delete()
+                        .ilike('message', `%${studentName}%`)
+                        .eq('notification_type', 'enrollment');
+                }
+
+                if (txnId) {
+                    await supabase
+                        .from('notifications')
+                        .delete()
+                        .ilike('message', `%${txnId}%`)
+                        .eq('notification_type', 'enrollment');
+                }
+
+                // Notify the student that their enrollment is approved
+                const studentId = enrObj?.student_id || enrObj?.student?.id;
+                if (studentId) {
+                    await supabase.from('notifications').insert([{
+                        user_id: studentId,
+                        title: "Enrollment Approved! 🎉",
+                        message: `Congratulations! Your enrollment in "${course?.title || 'the course'}" has been approved. You now have full access to curriculum, live classes, and calendar schedules.`,
+                        notification_type: "enrollment_approved",
+                        sender_role: "teacher",
+                        course_id: id,
+                        is_read: false
+                    }]);
+                }
+            } catch (notifCleanupErr) {
+                console.warn("Could not cleanup/dispatch approval notification:", notifCleanupErr);
+            }
+
+            toast({ title: "Enrollment Approved ✅", description: "The student now has full access to the course and calendar." });
             fetchCourseDetails(); // Refresh list
         } catch (error: any) {
             toast({ variant: "destructive", title: "Error", description: error.message || "Failed to approve enrollment." });
@@ -522,6 +625,13 @@ export default function CourseDetail() {
                 .eq('id', enrollmentId);
 
             if (error) throw error;
+
+            try {
+                await supabase
+                    .from('notifications')
+                    .delete()
+                    .eq('enrollment_id', enrollmentId);
+            } catch (e) {}
 
             toast({ title: "Enrollment Declined", description: "The student's enrollment request has been declined." });
             fetchCourseDetails(); // Refresh list
@@ -557,7 +667,57 @@ export default function CourseDetail() {
 
             if (error) throw error;
 
-            toast({ title: "Enrollments Approved", description: `Successfully approved ${selectedEnrollments.length} student enrollment(s).` });
+            // Clear notifications for these enrollments
+            try {
+                await supabase
+                    .from('notifications')
+                    .delete()
+                    .in('enrollment_id', selectedEnrollments);
+
+                const approvedObjs = enrollments.filter(e => selectedEnrollments.includes(e.id));
+                for (const enr of approvedObjs) {
+                    const sName = enr.student?.full_name;
+                    const txn = enr.transaction_id;
+                    if (sName) {
+                        await supabase
+                            .from('notifications')
+                            .delete()
+                            .eq('course_id', id)
+                            .ilike('message', `%${sName}%`);
+
+                        await supabase
+                            .from('notifications')
+                            .delete()
+                            .ilike('message', `%${sName}%`)
+                            .eq('notification_type', 'enrollment');
+                    }
+                    if (txn) {
+                        await supabase
+                            .from('notifications')
+                            .delete()
+                            .ilike('message', `%${txn}%`)
+                            .eq('notification_type', 'enrollment');
+                    }
+                }
+
+                const studentNotifs = approvedObjs.map(e => ({
+                    user_id: e.student_id || e.student?.id,
+                    title: "Enrollment Approved! 🎉",
+                    message: `Your enrollment in "${course?.title || 'the course'}" has been approved by your instructor.`,
+                    notification_type: "enrollment_approved",
+                    sender_role: "teacher",
+                    course_id: id,
+                    is_read: false
+                })).filter(n => n.user_id);
+
+                if (studentNotifs.length > 0) {
+                    await supabase.from('notifications').insert(studentNotifs);
+                }
+            } catch (cleanupErr) {
+                console.warn("Bulk notification cleanup warning:", cleanupErr);
+            }
+
+            toast({ title: "Enrollments Approved ✅", description: `Successfully approved ${selectedEnrollments.length} student enrollment(s).` });
             setSelectedEnrollments([]);
             fetchCourseDetails();
         } catch (error: any) {
@@ -713,7 +873,7 @@ export default function CourseDetail() {
         // ── Fetch all assignments & quiz questions directly by course_id ──
         const { data: dbCourseAssignments } = await supabase
             .from('assignments')
-            .select('id, section_id, title, type, points, description, time_limit_minutes, questions, teacher_drive_url, submission_mode, created_at')
+            .select('id, section_id, title, type, points, description, time_limit_minutes, due_date, is_graded, teacher_drive_url, created_at')
             .eq('course_id', course.id);
 
         const dbAssignIds = (dbCourseAssignments || []).map((a: any) => a.id);
@@ -1239,61 +1399,36 @@ ${liveHTML}
     // 📥 Restore Course JSON
     const handleRestoreCourseJSON = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (!file) return;
+        if (!file || !id) return;
 
         try {
             const text = await file.text();
-            const data = JSON.parse(text);
+            const rawData = JSON.parse(text);
+            const normalized = normalizeCourseJson(rawData);
 
-            if (!data.sections || !Array.isArray(data.sections)) {
-                toast({ variant: "destructive", title: "Invalid Backup File", description: "JSON backup file does not contain valid course sections." });
+            if (!normalized.sections || !Array.isArray(normalized.sections) || normalized.sections.length === 0) {
+                toast({ variant: "destructive", title: "Invalid Backup File", description: "JSON backup file does not contain valid course sections or modules." });
                 return;
             }
 
-            toast({ title: "Restoring Course Backup...", description: "Importing modules and resources..." });
+            toast({ title: "Restoring Course Backup...", description: `Importing ${normalized.sections.length} modules, quizzes, and resources...` });
 
-            for (let i = 0; i < data.sections.length; i++) {
-                const sec = data.sections[i];
-                const { data: newSec, error: secErr } = await supabase
-                    .from('course_sections')
-                    .insert([{
-                        course_id: id,
-                        title: sec.title || `Restored Module ${i + 1}`,
-                        order_index: i
-                    }])
-                    .select('id')
-                    .single();
+            const result = await importSectionsToExistingCourse(id, normalized.sections);
 
-                if (secErr || !newSec) continue;
-
-                if (sec.items && Array.isArray(sec.items)) {
-                    for (let j = 0; j < sec.items.length; j++) {
-                        const item = sec.items[j];
-                        if (item.itemType === 'assignment' || item.type === 'quiz' || item.type === 'assignment') {
-                            await supabase.from('assignments').insert([{
-                                course_id: id,
-                                section_id: newSec.id,
-                                title: item.title || "Restored Assignment",
-                                type: item.type || "assignment",
-                                points: item.points || 100
-                            }]);
-                        } else {
-                            await supabase.from('section_contents').insert([{
-                                section_id: newSec.id,
-                                title: item.title || "Restored Lesson",
-                                type: item.type || "video",
-                                video_url: item.video_url || null,
-                                pdf_url: item.pdf_url || null,
-                                content_text: item.content_text || null,
-                                order_index: j
-                            }]);
-                        }
-                    }
-                }
+            if (result.success) {
+                toast({
+                    title: "Course Restored Successfully! 🎉",
+                    description: `Imported ${result.sectionsCreated} modules, ${result.contentsCreated} lessons, and ${result.quizzesCreated} quizzes (${result.questionsCreated} questions).`
+                });
+                fetchSections();
+            } else {
+                toast({
+                    variant: "destructive",
+                    title: "Restore Encountered Issues",
+                    description: result.errors[0] || "Some items could not be imported."
+                });
+                fetchSections();
             }
-
-            toast({ title: "Course Restored Successfully! 🎉", description: "All modules and resources have been imported." });
-            fetchSections();
         } catch (err: any) {
             toast({ variant: "destructive", title: "Restore Failed", description: err.message || "Could not parse JSON backup." });
         }
@@ -1635,7 +1770,10 @@ ${liveHTML}
                                 size="sm"
                                 variant={structuringApproach === "weekly" ? "default" : "outline"}
                                 className="gap-1.5 text-xs font-bold"
-                                onClick={() => setStructuringApproach("weekly")}
+                                onClick={() => {
+                                    setStructuringApproach("weekly");
+                                    setApproachManuallySet(true);
+                                }}
                             >
                                 <Calendar className="h-3.5 w-3.5" /> Weekly Approach
                             </Button>
@@ -1643,7 +1781,10 @@ ${liveHTML}
                                 size="sm"
                                 variant={structuringApproach === "section" ? "default" : "outline"}
                                 className="gap-1.5 text-xs font-bold"
-                                onClick={() => setStructuringApproach("section")}
+                                onClick={() => {
+                                    setStructuringApproach("section");
+                                    setApproachManuallySet(true);
+                                }}
                             >
                                 <Layers className="h-3.5 w-3.5" /> Section Approach
                             </Button>
@@ -1655,7 +1796,7 @@ ${liveHTML}
                             {structuringApproach === "weekly" ? "Weekly Mission Modules" : "Course Content Sections"}
                         </h2>
                         <div className="flex gap-2">
-                            <ImportSectionsDialog courseId={id!} onSuccess={fetchSections} />
+                            <ImportSectionsDialog courseId={id!} structuringApproach={structuringApproach} onSuccess={fetchSections} />
                             <Dialog open={addSectionOpen} onOpenChange={setAddSectionOpen}>
                                 <DialogTrigger asChild>
                                     <Button className="gap-2 font-bold">
@@ -1825,7 +1966,19 @@ ${liveHTML}
                                                         </p>
                                                     </div>
                                                 </div>
-                                                <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                                                <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                                                    {(item.type === 'quiz' || (item.itemType === 'assignment' && item.type === 'quiz')) && (
+                                                        <Link to={`/teacher/courses/${id}/quiz/${item.id}`}>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="h-8 px-2.5 text-xs font-bold gap-1 border-purple-500/40 text-purple-600 dark:text-purple-400 bg-purple-500/10 hover:bg-purple-500/20"
+                                                                title="Manage & Edit MCQs"
+                                                            >
+                                                                <HelpCircle className="h-3.5 w-3.5" /> MCQs ↗
+                                                            </Button>
+                                                        </Link>
+                                                    )}
                                                     <Button 
                                                         variant="ghost" 
                                                         size="icon" 
@@ -3306,7 +3459,108 @@ function ImportSectionsDialog({ courseId, structuringApproach = "weekly", onSucc
 
     // Download template function
     const handleDownloadTemplate = () => {
-        const templateData = SAMPLE_COURSE_JSON.sections || [];
+        const weeklyTemplate = [
+            {
+                title: "Week 1: Foundations & Core Concepts",
+                week_number: 1,
+                allocated_hours: 4.0,
+                topic_name: "Architecture, Syntax & Safe Workflows",
+                aura_points: 200,
+                items: [
+                    {
+                        title: "Reading Material: Introduction & Fundamentals",
+                        type: "text",
+                        content_text: "# Foundations & Architecture\n\n## Overview\nLearn the core principles and workflows."
+                    },
+                    {
+                        title: "Overview Video Lecture",
+                        type: "video",
+                        url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+                        duration_minutes: 30
+                    },
+                    {
+                        title: "Knowledge Assessment Quiz",
+                        type: "quiz",
+                        is_graded: true,
+                        description: "A comprehensive assessment with Multiple Choice (MCQ) and True/False questions.",
+                        points: 100,
+                        time_limit_minutes: 20,
+                        questions: [
+                            {
+                                question_text: "Which approach ensures reliable code verification?",
+                                type: "mcq",
+                                options: [
+                                    "Guessing from memory",
+                                    "Running automated tests and direct validation checks",
+                                    "Skipping tests",
+                                    "Deploying without review"
+                                ],
+                                correct_answer: "Running automated tests and direct validation checks",
+                                points: 25
+                            },
+                            {
+                                question_text: "Does scheduling a task guarantee it will complete without errors?",
+                                type: "boolean",
+                                correct_answer: "false",
+                                points: 25
+                            }
+                        ]
+                    }
+                ]
+            }
+        ];
+
+        const sectionTemplate = [
+            {
+                title: "Section 1: Getting Started & Foundations",
+                allocated_hours: 4.0,
+                topic_name: "Setup, Features and Safe Workflows",
+                aura_points: 200,
+                items: [
+                    {
+                        title: "Reading Material: Getting Started",
+                        type: "text",
+                        content_text: "# Getting Started\n\n## Core Concepts\nReview the instructions, setup, and safe workflows."
+                    },
+                    {
+                        title: "Foundations Video Lecture",
+                        type: "video",
+                        url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+                        duration_minutes: 30
+                    },
+                    {
+                        title: "Section Assessment Quiz",
+                        type: "quiz",
+                        is_graded: true,
+                        description: "Assessment covering setup, features, and verification.",
+                        points: 100,
+                        time_limit_minutes: 20,
+                        questions: [
+                            {
+                                question_text: "What should you inspect before modifying an unfamiliar project?",
+                                type: "mcq",
+                                options: [
+                                    "Delete tests",
+                                    "Inspect project instructions and relevant files",
+                                    "Deploy immediately",
+                                    "Open all folders randomly"
+                                ],
+                                correct_answer: "Inspect project instructions and relevant files",
+                                points: 25
+                            },
+                            {
+                                question_text: "Should a result be labeled unverified when no relevant check was performed?",
+                                type: "boolean",
+                                correct_answer: "true",
+                                points: 25
+                            }
+                        ]
+                    }
+                ]
+            }
+        ];
+
+        const templateData = structuringApproach === "weekly" ? weeklyTemplate : sectionTemplate;
         const blob = new Blob([JSON.stringify(templateData, null, 2)], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -3375,11 +3629,7 @@ function ImportSectionsDialog({ courseId, structuringApproach = "weekly", onSucc
 
         setIsImporting(true);
         try {
-            const mockPayload: any = {
-                title: "Appended",
-                sections: parsedSections
-            };
-            const result = await importCourseFromJson(mockPayload, courseId);
+            const result = await importSectionsToExistingCourse(courseId, parsedSections);
             if (result.success) {
                 toast({
                     title: "Modules Imported Successfully! 🚀",
@@ -3418,10 +3668,12 @@ function ImportSectionsDialog({ courseId, structuringApproach = "weekly", onSucc
             <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
-                        <Sparkles className="h-5 w-5 text-primary" /> Import Sections via JSON
+                        <Sparkles className="h-5 w-5 text-primary" /> {structuringApproach === "weekly" ? "Import Weekly Mission Modules via JSON" : "Import Sections via JSON"}
                     </DialogTitle>
                     <DialogDescription>
-                        Paste JSON structure of sections or upload file. This will append new sections to the current course.
+                        {structuringApproach === "weekly"
+                            ? "Paste JSON structure of weekly modules or upload file. This will append weekly modules with lessons and quizzes."
+                            : "Paste JSON structure of sections or upload file. This will append new sections with lessons and quizzes."}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -3699,9 +3951,16 @@ function EditItemDialog({ item, onSuccess, open, onOpenChange }: { item: any | n
                                 </div>
                             </div>
                             {item.type === 'quiz' && (
-                                <div className="space-y-2">
-                                    <Label>Time Limit (minutes)</Label>
-                                    <Input type="number" value={timeLimit} onChange={(e) => setTimeLimit(e.target.value)} />
+                                <div className="p-3 bg-purple-500/10 border border-purple-500/30 rounded-xl flex items-center justify-between gap-2">
+                                    <div>
+                                        <p className="text-xs font-bold text-purple-600 dark:text-purple-400">Quiz Questions & MCQs</p>
+                                        <p className="text-[11px] text-muted-foreground">Manage options, correct answers, points, and add new MCQs.</p>
+                                    </div>
+                                    <Link to={`/teacher/courses/${id}/quiz/${item.id}`}>
+                                        <Button type="button" size="sm" variant="outline" className="gap-1.5 text-xs font-bold border-purple-500/40 text-purple-600 dark:text-purple-400 hover:bg-purple-500/20">
+                                            <HelpCircle className="h-3.5 w-3.5" /> Edit MCQs ↗
+                                        </Button>
+                                    </Link>
                                 </div>
                             )}
                             <div className="space-y-2">

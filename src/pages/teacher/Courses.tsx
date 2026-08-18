@@ -29,6 +29,7 @@ export default function TeacherCourses() {
         title: "",
         description: "",
         domain: "Software Engineering",
+        credit_points: "4",
         instructor_intro: "",
         instructor_video_url: "",
         instructor_qualifications: "",
@@ -133,6 +134,7 @@ export default function TeacherCourses() {
                 title: newCourse.title,
                 description: newCourse.description,
                 domain: newCourse.domain || "Software Engineering",
+                credit_points: parseInt(newCourse.credit_points) || 4,
                 instructor_intro: newCourse.instructor_intro || null,
                 instructor_video_url: newCourse.instructor_video_url || null,
                 instructor_qualifications: newCourse.instructor_qualifications || null,
@@ -271,15 +273,28 @@ export default function TeacherCourses() {
                                     placeholder="e.g. Advanced Mathematics"
                                 />
                             </div>
-                            <div className="space-y-2">
-                                <Label>Domain / Category</Label>
-                                <Input
-                                    value={newCourse.domain}
-                                    onChange={(e) => setNewCourse({ ...newCourse, domain: e.target.value })}
-                                    placeholder="e.g. Software Engineering, Data Science & AI, Web Development"
-                                />
-                                <p className="text-xs text-muted-foreground">Students can filter courses by domain on their dashboard.</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div className="space-y-2">
+                                    <Label>Domain / Category</Label>
+                                    <Input
+                                        value={newCourse.domain}
+                                        onChange={(e) => setNewCourse({ ...newCourse, domain: e.target.value })}
+                                        placeholder="e.g. Software Engineering, Data Science & AI"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Academic Credit Points (Credits)</Label>
+                                    <Input
+                                        type="number"
+                                        value={newCourse.credit_points}
+                                        onChange={(e) => setNewCourse({ ...newCourse, credit_points: e.target.value })}
+                                        placeholder="4"
+                                        min="1"
+                                        max="30"
+                                    />
+                                </div>
                             </div>
+                            <p className="text-xs text-muted-foreground">Credits awarded to students upon completing this course (e.g. 3, 4, 5 credits. Default: 4).</p>
 
                             <div className="space-y-2">
                                 <Label>Description</Label>

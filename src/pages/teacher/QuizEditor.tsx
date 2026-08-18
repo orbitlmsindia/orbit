@@ -63,7 +63,7 @@ export default function QuizEditor() {
                 id: `temp-${Date.now()}`,
                 type: 'mcq',
                 question_text: '',
-                points: 1,
+                points: 10,
                 options: ["Option 1", "Option 2", "Option 3", "Option 4"],
                 correct_answer: "Option 1"
             }
@@ -71,7 +71,6 @@ export default function QuizEditor() {
     };
 
     const handleRemoveQuestion = async (id: string, index: number) => {
-        // If it's a temp question, just remove from state
         if (id.toString().startsWith('temp-')) {
             const newQuestions = [...questions];
             newQuestions.splice(index, 1);
@@ -79,7 +78,6 @@ export default function QuizEditor() {
             return;
         }
 
-        // If it's existing, delete from DB
         try {
             const { error } = await supabase
                 .from('assignment_questions')
@@ -98,7 +96,41 @@ export default function QuizEditor() {
 
     const handleQuestionChange = (index: number, field: string, value: any) => {
         const newQuestions = [...questions];
-        newQuestions[index] = { ...newQuestions[index], [field]: value };
+        const currentQ = { ...newQuestions[index], [field]: value };
+
+        if (field === 'type') {
+            if (value === 'boolean') {
+                currentQ.options = ["True", "False"];
+                currentQ.correct_answer = "True";
+            } else if (value === 'mcq' && (!currentQ.options || currentQ.options.length === 0)) {
+                currentQ.options = ["Option 1", "Option 2", "Option 3", "Option 4"];
+                currentQ.correct_answer = "Option 1";
+            } else if (value === 'short' || value === 'long') {
+                currentQ.options = null;
+            }
+        }
+
+        newQuestions[index] = currentQ;
+        setQuestions(newQuestions);
+    };
+
+    const handleAddOption = (qIndex: number) => {
+        const newQuestions = [...questions];
+        const opts = [...(newQuestions[qIndex].options || [])];
+        opts.push(`Option ${opts.length + 1}`);
+        newQuestions[qIndex].options = opts;
+        setQuestions(newQuestions);
+    };
+
+    const handleRemoveOption = (qIndex: number, optIndex: number) => {
+        const newQuestions = [...questions];
+        const opts = [...(newQuestions[qIndex].options || [])];
+        const removedOpt = opts[optIndex];
+        opts.splice(optIndex, 1);
+        newQuestions[qIndex].options = opts;
+        if (newQuestions[qIndex].correct_answer === removedOpt) {
+            newQuestions[qIndex].correct_answer = opts[0] || '';
+        }
         setQuestions(newQuestions);
     };
 
@@ -106,10 +138,8 @@ export default function QuizEditor() {
         const newQuestions = [...questions];
         const oldOptionValue = newQuestions[qIndex].options[optIndex];
 
-        // Update the option text
         newQuestions[qIndex].options[optIndex] = value;
 
-        // If this option was the correct answer, update the correct_answer field to match the new text
         if (newQuestions[qIndex].correct_answer === oldOptionValue) {
             newQuestions[qIndex].correct_answer = value;
         }
@@ -121,17 +151,16 @@ export default function QuizEditor() {
         try {
             setSaving(true);
 
-            // 1. Update Quiz Details (optional, if we added fields)
-
-            // 2. Upsert Questions
+            // 1. Upsert Questions into assignment_questions
             const upsertPayload = questions.map((q, idx) => {
+                const qType = q.type || 'mcq';
                 const payload: any = {
                     assignment_id: quizId,
-                    question_text: q.question_text,
-                    type: q.type,
-                    options: q.options,
-                    correct_answer: q.correct_answer,
-                    points: q.points,
+                    question_text: q.question_text || 'Question',
+                    type: qType,
+                    options: (qType === 'mcq' || qType === 'boolean') ? (q.options || (qType === 'boolean' ? ["True", "False"] : ["Option 1", "Option 2"])) : null,
+                    correct_answer: q.correct_answer || null,
+                    points: q.points !== undefined ? Number(q.points) : 10,
                     order_index: idx
                 };
                 if (q.id && !q.id.startsWith('temp-')) {
@@ -146,8 +175,8 @@ export default function QuizEditor() {
 
             if (error) throw error;
 
-            toast({ title: "Success", description: "Quiz saved successfully" });
-            fetchQuizData(); // Refresh to get real IDs for new questions
+            toast({ title: "Quiz Saved! ✅", description: `Successfully updated ${questions.length} question(s).` });
+            fetchQuizData();
         } catch (error: any) {
             console.error(error);
             toast({ variant: "destructive", title: "Error", description: error.message });
@@ -173,74 +202,139 @@ export default function QuizEditor() {
                     <ChevronLeft className="h-5 w-5" />
                 </Button>
                 <div className="flex-1">
-                    <h1 className="text-2xl font-display font-bold">Edit Quiz: {quiz.title}</h1>
-                    <p className="text-muted-foreground text-sm">Add questions and configure settings.</p>
+                    <h1 className="text-2xl font-display font-bold">Edit Quiz: {quiz?.title}</h1>
+                    <p className="text-muted-foreground text-sm">Add and configure Multiple Choice (MCQs), Boolean (True/False), and open-ended questions.</p>
                 </div>
-                <Button onClick={saveQuiz} disabled={saving} className="gap-2">
+                <Button onClick={saveQuiz} disabled={saving} className="gap-2 font-bold bg-primary hover:bg-primary/90">
                     {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     Save Changes
                 </Button>
             </div>
 
             <div className="space-y-6 max-w-4xl mx-auto pb-10">
-                {questions.map((q, index) => (
-                    <Card key={q.id || index} className="relative overflow-hidden">
-                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary" />
-                        <CardContent className="pt-6 space-y-4">
-                            <div className="flex items-start gap-4">
-                                <span className="font-mono text-xl font-bold text-muted-foreground/50">#{index + 1}</span>
-                                <div className="flex-1 space-y-4">
-                                    <div className="flex gap-4">
-                                        <div className="flex-1">
-                                            <Label>Question Text</Label>
-                                            <Input
-                                                className="mt-1"
-                                                placeholder="Enter question..."
-                                                value={q.question_text}
-                                                onChange={(e) => handleQuestionChange(index, 'question_text', e.target.value)}
-                                            />
-                                        </div>
-                                        <div className="w-[120px]">
-                                            <Label>Points</Label>
-                                            <Input
-                                                type="number"
-                                                className="mt-1"
-                                                value={q.points}
-                                                onChange={(e) => handleQuestionChange(index, 'points', parseInt(e.target.value))}
-                                            />
-                                        </div>
-                                    </div>
+                {questions.map((q, index) => {
+                    const qType = q.type || 'mcq';
+                    const isOptionsType = qType === 'mcq' || qType === 'boolean';
 
-                                    <div className="pl-4 border-l-2 border-muted space-y-3">
-                                        <Label className="text-xs text-muted-foreground uppercase tracking-wider">Answer Options</Label>
-                                        <RadioGroup
-                                            value={q.correct_answer}
-                                            onValueChange={(val) => handleQuestionChange(index, 'correct_answer', val)}
-                                        >
-                                            {q.options?.map((opt: string, optIdx: number) => (
-                                                <div key={optIdx} className="flex items-center gap-2">
-                                                    <RadioGroupItem value={opt} id={`q${index}-opt${optIdx}`} />
-                                                    <Input
-                                                        value={opt}
-                                                        onChange={(e) => handleOptionChange(index, optIdx, e.target.value)}
-                                                        className={`h-9 ${q.correct_answer === opt ? 'border-success ring-1 ring-success' : ''}`}
-                                                    />
-                                                    {q.correct_answer === opt && <CheckCircleIcon className="h-4 w-4 text-success" />}
+                    return (
+                        <Card key={q.id || index} className="relative overflow-hidden border">
+                            <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-primary" />
+                            <CardContent className="pt-6 space-y-4">
+                                <div className="flex items-start gap-4">
+                                    <span className="font-mono text-xl font-bold text-muted-foreground/50">#{index + 1}</span>
+                                    <div className="flex-1 space-y-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                                            <div className="md:col-span-7">
+                                                <Label className="text-xs font-bold">Question Text</Label>
+                                                <Input
+                                                    className="mt-1"
+                                                    placeholder="e.g., Which prompt gives the clearest task?"
+                                                    value={q.question_text}
+                                                    onChange={(e) => handleQuestionChange(index, 'question_text', e.target.value)}
+                                                />
+                                            </div>
+                                            <div className="md:col-span-3">
+                                                <Label className="text-xs font-bold">Question Type</Label>
+                                                <Select
+                                                    value={qType}
+                                                    onValueChange={(val) => handleQuestionChange(index, 'type', val)}
+                                                >
+                                                    <SelectTrigger className="mt-1">
+                                                        <SelectValue placeholder="Type" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="mcq">Multiple Choice (MCQ)</SelectItem>
+                                                        <SelectItem value="boolean">True / False (Boolean)</SelectItem>
+                                                        <SelectItem value="short">Short Answer</SelectItem>
+                                                        <SelectItem value="long">Long Answer / Essay</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="md:col-span-2">
+                                                <Label className="text-xs font-bold">Points</Label>
+                                                <Input
+                                                    type="number"
+                                                    className="mt-1 font-mono"
+                                                    value={q.points !== undefined ? q.points : 10}
+                                                    onChange={(e) => handleQuestionChange(index, 'points', parseInt(e.target.value) || 0)}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {isOptionsType && (
+                                            <div className="pl-4 border-l-2 border-primary/20 space-y-3 bg-muted/20 p-3 rounded-r-xl">
+                                                <div className="flex items-center justify-between">
+                                                    <Label className="text-xs text-muted-foreground uppercase font-bold tracking-wider">
+                                                        {qType === 'boolean' ? 'True / False Options (Select Correct Answer)' : 'Answer Options (Select Radio for Correct Answer)'}
+                                                    </Label>
+                                                    {qType === 'mcq' && (
+                                                        <Button
+                                                            type="button"
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            onClick={() => handleAddOption(index)}
+                                                            className="text-xs h-7 text-primary hover:text-primary/80 gap-1 font-semibold"
+                                                        >
+                                                            <Plus className="h-3 w-3" /> Add Option
+                                                        </Button>
+                                                    )}
                                                 </div>
-                                            ))}
-                                        </RadioGroup>
-                                    </div>
-                                </div>
-                                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => handleRemoveQuestion(q.id, index)}>
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
-                ))}
 
-                <Button onClick={handleAddQuestion} variant="outline" className="w-full py-8 border-dashed gap-2 hover:bg-muted/50">
-                    <Plus className="h-4 w-4" /> Add Question
+                                                <RadioGroup
+                                                    value={q.correct_answer}
+                                                    onValueChange={(val) => handleQuestionChange(index, 'correct_answer', val)}
+                                                    className="space-y-2"
+                                                >
+                                                    {(q.options || (qType === 'boolean' ? ["True", "False"] : ["Option 1", "Option 2"])).map((opt: string, optIdx: number) => (
+                                                        <div key={optIdx} className="flex items-center gap-2">
+                                                            <RadioGroupItem value={opt} id={`q${index}-opt${optIdx}`} />
+                                                            <Input
+                                                                value={opt}
+                                                                readOnly={qType === 'boolean'}
+                                                                onChange={(e) => handleOptionChange(index, optIdx, e.target.value)}
+                                                                className={`h-9 flex-1 ${q.correct_answer === opt ? 'border-emerald-500 ring-1 ring-emerald-500 bg-emerald-500/5' : ''}`}
+                                                            />
+                                                            {q.correct_answer === opt && <CheckCircleIcon className="h-4 w-4 text-emerald-500 shrink-0" />}
+                                                            {qType === 'mcq' && (q.options?.length || 0) > 2 && (
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    onClick={() => handleRemoveOption(index, optIdx)}
+                                                                    className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
+                                                                    title="Remove option"
+                                                                >
+                                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </RadioGroup>
+                                            </div>
+                                        )}
+
+                                        {!isOptionsType && (
+                                            <div className="pl-4 border-l-2 border-muted space-y-2">
+                                                <Label className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Sample / Correct Solution (Optional)</Label>
+                                                <Input
+                                                    placeholder="Expected answer or grading rubric guidelines..."
+                                                    value={q.correct_answer || ''}
+                                                    onChange={(e) => handleQuestionChange(index, 'correct_answer', e.target.value)}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                    <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => handleRemoveQuestion(q.id, index)}>
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    );
+                })}
+
+                <Button onClick={handleAddQuestion} variant="outline" className="w-full py-6 border-dashed gap-2 hover:bg-muted/50 font-bold">
+                    <Plus className="h-4 w-4" /> Add Question (MCQ / True-False)
                 </Button>
             </div>
         </TeacherLayout>

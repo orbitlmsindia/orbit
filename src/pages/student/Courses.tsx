@@ -780,16 +780,79 @@ export default function StudentCourses() {
                 return;
             }
 
-            const { error } = await supabase
+            const { data: insertedEnrollment, error } = await supabase
                 .from('enrollments')
                 .insert([{
                     student_id: user.id,
                     course_id: enrollmentDialog.courseId,
                     transaction_id: transactionId,
                     status: 'pending'
-                }]);
+                }])
+                .select('id')
+                .single();
 
             if (error) throw error;
+
+            // Notify Teacher & Admin in real-time
+            try {
+                const { data: courseInfo } = await supabase
+                    .from('courses')
+                    .select('id, title, teacher_id')
+                    .eq('id', enrollmentDialog.courseId)
+                    .maybeSingle();
+
+                const { data: studentInfo } = await supabase
+                    .from('users')
+                    .select('full_name, email')
+                    .eq('id', user.id)
+                    .maybeSingle();
+
+                const studentName = studentInfo?.full_name || user.user_metadata?.full_name || user.email || 'A student';
+                const courseTitle = courseInfo?.title || enrollmentDialog.courseName || 'Course';
+
+                const notifRows: any[] = [];
+                if (courseInfo?.teacher_id) {
+                    notifRows.push({
+                        user_id: courseInfo.teacher_id,
+                        title: "New Student Enrollment",
+                        message: `${studentName} has enrolled in your course: ${courseTitle} (Txn: ${transactionId}). Review & Approve.`,
+                        notification_type: "course",
+                        sender_role: "student",
+                        is_read: false,
+                        course_id: enrollmentDialog.courseId,
+                        enrollment_id: insertedEnrollment?.id || null
+                    });
+                }
+
+                // Notify all Administrators
+                const { data: adminUsers } = await supabase
+                    .from('users')
+                    .select('id')
+                    .in('role', ['admin', 'super_admin', 'master_admin']);
+
+                if (adminUsers && adminUsers.length > 0) {
+                    adminUsers.forEach((adm: any) => {
+                        if (adm.id !== courseInfo?.teacher_id) {
+                            notifRows.push({
+                                user_id: adm.id,
+                                title: "New Student Enrollment",
+                                message: `${studentName} has enrolled in course: ${courseTitle} (Txn: ${transactionId}). Approval required.`,
+                                notification_type: "course",
+                                sender_role: "student",
+                                is_read: false,
+                                course_id: enrollmentDialog.courseId,
+                                enrollment_id: insertedEnrollment?.id || null
+                            });
+                        }
+                    });
+                }
+
+                if (notifRows.length > 0) {
+                    await supabase.from('notifications').insert(notifRows);
+                }
+            } catch (notifErr) {
+                console.warn("Could not dispatch client-side notification:", notifErr);
+            }
 
             // Track coupon usage if coupon was applied
             if (couponApplied) {

@@ -114,6 +114,77 @@ export function TopBar({
     if (!notif.is_read) {
       await markAsRead(notif.id);
     }
+
+    const title = (notif.title || '').toLowerCase();
+    const msg = (notif.message || '');
+    
+    // 1. Enrollment notification -> Navigate to teacher/admin student verification tab
+    if (notif.notification_type === 'enrollment' || title.includes('enrollment') || msg.includes('enrolled')) {
+      if (notif.course_id) {
+        if (userRole === 'teacher') {
+          navigate(`/teacher/courses/${notif.course_id}?tab=students`);
+          return;
+        } else if (userRole === 'admin' || userRole === 'super_admin') {
+          navigate(`/admin/courses/${notif.course_id}?tab=curriculum`);
+          return;
+        }
+      }
+
+      // If course_id is not directly on notification object, try finding matching course from message
+      if (userRole === 'teacher') {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const { data: myCourses } = await supabase
+              .from('courses')
+              .select('id, title')
+              .eq('teacher_id', user.id);
+            
+            const matched = myCourses?.find(c => msg.toLowerCase().includes(c.title.toLowerCase()));
+            if (matched) {
+              navigate(`/teacher/courses/${matched.id}?tab=students`);
+              return;
+            }
+          }
+        } catch (e) {
+          console.warn("Course lookup error:", e);
+        }
+        navigate('/teacher/notifications');
+        return;
+      } else if (userRole === 'admin' || userRole === 'super_admin') {
+        navigate('/admin/users');
+        return;
+      }
+    }
+
+    // 2. Assignment / Submission / Quiz notification
+    if (title.includes('assignment') || title.includes('submission') || title.includes('quiz') || msg.includes('quiz')) {
+      if (userRole === 'teacher') {
+        navigate('/teacher/assignments');
+      } else {
+        navigate('/student/assignments');
+      }
+      return;
+    }
+
+    // 3. Live class / Calendar notification
+    if (title.includes('live') || msg.includes('live class') || msg.includes('rescheduled')) {
+      if (userRole === 'teacher') {
+        navigate('/teacher/calendar');
+      } else {
+        navigate('/student/calendar');
+      }
+      return;
+    }
+
+    // Default route
+    if (userRole === 'teacher') {
+      navigate('/teacher/notifications');
+    } else if (userRole === 'student') {
+      navigate('/student/notifications');
+    } else if (userRole === 'admin') {
+      navigate('/admin/notifications');
+    }
   };
 
   return (

@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 import {
@@ -30,12 +31,17 @@ import {
   Calendar,
   Download,
   Layers,
-  Award
+  Award,
+  Bot,
+  Wand2,
+  Check,
+  RotateCcw
 } from "lucide-react";
 import {
   validateCourseJson,
   normalizeCourseJson,
   importCourseFromJson,
+  importFromJson,
   computePreviewStats,
   SAMPLE_COURSE_JSON,
   SAMPLE_WEEKLY_MODULE_JSON,
@@ -53,8 +59,8 @@ export default function JsonCourseBuilder() {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Active Main Builder Mode: 'full-course' | 'module-import' | 'quiz-import'
-  const [builderMode, setBuilderMode] = useState<"full-course" | "module-import" | "quiz-import">("full-course");
+  // Active Main Builder Mode: 'full-course' | 'ai-generator' | 'module-import' | 'quiz-import'
+  const [builderMode, setBuilderMode] = useState<"full-course" | "ai-generator" | "module-import" | "quiz-import">("full-course");
 
   // Structural Approach: 'weekly' | 'section'
   const [structuringApproach, setStructuringApproach] = useState<"weekly" | "section">("weekly");
@@ -66,6 +72,15 @@ export default function JsonCourseBuilder() {
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
   const [isValid, setIsValid] = useState<boolean | null>(null);
   const [parsedData, setParsedData] = useState<JsonCoursePayload | null>(null);
+
+  // AI Prompt Builder State
+  const [aiTopic, setAiTopic] = useState("Agentic AI & LLM Engineering Masterclass");
+  const [aiDomain, setAiDomain] = useState("Data Science & AI");
+  const [aiModuleCount, setAiModuleCount] = useState("4");
+  const [aiLevel, setAiLevel] = useState("Intermediate to Advanced");
+  const [aiIncludeQuizzes, setAiIncludeQuizzes] = useState(true);
+  const [aiIncludeAssignments, setAiIncludeAssignments] = useState(true);
+  const [aiIncludeLive, setAiIncludeLive] = useState(true);
 
   // Available Courses for Specific Importers
   const [teacherCourses, setTeacherCourses] = useState<any[]>([]);
@@ -142,6 +157,152 @@ export default function JsonCourseBuilder() {
     setTimeout(() => setCopiedTemplate(null), 2000);
   };
 
+  const handleCopyAiPrompt = () => {
+    const prompt = generateAiPromptText();
+    navigator.clipboard.writeText(prompt);
+    setCopiedTemplate("AI Prompt");
+    toast({
+      title: "Master AI Prompt Copied! 🤖📋",
+      description: "Paste this into ChatGPT, Claude, or Gemini to generate a complete course with quizzes."
+    });
+    setTimeout(() => setCopiedTemplate(null), 2000);
+  };
+
+  const generateAiPromptText = () => {
+    return `You are an expert curriculum architect for Orbit LMS. Generate a complete, ready-to-import JSON course payload strictly formatted as a valid JSON object (no markdown backticks around the json, or pure json output only).
+
+COURSE SPECIFICATIONS:
+- Topic: ${aiTopic}
+- Domain / Category: ${aiDomain}
+- Number of ${structuringApproach === "weekly" ? "Weekly Mission Modules" : "Sections"}: ${aiModuleCount}
+- Target Audience Level: ${aiLevel}
+- Structure Approach: "${structuringApproach}"
+- Credit Points: 4
+- Duration: 16-24 Hours
+
+REQUIREMENTS:
+1. Each ${structuringApproach === "weekly" ? "week module" : "section module"} MUST include:
+   - title: e.g. "Week 1: Foundations of ..." or "Module 1: Introduction to ..."
+   ${structuringApproach === "weekly" ? '- week_number (number), allocated_hours: 4.0, topic_name: "Topic Summary"' : ""}
+   - items array containing:
+     a) 2-3 Video Lectures (type: "video", url: "https://www.youtube.com/watch?v=...", duration_minutes: 30)
+     b) 1 Slide Presentation or PDF Reference (type: "presentation" or "pdf", url: "https://docs.google.com/presentation/d/.../embed", duration_minutes: 25)
+     c) 1 Rich Markdown Reading (type: "text", content_text: "# Title\\n\\nComprehensive explanation...")
+     ${aiIncludeLive ? 'd) 1 Live Interactive Class (type: "live", url: "https://meet.google.com/orbit-live-session", scheduled_at: "2026-09-01T18:00:00Z", duration_minutes: 60)' : ""}
+     ${aiIncludeQuizzes ? `e) 1 Comprehensive Graded Quiz (type: "quiz", title: "Module Assessment Quiz", is_graded: true, points: 50, time_limit_minutes: 20, questions: [
+         {
+           "question_text": "What is ...?",
+           "type": "mcq",
+           "options": ["Option A", "Option B", "Option C", "Option D"],
+           "correct_answer": "Option A",
+           "points": 15
+         },
+         {
+           "question_text": "Is this statement true?",
+           "type": "boolean",
+           "options": ["True", "False"],
+           "correct_answer": "True",
+           "points": 10
+         },
+         {
+           "question_text": "Explain the core mechanism of ...",
+           "type": "short",
+           "points": 15
+         },
+         {
+           "question_text": "Discuss the architectural trade-offs of ...",
+           "type": "long",
+           "points": 10
+         }
+       ])` : ""}
+     ${aiIncludeAssignments ? 'f) 1 Practical Assignment (type: "assignment", title: "Practical Implementation Task", description: "Build a project...", points: 100)' : ""}
+
+JSON SCHEMA EXAMPLE TO FOLLOW:
+{
+  "title": "${aiTopic}",
+  "description": "Comprehensive course description...",
+  "domain": "${aiDomain}",
+  "credit_points": 4,
+  "structuring_approach": "${structuringApproach}",
+  "price": 1999,
+  "original_price": 3499,
+  "organization_name": "Orbit Tech Academy",
+  "is_published": true,
+  "sections": [
+    {
+      "title": "${structuringApproach === "weekly" ? "Week 1" : "Module 1"}: Foundations",
+      ${structuringApproach === "weekly" ? '"week_number": 1, "allocated_hours": 4.0, "topic_name": "Core Principles",' : ""}
+      "aura_points": 20,
+      "items": [
+        {
+          "title": "Introduction Lecture",
+          "type": "video",
+          "url": "https://www.youtube.com/watch?v=example1",
+          "duration_minutes": 30
+        },
+        {
+          "title": "Weekly Assessment Quiz",
+          "type": "quiz",
+          "is_graded": true,
+          "points": 50,
+          "time_limit_minutes": 20,
+          "questions": [
+            {
+              "question_text": "Sample MCQ Question?",
+              "type": "mcq",
+              "options": ["Correct Choice", "Choice 2", "Choice 3", "Choice 4"],
+              "correct_answer": "Correct Choice",
+              "points": 15
+            },
+            {
+              "question_text": "Sample True/False Question?",
+              "type": "boolean",
+              "options": ["True", "False"],
+              "correct_answer": "True",
+              "points": 10
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+
+Ensure all JSON keys and formatting are 100% syntactically valid JSON. Return ONLY the raw JSON object.`;
+  };
+
+  const handleAutoFormatAndValidate = () => {
+    if (!jsonText.trim()) return;
+
+    try {
+      // Clean possible markdown code fence backticks
+      let cleanText = jsonText.trim();
+      if (cleanText.startsWith("```json")) {
+        cleanText = cleanText.replace(/^```json\s*/, "").replace(/\s*```$/, "");
+      } else if (cleanText.startsWith("```")) {
+        cleanText = cleanText.replace(/^```\s*/, "").replace(/\s*```$/, "");
+      }
+
+      const parsed = JSON.parse(cleanText);
+      const normalized = normalizeCourseJson(parsed);
+      const formatted = JSON.stringify(normalized, null, 2);
+
+      setJsonText(formatted);
+      validateJson(formatted);
+
+      toast({
+        title: "AI JSON Normalized & Formatted! 🪄",
+        description: `Successfully structured ${normalized.sections?.length || 0} modules and validated quizzes.`
+      });
+    } catch (e: any) {
+      toast({
+        variant: "destructive",
+        title: "Format Error",
+        description: `Could not parse JSON: ${e.message}`
+      });
+    }
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, targetMode: "full" | "module" | "quiz") => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -175,7 +336,12 @@ export default function JsonCourseBuilder() {
 
     setIsValidating(true);
     try {
-      const parsed = JSON.parse(text);
+      // Clean possible markdown code fences
+      let clean = text.trim();
+      if (clean.startsWith("```json")) clean = clean.replace(/^```json\s*/, "").replace(/\s*```$/, "");
+      else if (clean.startsWith("```")) clean = clean.replace(/^```\s*/, "").replace(/\s*```$/, "");
+
+      const parsed = JSON.parse(clean);
       parsed.structuring_approach = structuringApproach;
       const normalized = normalizeCourseJson(parsed);
       const { valid, errors } = validateCourseJson(normalized);
@@ -204,7 +370,7 @@ export default function JsonCourseBuilder() {
     }
     try {
       const parsed = JSON.parse(text);
-      if (parsed.title && Array.isArray(parsed.questions)) {
+      if (parsed.title && (Array.isArray(parsed.questions) || parsed.questions)) {
         setQuizValid(true);
         setParsedQuiz(parsed as JsonQuiz);
       } else {
@@ -225,7 +391,7 @@ export default function JsonCourseBuilder() {
     }
     try {
       const parsed = JSON.parse(text);
-      if (parsed.title && Array.isArray(parsed.items)) {
+      if (parsed.title && (Array.isArray(parsed.items) || Array.isArray(parsed.lessons))) {
         setModuleValid(true);
         setParsedModule(parsed as JsonSection);
       } else {
@@ -254,7 +420,7 @@ export default function JsonCourseBuilder() {
       if (result.success && result.courseId) {
         toast({
           title: "Course Imported Successfully! 🚀",
-          description: `Course "${result.courseName}" created with ${result.sectionsCreated} modules.`,
+          description: `Course "${result.courseName}" created with ${result.sectionsCreated} modules, ${result.contentsCreated} lessons, and ${result.quizzesCreated} quizzes (${result.questionsCreated} questions).`,
         });
         navigate(`/teacher/courses/${result.courseId}`);
       } else {
@@ -312,7 +478,7 @@ export default function JsonCourseBuilder() {
       if (res.success) {
         toast({
           title: "Module / Week Imported! 📚",
-          description: `Imported "${parsedModule.title}" with ${parsedModule.items?.length || 0} items into course.`
+          description: `Imported "${parsedModule.title}" with learning items and quizzes into course.`
         });
         setModuleJsonText("");
         setParsedModule(null);
@@ -339,7 +505,7 @@ export default function JsonCourseBuilder() {
           <div>
             <h1 className="text-3xl font-display font-bold">Orbit Course & Curriculum JSON Importer</h1>
             <p className="text-muted-foreground text-sm mt-0.5">
-              Build complete courses, weekly mission modules, or import specific quizzes using structured JSON templates.
+              Build complete courses, weekly mission modules, or generate with AI using structured JSON templates.
             </p>
           </div>
         </div>
@@ -373,6 +539,9 @@ export default function JsonCourseBuilder() {
             <TabsTrigger value="full-course" className="gap-2 font-bold text-xs px-3 py-1.5">
               <BookOpen className="h-4 w-4" /> Complete Course Importer
             </TabsTrigger>
+            <TabsTrigger value="ai-generator" className="gap-2 font-bold text-xs px-3 py-1.5 text-primary">
+              <Bot className="h-4 w-4 text-primary" /> 🤖 AI Master Prompt Generator
+            </TabsTrigger>
             <TabsTrigger value="module-import" className="gap-2 font-bold text-xs px-3 py-1.5">
               <Layers className="h-4 w-4" /> {structuringApproach === "weekly" ? "Weekly Module Importer" : "Section Importer"}
             </TabsTrigger>
@@ -394,6 +563,9 @@ export default function JsonCourseBuilder() {
                     <CardDescription>Upload or paste course structure JSON according to your selected {structuringApproach} approach</CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={handleAutoFormatAndValidate} className="gap-1.5 text-xs text-primary border-primary/30 hover:bg-primary/10">
+                      <Wand2 className="h-3.5 w-3.5" /> Auto-Format & Fix AI JSON
+                    </Button>
                     <Button variant="outline" size="sm" className="relative cursor-pointer text-xs">
                       <Upload className="h-3.5 w-3.5 mr-1.5" /> Upload JSON
                       <input
@@ -411,7 +583,7 @@ export default function JsonCourseBuilder() {
                 <CardContent className="space-y-4">
                   <div className="relative font-mono">
                     <Textarea
-                      placeholder={`Paste your ${structuringApproach} course JSON structure here...`}
+                      placeholder={`Paste your ${structuringApproach} course JSON structure here (or output from ChatGPT/Claude)...`}
                       className="min-h-[440px] font-mono text-sm leading-relaxed bg-background/50 border-muted-foreground/20"
                       value={jsonText}
                       onChange={(e) => {
@@ -521,13 +693,13 @@ export default function JsonCourseBuilder() {
                                 </div>
                                 <div>
                                   <p className="text-[10px] text-muted-foreground font-medium">Live & Quizzes</p>
-                                  <p className="text-base font-bold">{stats.liveClassCount} Live / {stats.quizCount} Quiz</p>
+                                  <p className="text-base font-bold">{stats.liveClassCount} Live / {stats.quizCount} Quiz ({stats.questionCount} Qs)</p>
                                 </div>
                               </div>
                             </div>
                           )}
 
-                          {/* Curriculum Outline with Time Allocation & Budget Checking */}
+                          {/* Curriculum Outline */}
                           <div className="space-y-2">
                             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Module Breakdown</p>
                             <div className="max-h-60 overflow-y-auto space-y-2 border rounded-xl p-3 bg-background/30 text-xs">
@@ -561,8 +733,14 @@ export default function JsonCourseBuilder() {
                                             {item.type === "assignment" && <ListTodo className="h-3 w-3 text-violet-500" />}
                                             {item.title}
                                           </span>
-                                          {(item as any).duration_minutes && (
-                                            <span className="font-mono text-[10px]">{(item as any).duration_minutes}m</span>
+                                          {item.type === "quiz" ? (
+                                            <span className="font-mono text-[10px] text-rose-500 font-bold">
+                                              {(item as any).questions?.length || 0} Qs • {(item as any).points || 50} pts
+                                            </span>
+                                          ) : (
+                                            (item as any).duration_minutes && (
+                                              <span className="font-mono text-[10px]">{(item as any).duration_minutes}m</span>
+                                            )
                                           )}
                                         </p>
                                       ))}
@@ -601,7 +779,7 @@ export default function JsonCourseBuilder() {
                     <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                       <div>
                         <CardTitle className="text-base font-semibold">Course Import Schema</CardTitle>
-                        <CardDescription>Standard JSON payload format</CardDescription>
+                        <CardDescription>Standard JSON payload format with quizzes</CardDescription>
                       </div>
                       <Button variant="outline" size="sm" onClick={() => handleCopyTemplate(SAMPLE_COURSE_JSON, "Course Template")} className="gap-1.5 text-xs font-semibold">
                         <Clipboard className="h-3.5 w-3.5" />
@@ -620,7 +798,126 @@ export default function JsonCourseBuilder() {
           </div>
         </TabsContent>
 
-        {/* ─── 2. MODULE / SECTION IMPORTER TAB ─────────────────────── */}
+        {/* ─── 2. AI MASTER PROMPT GENERATOR TAB ───────────────────────── */}
+        <TabsContent value="ai-generator">
+          <div className="grid gap-6 lg:grid-cols-5 items-start">
+            {/* Controls */}
+            <div className="lg:col-span-2 space-y-4">
+              <Card className="border border-primary/20 bg-card/60 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <Bot className="h-5 w-5 text-primary" /> AI Course Prompt Configurator
+                  </CardTitle>
+                  <CardDescription>
+                    Configure course parameters and generate a bulletproof prompt for ChatGPT, Claude, or Gemini.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold">Course Title / Subject</Label>
+                    <Input
+                      value={aiTopic}
+                      onChange={(e) => setAiTopic(e.target.value)}
+                      placeholder="e.g. Full Stack AI Engineering with LangChain"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold">Domain / Category</Label>
+                    <Input
+                      value={aiDomain}
+                      onChange={(e) => setAiDomain(e.target.value)}
+                      placeholder="e.g. Data Science & AI, Software Engineering"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-bold">Module Count</Label>
+                      <Select value={aiModuleCount} onValueChange={setAiModuleCount}>
+                        <SelectTrigger className="text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="2">2 Modules / Weeks</SelectItem>
+                          <SelectItem value="4">4 Modules / Weeks</SelectItem>
+                          <SelectItem value="6">6 Modules / Weeks</SelectItem>
+                          <SelectItem value="8">8 Modules / Weeks</SelectItem>
+                          <SelectItem value="12">12 Modules / Weeks</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-bold">Target Level</Label>
+                      <Select value={aiLevel} onValueChange={setAiLevel}>
+                        <SelectTrigger className="text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Beginner">Beginner</SelectItem>
+                          <SelectItem value="Intermediate">Intermediate</SelectItem>
+                          <SelectItem value="Intermediate to Advanced">Advanced</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 pt-2 border-t text-xs">
+                    <div className="flex items-center justify-between">
+                      <Label className="cursor-pointer">Include Graded Quizzes (MCQ, True/False, Short/Long)</Label>
+                      <Switch checked={aiIncludeQuizzes} onCheckedChange={setAiIncludeQuizzes} />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label className="cursor-pointer">Include Practical Project Assignments</Label>
+                      <Switch checked={aiIncludeAssignments} onCheckedChange={setAiIncludeAssignments} />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label className="cursor-pointer">Include Live Interactive Class Sessions</Label>
+                      <Switch checked={aiIncludeLive} onCheckedChange={setAiIncludeLive} />
+                    </div>
+                  </div>
+
+                  <Button onClick={handleCopyAiPrompt} className="w-full gap-2 font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-md">
+                    <Clipboard className="h-4 w-4" />
+                    {copiedTemplate === "AI Prompt" ? "Prompt Copied! 🚀" : "Copy Master AI Prompt 📋"}
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Generated Prompt Preview */}
+            <div className="lg:col-span-3 space-y-4">
+              <Card className="border border-border bg-card/60 shadow-sm">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <div>
+                    <CardTitle className="text-base font-semibold">Live AI Prompt Preview</CardTitle>
+                    <CardDescription>Copy this prompt and paste it into any LLM model</CardDescription>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={handleCopyAiPrompt} className="gap-1.5 text-xs font-semibold">
+                    <Clipboard className="h-3.5 w-3.5" />
+                    {copiedTemplate === "AI Prompt" ? "Copied!" : "Copy Prompt"}
+                  </Button>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <pre className="max-h-[420px] overflow-y-auto text-xs font-mono p-4 bg-background/80 border rounded-xl leading-relaxed text-foreground whitespace-pre-wrap">
+                    {generateAiPromptText()}
+                  </pre>
+                  <div className="p-3.5 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-between gap-3">
+                    <p className="text-xs text-foreground/80">
+                      💡 <strong>Next Step:</strong> Paste the prompt into ChatGPT/Claude. Copy the returned JSON and paste it into the <strong>Complete Course Importer</strong> tab to deploy in 1 click.
+                    </p>
+                    <Button size="sm" onClick={() => setBuilderMode("full-course")} className="gap-1.5 text-xs font-bold shrink-0">
+                      Open Importer ↗
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* ─── 3. MODULE / SECTION IMPORTER TAB ─────────────────────── */}
         <TabsContent value="module-import">
           <Card className="border border-border bg-card/60 backdrop-blur-md">
             <CardHeader>
@@ -628,7 +925,7 @@ export default function JsonCourseBuilder() {
                 <Layers className="h-5 w-5 text-primary" /> Import Single {structuringApproach === "weekly" ? "Weekly Mission Module" : "Course Section"} JSON
               </CardTitle>
               <CardDescription>
-                Select an existing course and import a single {structuringApproach === "weekly" ? "weekly module with topic name and allocated hours" : "section module"}.
+                Select an existing course and import a single {structuringApproach === "weekly" ? "weekly module with topic name, quizzes, and allocated hours" : "section module with quizzes"}.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
@@ -687,7 +984,7 @@ export default function JsonCourseBuilder() {
           </Card>
         </TabsContent>
 
-        {/* ─── 3. SPECIFIC QUIZ IMPORTER TAB ─────────────────────────── */}
+        {/* ─── 4. SPECIFIC QUIZ IMPORTER TAB ─────────────────────────── */}
         <TabsContent value="quiz-import">
           <Card className="border border-border bg-card/60 backdrop-blur-md">
             <CardHeader>
@@ -695,7 +992,7 @@ export default function JsonCourseBuilder() {
                 <HelpCircle className="h-5 w-5 text-primary" /> Specific Quiz Importer
               </CardTitle>
               <CardDescription>
-                Select target course and week/module section, then import quiz questions directly from JSON.
+                Select target course and week/module section, then import quiz questions directly from JSON into the quiz engine.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
@@ -768,7 +1065,7 @@ export default function JsonCourseBuilder() {
                     {parsedQuiz.questions?.map((q, idx) => (
                       <div key={idx} className="p-2 rounded border bg-card/50 flex items-start justify-between gap-2">
                         <span>{idx + 1}. {q.question_text} ({q.type.toUpperCase()})</span>
-                        <span className="font-bold text-primary">{q.points || 1} pts</span>
+                        <span className="font-bold text-primary">{q.points || 10} pts</span>
                       </div>
                     ))}
                   </div>

@@ -4,6 +4,8 @@
  * Validates, parses, and imports a complete course structure from JSON
  * into Supabase tables: courses, course_sections, section_contents,
  * assignments (quiz/manual), assignment_questions.
+ * 
+ * Features extreme resilience for AI-generated outputs (ChatGPT, Claude, Gemini).
  */
 
 import { supabase } from "@/lib/supabase";
@@ -88,74 +90,183 @@ export interface JsonCoursePayload {
   sections?: JsonSection[];
 }
 
-// ─── Validation ──────────────────────────────────────────────────────
-
 export interface ValidationError {
   path: string;
   message: string;
 }
 
-// ─── Normalizer ────────────────────────────────────────────────────────
+// ─── Normalizer (Resilient to AI variations) ─────────────────────────
 export function normalizeCourseJson(data: any): any {
   if (!data || typeof data !== "object") return data;
 
   const normalized = { ...data };
 
-  // If title/description are wrapped under `course` property (e.g. exported backup JSON format)
+  // 1. Root Level Normalization
   if (data.course && typeof data.course === "object") {
-    normalized.title = normalized.title || data.course.title;
-    normalized.description = normalized.description || data.course.description;
-    normalized.domain = normalized.domain || data.course.domain;
-    normalized.credit_points = normalized.credit_points || data.course.credit_points;
-    normalized.objectives = normalized.objectives || data.course.objectives;
-    normalized.instructions = normalized.instructions || data.course.instructions;
-    normalized.instructor_intro = normalized.instructor_intro || data.course.instructor_intro;
-    normalized.exam_policy = normalized.exam_policy || data.course.exam_policy;
-    normalized.price = normalized.price || data.course.price;
-    normalized.original_price = normalized.original_price || data.course.original_price;
-    normalized.organization_name = normalized.organization_name || data.course.organization_name;
-    normalized.organization_logo_url = normalized.organization_logo_url || data.course.organization_logo_url;
+    Object.assign(normalized, data.course);
+  } else if (data.data && typeof data.data === "object") {
+    Object.assign(normalized, data.data);
   }
 
-  // Normalize sections & items
-  if (Array.isArray(normalized.sections)) {
-    normalized.sections = normalized.sections.map((section: any) => {
-      const normSec = { ...section };
-      normSec.title = normSec.title || "Untitled Module";
+  normalized.title = normalized.title || normalized.name || normalized.course_title || normalized.courseName || "Untitled Course";
+  normalized.description = normalized.description || normalized.summary || normalized.overview || normalized.course_description || "";
+  normalized.domain = normalized.domain || normalized.category || normalized.field || normalized.tag || "Software Engineering";
+  normalized.credit_points = normalized.credit_points || normalized.credits || normalized.credit || 3;
+  normalized.instructor_intro = normalized.instructor_intro || normalized.instructor_bio || normalized.instructor || "";
+  normalized.exam_policy = normalized.exam_policy || normalized.grading_policy || normalized.assessment_policy || "";
 
-      if (Array.isArray(normSec.items)) {
-        normSec.items = normSec.items.map((item: any) => {
-          const normItem = { ...item };
+  // 2. Sections / Modules Normalization (Supports: sections, modules, chapters, weeks, units, syllabus)
+  let rawSections = normalized.sections || normalized.modules || normalized.chapters || normalized.weeks || normalized.units || normalized.syllabus || [];
+  
+  if (!Array.isArray(rawSections) && typeof rawSections === "object") {
+    rawSections = Object.values(rawSections);
+  }
 
-          // Determine item type
-          if (normItem.itemType === "assignment") {
-            normItem.type = normItem.type || "assignment";
-          }
-          normItem.type = normItem.type || "video";
-          normItem.title = normItem.title || "Untitled Content";
+  if (Array.isArray(rawSections)) {
+    normalized.sections = rawSections.map((section: any, sIdx: number) => {
+      const normSec = typeof section === "object" ? { ...section } : { title: String(section) };
+      normSec.title = normSec.title || normSec.section_title || normSec.module_title || normSec.name || normSec.week_title || `Module ${sIdx + 1}`;
+      normSec.week_number = normSec.week_number || sIdx + 1;
+      normSec.allocated_hours = normSec.allocated_hours || normSec.hours || normSec.duration_hours || 4.0;
+      normSec.aura_points = normSec.aura_points !== undefined ? normSec.aura_points : 15;
 
-          // Normalize URL across url, video_url, pdf_url, content_url
-          const foundUrl = normItem.url || normItem.video_url || normItem.pdf_url || normItem.content_url || "";
-          normItem.url = foundUrl;
-          normItem.video_url = normItem.video_url || foundUrl;
-          normItem.pdf_url = normItem.pdf_url || foundUrl;
+      // Collect items from items, lessons, contents, materials, resources, topics
+      let rawItems = normSec.items || normSec.lessons || normSec.contents || normSec.materials || normSec.resources || normSec.topics || [];
+      if (!Array.isArray(rawItems) && typeof rawItems === "object") {
+        rawItems = Object.values(rawItems);
+      }
+      if (!Array.isArray(rawItems)) rawItems = [];
 
-          // Normalize Quiz questions
-          if (Array.isArray(normItem.questions)) {
-            normItem.questions = normItem.questions.map((q: any) => {
-              const normQ = { ...q };
-              normQ.question_text = normQ.question_text || normQ.question || normQ.title || "Question";
-              normQ.type = normQ.type || "mcq";
-              if (normQ.type === "mcq" && (!normQ.options || !Array.isArray(normQ.options))) {
-                normQ.options = ["Option 1", "Option 2"];
-              }
-              return normQ;
+      // If AI placed separate quiz or quizzes property on the section, merge them into rawItems!
+      const rawQuizzes = normSec.quizzes || (normSec.quiz ? [normSec.quiz] : []) || (normSec.assessments || (normSec.assessment ? [normSec.assessment] : [])) || [];
+      if (Array.isArray(rawQuizzes)) {
+        rawQuizzes.forEach((qz: any) => {
+          if (qz && typeof qz === "object") {
+            rawItems.push({
+              ...qz,
+              type: "quiz",
+              title: qz.title || qz.name || `${normSec.title} Assessment Quiz`
             });
           }
-
-          return normItem;
         });
       }
+
+      // If AI placed separate assignments property on section, merge them
+      const rawAssignments = normSec.assignments || (normSec.assignment ? [normSec.assignment] : []) || [];
+      if (Array.isArray(rawAssignments)) {
+        rawAssignments.forEach((asg: any) => {
+          if (asg && typeof asg === "object") {
+            rawItems.push({
+              ...asg,
+              type: "assignment",
+              title: asg.title || asg.name || `${normSec.title} Practical Task`
+            });
+          }
+        });
+      }
+
+      normSec.items = rawItems.map((item: any, iIdx: number) => {
+        const normItem = typeof item === "object" ? { ...item } : { title: String(item), type: "video" };
+
+        normItem.title = normItem.title || normItem.name || normItem.lesson_title || normItem.topic || `Lesson ${iIdx + 1}`;
+        normItem.duration_minutes = normItem.duration_minutes || normItem.duration || normItem.duration_min || normItem.time_minutes || 30;
+
+        // Detect & normalize type
+        const rawType = (normItem.type || normItem.content_type || normItem.itemType || "").toLowerCase().trim();
+
+        if (rawType === "quiz" || Array.isArray(normItem.questions) || Array.isArray(normItem.quiz_questions) || normItem.questions) {
+          normItem.type = "quiz";
+          normItem.is_graded = normItem.is_graded !== false;
+          normItem.points = normItem.points || normItem.total_points || normItem.marks || 50;
+          normItem.time_limit_minutes = normItem.time_limit_minutes || normItem.time_limit || 15;
+
+          // Normalize Quiz Questions
+          let rawQuestions = normItem.questions || normItem.quiz_questions || normItem.test_questions || normItem.items || [];
+          if (!Array.isArray(rawQuestions) && typeof rawQuestions === "object") {
+            rawQuestions = Object.values(rawQuestions);
+          }
+          if (!Array.isArray(rawQuestions)) rawQuestions = [];
+
+          normItem.questions = rawQuestions.map((q: any, qIdx: number) => {
+            const normQ = typeof q === "object" ? { ...q } : { question_text: String(q) };
+            normQ.question_text = normQ.question_text || normQ.question || normQ.prompt || normQ.title || normQ.text || `Question ${qIdx + 1}`;
+
+            // Normalize question type
+            let qType = (normQ.type || normQ.question_type || "").toLowerCase().trim();
+            if (["multiple_choice", "choice", "single_choice", "mcq", "option"].includes(qType)) qType = "mcq";
+            else if (["true_false", "tf", "boolean", "bool"].includes(qType)) qType = "boolean";
+            else if (["short_answer", "short"].includes(qType)) qType = "short";
+            else if (["essay", "long_answer", "long", "descriptive"].includes(qType)) qType = "long";
+            else {
+              qType = (normQ.options || normQ.choices || normQ.answers) ? "mcq" : "boolean";
+            }
+            normQ.type = qType;
+
+            // Normalize options
+            let rawOptions = normQ.options || normQ.choices || normQ.answers || normQ.options_list || [];
+            if (!Array.isArray(rawOptions) && typeof rawOptions === "object") {
+              rawOptions = Object.values(rawOptions);
+            }
+            if (Array.isArray(rawOptions)) {
+              normQ.options = rawOptions.map((opt: any) => typeof opt === "object" ? (opt.text || opt.title || opt.value || JSON.stringify(opt)) : String(opt));
+            } else {
+              normQ.options = [];
+            }
+
+            if (normQ.type === "boolean" && (!normQ.options || normQ.options.length === 0)) {
+              normQ.options = ["True", "False"];
+            } else if (normQ.type === "mcq" && (!normQ.options || normQ.options.length === 0)) {
+              normQ.options = ["Option 1", "Option 2", "Option 3", "Option 4"];
+            }
+
+            // Normalize correct answer
+            let rawAns = normQ.correct_answer !== undefined ? normQ.correct_answer : (normQ.correct !== undefined ? normQ.correct : (normQ.answer !== undefined ? normQ.answer : (normQ.correctAnswer !== undefined ? normQ.correctAnswer : normQ.key)));
+            
+            // If answer is an index (e.g. 0, 1, 2)
+            if (typeof rawAns === "number" && normQ.options && normQ.options[rawAns]) {
+              normQ.correct_answer = normQ.options[rawAns];
+            } else if (typeof rawAns === "string") {
+              const upper = rawAns.trim().toUpperCase();
+              if (["A", "B", "C", "D", "E"].includes(upper) && normQ.options) {
+                const charIdx = upper.charCodeAt(0) - 65;
+                if (normQ.options[charIdx]) {
+                  normQ.correct_answer = normQ.options[charIdx];
+                } else {
+                  normQ.correct_answer = rawAns.trim();
+                }
+              } else {
+                normQ.correct_answer = rawAns.trim();
+              }
+            } else {
+              normQ.correct_answer = normQ.options?.[0] || "True";
+            }
+
+            normQ.points = normQ.points !== undefined ? Number(normQ.points) : 10;
+            return normQ;
+          });
+
+        } else if (rawType === "assignment" || normItem.itemType === "assignment") {
+          normItem.type = "assignment";
+          normItem.points = normItem.points || 100;
+          normItem.description = normItem.description || "Submit your practical assignment according to the lesson guidelines.";
+        } else if (["live", "live_class", "live_session", "webinar"].includes(rawType)) {
+          normItem.type = "live";
+          normItem.url = normItem.url || normItem.meeting_link || normItem.meeting_url || "https://meet.google.com/orbit-live-session";
+          normItem.scheduled_at = normItem.scheduled_at || new Date(Date.now() + 86400000).toISOString();
+        } else {
+          normItem.type = ["video", "pdf", "text", "presentation", "document", "reference"].includes(rawType) ? rawType : "video";
+          const foundUrl = normItem.url || normItem.video_url || normItem.pdf_url || normItem.content_url || normItem.link || "";
+          normItem.url = foundUrl;
+          normItem.video_url = foundUrl;
+          normItem.pdf_url = foundUrl;
+          if (normItem.type === "text") {
+            normItem.content_text = normItem.content_text || normItem.text || normItem.content || normItem.body || `# ${normItem.title}\n\nLesson content material.`;
+          }
+        }
+
+        return normItem;
+      });
+
       return normSec;
     });
   }
@@ -176,14 +287,6 @@ export function validateCourseJson(rawData: any): { valid: boolean; errors: Vali
   // Course-level
   if (!data.title || typeof data.title !== "string" || data.title.trim() === "") {
     errors.push({ path: "title", message: "Course title is required and must be a non-empty string." });
-  }
-
-  if (data.description !== undefined && typeof data.description !== "string") {
-    errors.push({ path: "description", message: "Course description must be a string." });
-  }
-
-  if (data.is_published !== undefined && typeof data.is_published !== "boolean") {
-    errors.push({ path: "is_published", message: "is_published must be a boolean (true/false)." });
   }
 
   // Sections
@@ -209,44 +312,9 @@ export function validateCourseJson(rawData: any): { valid: boolean; errors: Vali
                 errors.push({ path: `${ip}.title`, message: "Item title is required." });
               }
 
-              if (!item.type || typeof item.type !== "string") {
-                errors.push({ path: `${ip}.type`, message: "Item type is required." });
-              }
-
-              const validTypes = ["video", "pdf", "text", "quiz", "assignment"];
+              const validTypes = ["video", "pdf", "text", "quiz", "assignment", "presentation", "document", "reference", "live", "live_class"];
               if (item.type && !validTypes.includes(item.type)) {
                 errors.push({ path: `${ip}.type`, message: `Invalid type "${item.type}". Must be one of: ${validTypes.join(", ")}` });
-              }
-
-              // Video / PDF need URL
-              const itemUrl = item.url || item.video_url || item.pdf_url || item.content_url;
-              if ((item.type === "video" || item.type === "pdf") && !itemUrl) {
-                errors.push({ path: `${ip}.url`, message: `URL is required for ${item.type} content.` });
-              }
-
-              // Quiz questions validation
-              if (item.type === "quiz" && item.questions) {
-                if (!Array.isArray(item.questions)) {
-                  errors.push({ path: `${ip}.questions`, message: "questions must be an array." });
-                } else {
-                  item.questions.forEach((q: any, qi: number) => {
-                    const qp = `${ip}.questions[${qi}]`;
-
-                    const qText = q.question_text || q.question || q.title;
-                    if (!qText || typeof qText !== "string") {
-                      errors.push({ path: `${qp}.question_text`, message: "Question text is required." });
-                    }
-
-                    const validQTypes = ["mcq", "short", "long", "boolean"];
-                    if (!q.type || !validQTypes.includes(q.type)) {
-                      errors.push({ path: `${qp}.type`, message: `Question type must be one of: ${validQTypes.join(", ")}` });
-                    }
-
-                    if (q.type === "mcq" && (!q.options || !Array.isArray(q.options) || q.options.length < 2)) {
-                      errors.push({ path: `${qp}.options`, message: "MCQ must have at least 2 options." });
-                    }
-                  });
-                }
               }
             });
           }
@@ -300,7 +368,11 @@ export async function importCourseFromJson(rawPayload: JsonCoursePayload): Promi
         description: payload.description?.trim() || null,
         domain: payload.domain || "Software Engineering",
         credit_points: payload.credit_points || 3,
-        is_published: payload.is_published ?? false,
+        instructor_intro: payload.instructor_intro || null,
+        instructor_video_url: payload.instructor_video_url || null,
+        instructor_qualifications: payload.instructor_qualifications || null,
+        exam_policy: payload.exam_policy || null,
+        is_published: payload.is_published ?? true,
         thumbnail_url: payload.thumbnail_url || null,
         price: payload.price || 0,
         original_price: payload.original_price || 0,
@@ -319,138 +391,16 @@ export async function importCourseFromJson(rawPayload: JsonCoursePayload): Promi
     result.courseId = courseData.id;
     result.courseName = payload.title.trim();
 
-    // 3. Create sections + items
+    // 3. Create sections + items + quizzes
     if (payload.sections && payload.sections.length > 0) {
-      for (let si = 0; si < payload.sections.length; si++) {
-        const section = payload.sections[si];
-
-        // Insert section
-        const { data: sectionData, error: sectionError } = await supabase
-          .from("course_sections")
-          .insert([{
-            course_id: courseData.id,
-            title: section.title.trim(),
-            aura_points: section.aura_points !== undefined ? section.aura_points : 10,
-            order_index: si,
-          }])
-          .select("id")
-          .single();
-
-        if (sectionError) {
-          result.errors.push(`Section "${section.title}": ${sectionError.message}`);
-          continue;
-        }
-
-        result.sectionsCreated++;
-
-        // Insert section items
-        if (section.items && section.items.length > 0) {
-          for (let ii = 0; ii < section.items.length; ii++) {
-            const item = section.items[ii];
-
-            if (item.type === "quiz") {
-              // Create quiz assignment
-              const quizItem = item as JsonQuiz;
-              const { data: quizData, error: quizError } = await supabase
-                .from("assignments")
-                .insert([{
-                  course_id: courseData.id,
-                  section_id: sectionData.id,
-                  title: quizItem.title.trim(),
-                  description: quizItem.description || null,
-                  type: "quiz",
-                  due_date: quizItem.due_date || null,
-                  points: quizItem.points || 100,
-                  time_limit_minutes: quizItem.time_limit_minutes || null,
-                }])
-                .select("id")
-                .single();
-
-              if (quizError) {
-                result.errors.push(`Quiz "${quizItem.title}": ${quizError.message}`);
-                continue;
-              }
-
-              result.quizzesCreated++;
-
-              // Insert questions
-              if (quizItem.questions && quizItem.questions.length > 0) {
-                const questionsPayload = quizItem.questions.map((q, qi) => ({
-                  assignment_id: quizData.id,
-                  question_text: q.question_text.trim(),
-                  type: q.type,
-                  options: q.type === "mcq" ? q.options : null,
-                  correct_answer: q.correct_answer || null,
-                  points: q.points || 1,
-                  order_index: qi,
-                }));
-
-                const { error: qError, data: qData } = await supabase
-                  .from("assignment_questions")
-                  .insert(questionsPayload)
-                  .select("id");
-
-                if (qError) {
-                  result.errors.push(`Quiz "${quizItem.title}" questions: ${qError.message}`);
-                } else {
-                  result.questionsCreated += qData?.length || 0;
-                }
-              }
-            } else if (item.type === "assignment") {
-              // Create manual assignment
-              const assignItem = item as JsonAssignment;
-              const { error: assignError } = await supabase
-                .from("assignments")
-                .insert([{
-                  course_id: courseData.id,
-                  section_id: sectionData.id,
-                  title: assignItem.title.trim(),
-                  description: assignItem.description || null,
-                  type: "manual",
-                  due_date: assignItem.due_date || null,
-                  points: assignItem.points || 100,
-                }]);
-
-              if (assignError) {
-                result.errors.push(`Assignment "${assignItem.title}": ${assignError.message}`);
-              } else {
-                result.assignmentsCreated++;
-              }
-            } else {
-              // Regular content (video / pdf / text)
-              const contentItem = item as JsonContentItem;
-              const contentPayload: any = {
-                section_id: sectionData.id,
-                title: contentItem.title.trim(),
-                type: contentItem.type,
-                order_index: ii,
-              };
-
-              if (contentItem.type === "text") {
-                contentPayload.content_text = contentItem.content_text || "";
-              } else if (contentItem.type === "video" && contentItem.url) {
-                const url = isGoogleDriveUrl(contentItem.url)
-                  ? getGoogleDriveEmbedUrl(contentItem.url)
-                  : contentItem.url;
-                contentPayload.content_url = url;
-                contentPayload.video_url = url;
-              } else if ((contentItem.type === "pdf" || contentItem.type === "presentation" || contentItem.type === "document" || contentItem.type === "reference") && contentItem.url) {
-                contentPayload.content_url = contentItem.url;
-                contentPayload.pdf_url = contentItem.url;
-              }
-
-              const { error: contentError } = await supabase
-                .from("section_contents")
-                .insert([contentPayload]);
-
-              if (contentError) {
-                result.errors.push(`Content "${contentItem.title}": ${contentError.message}`);
-              } else {
-                result.contentsCreated++;
-              }
-            }
-          }
-        }
+      const sectionRes = await importSectionsToExistingCourse(courseData.id, payload.sections);
+      result.sectionsCreated = sectionRes.sectionsCreated;
+      result.contentsCreated = sectionRes.contentsCreated;
+      result.quizzesCreated = sectionRes.quizzesCreated;
+      result.questionsCreated = sectionRes.questionsCreated;
+      result.assignmentsCreated = sectionRes.assignmentsCreated;
+      if (sectionRes.errors && sectionRes.errors.length > 0) {
+        result.errors.push(...sectionRes.errors);
       }
     }
 
@@ -462,7 +412,12 @@ export async function importCourseFromJson(rawPayload: JsonCoursePayload): Promi
   }
 }
 
-export async function importSectionsToExistingCourse(courseId: string, sections: JsonSection[]): Promise<ImportResult> {
+// ─── Import Sections to Existing Course (with Full Quiz & Question Support) ──
+
+export async function importSectionsToExistingCourse(courseId: string, rawSections: JsonSection[]): Promise<ImportResult> {
+  const normalizedData = normalizeCourseJson({ sections: rawSections });
+  const sections = normalizedData.sections || [];
+
   const result: ImportResult = {
     success: false,
     sectionsCreated: 0,
@@ -491,22 +446,29 @@ export async function importSectionsToExistingCourse(courseId: string, sections:
       .eq("course_id", courseId);
 
     const orderOffset = existingSections ? existingSections.length : 0;
+    const { data: { user } } = await supabase.auth.getUser();
 
     for (let si = 0; si < sections.length; si++) {
       const section = sections[si];
 
+      const secPayload: any = {
+        course_id: courseId,
+        title: section.title.trim(),
+        order_index: orderOffset + si,
+        aura_points: section.aura_points !== undefined ? section.aura_points : 15
+      };
+      if (section.week_number !== undefined) secPayload.week_number = section.week_number;
+      if (section.allocated_hours !== undefined) secPayload.allocated_hours = section.allocated_hours;
+      if (section.topic_name) secPayload.topic_name = section.topic_name;
+
       const { data: sectionData, error: sectionError } = await supabase
         .from("course_sections")
-        .insert([{
-          course_id: courseId,
-          title: section.title.trim(),
-          order_index: orderOffset + si,
-        }])
+        .insert([secPayload])
         .select("id")
         .single();
 
-      if (sectionError) {
-        result.errors.push(`Section "${section.title}": ${sectionError.message}`);
+      if (sectionError || !sectionData) {
+        result.errors.push(`Section "${section.title}": ${sectionError?.message || 'Failed to create'}`);
         continue;
       }
 
@@ -524,45 +486,55 @@ export async function importSectionsToExistingCourse(courseId: string, sections:
                 course_id: courseId,
                 section_id: sectionData.id,
                 title: quizItem.title.trim(),
-                description: quizItem.description || null,
+                description: quizItem.description || "Self-assessment examination quiz.",
                 type: "quiz",
-                is_graded: quizItem.is_graded !== undefined ? quizItem.is_graded : true,
+                is_graded: quizItem.is_graded !== false,
                 due_date: quizItem.due_date || null,
-                points: quizItem.points || 100,
-                time_limit_minutes: quizItem.time_limit_minutes || null,
+                points: quizItem.points || 50,
+                time_limit_minutes: quizItem.time_limit_minutes || 15,
               }])
               .select("id")
               .single();
 
-            if (quizError) {
-              result.errors.push(`Quiz "${quizItem.title}": ${quizError.message}`);
+            if (quizError || !quizData) {
+              result.errors.push(`Quiz "${quizItem.title}": ${quizError?.message || 'Failed to create'}`);
               continue;
             }
 
             result.quizzesCreated++;
 
+            // Insert Quiz Questions into assignment_questions
             if (quizItem.questions && quizItem.questions.length > 0) {
-              const questionsPayload = quizItem.questions.map((q, qi) => ({
-                assignment_id: quizData.id,
-                question_text: q.question_text.trim(),
-                type: q.type,
-                options: (q.type === "mcq" || q.type === "boolean")
-                  ? (q.options && q.options.length > 0 ? q.options : (q.type === "boolean" ? ["True", "False"] : ["Option A", "Option B", "Option C", "Option D"]))
-                  : null,
-                correct_answer: q.correct_answer || null,
-                points: q.points || 1,
-                order_index: qi,
-              }));
+              const questionsPayload = quizItem.questions.map((q: any, qi: number) => {
+                const qType = (q.type || (q.options ? "mcq" : "boolean")).toLowerCase();
+                let opts = q.options;
+                if (qType === "boolean" && (!opts || opts.length === 0)) {
+                  opts = ["True", "False"];
+                } else if (qType === "mcq" && (!opts || opts.length === 0)) {
+                  opts = ["Option 1", "Option 2", "Option 3", "Option 4"];
+                }
 
-              const { error: qError, data: qData } = await supabase
+                return {
+                  assignment_id: quizData.id,
+                  question_text: (q.question_text || q.question || q.title || `Question ${qi + 1}`).trim(),
+                  type: qType,
+                  options: (qType === "mcq" || qType === "boolean") ? opts : null,
+                  correct_answer: q.correct_answer !== undefined && q.correct_answer !== null ? String(q.correct_answer).trim() : (opts?.[0] || "True"),
+                  points: q.points !== undefined ? Number(q.points) : 10,
+                  order_index: qi,
+                };
+              });
+
+              const { data: qData, error: qError } = await supabase
                 .from("assignment_questions")
                 .insert(questionsPayload)
                 .select("id");
 
               if (qError) {
+                console.warn(`Quiz "${quizItem.title}" questions error:`, qError);
                 result.errors.push(`Quiz "${quizItem.title}" questions: ${qError.message}`);
               } else {
-                result.questionsCreated += qData?.length || 0;
+                result.questionsCreated += qData?.length || questionsPayload.length;
               }
             }
           } else if (item.type === "assignment") {
@@ -573,7 +545,7 @@ export async function importSectionsToExistingCourse(courseId: string, sections:
                 course_id: courseId,
                 section_id: sectionData.id,
                 title: assignItem.title.trim(),
-                description: assignItem.description || null,
+                description: assignItem.description || "Practical assignment submission task.",
                 type: "manual",
                 due_date: assignItem.due_date || null,
                 points: assignItem.points || 100,
@@ -596,34 +568,39 @@ export async function importSectionsToExistingCourse(courseId: string, sections:
 
             if (contentItem.type === "live" || contentItem.type === "live_class") {
               const meetingUrl = contentItem.url || "https://meet.google.com/orbit-live-session";
-              const { data: liveData } = await supabase
-                .from("live_classes")
-                .insert([{
-                  course_id: courseId,
-                  section_id: sectionData.id,
-                  teacher_id: (await supabase.auth.getUser()).data.user?.id,
-                  title: contentItem.title.trim(),
-                  meeting_link: meetingUrl,
-                  scheduled_at: contentItem.scheduled_at || new Date(Date.now() + 86400000).toISOString(),
-                  duration_minutes: contentItem.duration_minutes || 60,
-                  status: "upcoming"
-                }])
-                .select("id")
-                .single();
+              try {
+                const { data: liveData } = await supabase
+                  .from("live_classes")
+                  .insert([{
+                    course_id: courseId,
+                    section_id: sectionData.id,
+                    teacher_id: user?.id,
+                    title: contentItem.title.trim(),
+                    meeting_link: meetingUrl,
+                    scheduled_at: contentItem.scheduled_at || new Date(Date.now() + 86400000).toISOString(),
+                    duration_minutes: contentItem.duration_minutes || 60,
+                    status: "upcoming"
+                  }])
+                  .select("id")
+                  .single();
 
-              contentPayload.content_url = meetingUrl;
-              contentPayload.video_url = meetingUrl;
-              if (liveData) contentPayload.live_class_id = liveData.id;
+                contentPayload.content_url = meetingUrl;
+                contentPayload.video_url = meetingUrl;
+                if (liveData) contentPayload.live_class_id = liveData.id;
+              } catch (liveErr) {
+                console.warn("Live class create error:", liveErr);
+              }
             } else if (contentItem.type === "text") {
-              contentPayload.content_text = contentItem.content_text || "";
+              contentPayload.content_text = contentItem.content_text || `# ${contentItem.title}\n\nLesson lecture notes.`;
             } else if (contentItem.type === "video" && contentItem.url) {
               const url = isGoogleDriveUrl(contentItem.url)
                 ? getGoogleDriveEmbedUrl(contentItem.url)
                 : contentItem.url;
               contentPayload.content_url = url;
               contentPayload.video_url = url;
-            } else if (contentItem.type === "pdf" && contentItem.url) {
+            } else if (contentItem.url) {
               contentPayload.content_url = contentItem.url;
+              contentPayload.pdf_url = contentItem.url;
             }
 
             const { error: contentError } = await supabase
@@ -647,6 +624,9 @@ export async function importSectionsToExistingCourse(courseId: string, sections:
     return result;
   }
 }
+
+// ─── Aliases for backwards compatibility ────────────────────────────
+export const importFromJson = importCourseFromJson;
 
 // ─── Compute stats for preview ──────────────────────────────────────
 
@@ -691,6 +671,9 @@ export function computePreviewStats(payload: JsonCoursePayload): CoursePreviewSt
             sectionMins += (item as JsonContentItem).duration_minutes || 30;
             break;
           case "pdf":
+          case "presentation":
+          case "document":
+          case "reference":
             stats.pdfCount++;
             sectionMins += (item as JsonContentItem).duration_minutes || 20;
             break;
@@ -722,192 +705,6 @@ export function computePreviewStats(payload: JsonCoursePayload): CoursePreviewSt
   stats.totalDurationHours = Number((stats.totalDurationMinutes / 60).toFixed(1));
   return stats;
 }
-
-// ─── Sample Template JSON ───────────────────────────────────────────
-
-export const SAMPLE_COURSE_JSON: JsonCoursePayload = {
-  title: "Complete Web Development Masterclass",
-  description: "Learn HTML, CSS, JavaScript, and React from scratch with hands-on projects.",
-  domain: "Software Engineering",
-  credit_points: 4,
-  price: 1499,
-  original_price: 2499,
-  organization_name: "Orbit Tech Academy",
-  organization_logo_url: "https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=150&auto=format&fit=crop&q=80",
-  is_published: true,
-  sections: [
-    {
-      title: "Module 1: HTML5 Foundations & Presentations",
-      aura_points: 15,
-      items: [
-        {
-          title: "Welcome & Course Overview Video",
-          type: "video",
-          url: "https://www.youtube.com/watch?v=example1",
-          duration_minutes: 20
-        },
-        {
-          title: "HTML5 Architecture Presentation Deck",
-          type: "presentation",
-          url: "https://docs.google.com/presentation/d/1A2b3C4dExAmPlE/embed",
-          duration_minutes: 30
-        },
-        {
-          title: "HTML Elements & Tags Reference",
-          type: "text",
-          content_text: "# HTML Elements\n\nHTML (HyperText Markup Language) is the standard language for web page structure."
-        },
-        {
-          title: "Official Developer Documentation & Reference Guide",
-          type: "document",
-          url: "https://drive.google.com/file/d/1A2b3C4dExAmPlE/view",
-          duration_minutes: 25
-        },
-        {
-          title: "HTML Cheat Sheet",
-          type: "pdf",
-          url: "https://example.com/html-cheatsheet.pdf"
-        },
-        {
-          title: "🔴 Live Interactive HTML5 Q&A Workshop",
-          type: "live",
-          url: "https://meet.google.com/orbit-live-html5",
-          scheduled_at: "2026-08-05T18:00:00Z",
-          duration_minutes: 60
-        },
-        {
-          title: "HTML Practice Self-Assessment",
-          type: "quiz",
-          is_graded: false,
-          description: "Ungraded practice quiz for self-assessment.",
-          time_limit_minutes: 10,
-          questions: [
-            {
-              question_text: "Which HTML tag creates a bulleted list?",
-              type: "mcq",
-              options: ["<ol>", "<ul>", "<li>", "<list>"],
-              correct_answer: "<ul>"
-            },
-            {
-              question_text: "Does HTML5 require lowercase tags?",
-              type: "boolean",
-              correct_answer: "false"
-            }
-          ]
-        },
-        {
-          title: "HTML Basics Graded Exam",
-          type: "quiz",
-          is_graded: true,
-          points: 50,
-          time_limit_minutes: 15,
-          questions: [
-            {
-              question_text: "What does HTML stand for?",
-              type: "mcq",
-              options: [
-                "Hyper Text Markup Language",
-                "High Tech Modern Language",
-                "Hyper Transfer Markup Language",
-                "Home Tool Markup Language"
-              ],
-              correct_answer: "Hyper Text Markup Language",
-              points: 10
-            },
-            {
-              question_text: "Which tag is used for the largest heading?",
-              type: "mcq",
-              options: ["<h6>", "<h1>", "<heading>", "<head>"],
-              correct_answer: "<h1>",
-              points: 10
-            },
-            {
-              question_text: "Is the <br> tag a self-closing tag?",
-              type: "boolean",
-              correct_answer: "true",
-              points: 10
-            },
-            {
-              question_text: "Explain the difference between <div> and <span>.",
-              type: "short",
-              points: 10
-            },
-            {
-              question_text: "Write a short essay on the importance of semantic HTML for accessibility.",
-              type: "long",
-              points: 10
-            }
-          ]
-        }
-      ]
-    },
-    {
-      title: "Module 2: CSS Styling",
-      items: [
-        {
-          title: "CSS Box Model Explained",
-          type: "video",
-          url: "https://drive.google.com/file/d/1A2b3C4dExAmPlE/view"
-        },
-        {
-          title: "Flexbox & Grid Layout Guide",
-          type: "text",
-          content_text: "# CSS Layout Systems\n\n## Flexbox\nFlexbox is designed for one-dimensional layouts.\n```css\n.container {\n  display: flex;\n  justify-content: center;\n  align-items: center;\n}\n```\n\n## Grid\nCSS Grid is for two-dimensional layouts.\n```css\n.container {\n  display: grid;\n  grid-template-columns: repeat(3, 1fr);\n  gap: 16px;\n}\n```"
-        },
-        {
-          title: "CSS Styling Assignment",
-          type: "assignment",
-          description: "Recreate a provided webpage design using only HTML and CSS. Submit your code as a .zip file.",
-          points: 100,
-          due_date: "2025-12-31T23:59:00"
-        }
-      ]
-    },
-    {
-      title: "Module 3: JavaScript Essentials",
-      items: [
-        {
-          title: "Variables, Data Types & Operators",
-          type: "video",
-          url: "https://www.youtube.com/watch?v=example3"
-        },
-        {
-          title: "JavaScript Quiz",
-          type: "quiz",
-          points: 40,
-          time_limit_minutes: 20,
-          questions: [
-            {
-              question_text: "Which keyword is used to declare a constant in JavaScript?",
-              type: "mcq",
-              options: ["var", "let", "const", "static"],
-              correct_answer: "const",
-              points: 10
-            },
-            {
-              question_text: "What is the result of typeof null?",
-              type: "mcq",
-              options: ["null", "undefined", "object", "boolean"],
-              correct_answer: "object",
-              points: 10
-            },
-            {
-              question_text: "JavaScript is a statically typed language.",
-              type: "boolean",
-              correct_answer: "false",
-              points: 10
-            },
-            {
-              question_text: "Explain closures in JavaScript with an example.",
-              type: "long",
-              points: 10
-            }
-          ]
-        }
-      ]
-    }
-  ]
-};
 
 // ─── Module Time Budget Validation ─────────────────────────────────
 
@@ -972,17 +769,22 @@ export async function importQuizFromJson(
 
     let questionsCount = 0;
     if (quizPayload.questions && quizPayload.questions.length > 0) {
-      const questionsPayload = quizPayload.questions.map((q, qi) => ({
-        assignment_id: quizData.id,
-        question_text: q.question_text.trim(),
-        type: q.type,
-        options: (q.type === "mcq" || q.type === "boolean")
-          ? (q.options && q.options.length > 0 ? q.options : (q.type === "boolean" ? ["True", "False"] : ["Option A", "Option B", "Option C", "Option D"]))
-          : null,
-        correct_answer: q.correct_answer || null,
-        points: q.points || 1,
-        order_index: qi,
-      }));
+      const questionsPayload = quizPayload.questions.map((q, qi) => {
+        const qType = (q.type || (q.options ? "mcq" : "boolean")).toLowerCase();
+        let opts = q.options;
+        if (qType === "boolean" && (!opts || opts.length === 0)) {
+          opts = ["True", "False"];
+        }
+        return {
+          assignment_id: quizData.id,
+          question_text: (q.question_text || q.question || q.title || "Question").trim(),
+          type: qType,
+          options: (qType === "mcq" || qType === "boolean") ? (opts && opts.length > 0 ? opts : (qType === "boolean" ? ["True", "False"] : ["Option 1", "Option 2", "Option 3", "Option 4"])) : null,
+          correct_answer: q.correct_answer !== undefined && q.correct_answer !== null ? String(q.correct_answer).trim() : null,
+          points: q.points !== undefined ? Number(q.points) : 10,
+          order_index: qi,
+        };
+      });
 
       const { data: qData, error: qError } = await supabase
         .from("assignment_questions")
@@ -1008,91 +810,241 @@ export async function importSectionFromJson(
   sectionPayload: JsonSection
 ): Promise<{ success: boolean; sectionId?: string; error?: string }> {
   try {
-    const { data: secData, error: secError } = await supabase
-      .from("course_sections")
-      .insert([{
-        course_id: courseId,
-        title: sectionPayload.title.trim(),
-        aura_points: sectionPayload.aura_points || 10
-      }])
-      .select("id")
-      .single();
-
-    if (secError || !secData) {
-      return { success: false, error: secError?.message || "Failed to create section." };
+    const res = await importSectionsToExistingCourse(courseId, [sectionPayload]);
+    if (res.success && res.sectionsCreated > 0) {
+      return { success: true };
     }
-
-    if (sectionPayload.items && sectionPayload.items.length > 0) {
-      for (let ii = 0; ii < sectionPayload.items.length; ii++) {
-        const item = sectionPayload.items[ii];
-        if (item.type === "quiz") {
-          await importQuizFromJson(courseId, secData.id, item as JsonQuiz);
-        } else if (item.type === "assignment") {
-          const assignItem = item as JsonAssignment;
-          await supabase.from("assignments").insert([{
-            course_id: courseId,
-            section_id: secData.id,
-            title: assignItem.title.trim(),
-            description: assignItem.description || null,
-            type: "manual",
-            due_date: assignItem.due_date || null,
-            points: assignItem.points || 100,
-          }]);
-        } else {
-          const contentItem = item as JsonContentItem;
-          await supabase.from("section_contents").insert([{
-            section_id: secData.id,
-            title: contentItem.title.trim(),
-            type: contentItem.type,
-            content_text: contentItem.type === "text" ? (contentItem.content_text || "") : undefined,
-            content_url: contentItem.url || undefined,
-            video_url: contentItem.type === "video" ? contentItem.url : undefined,
-            order_index: ii,
-          }]);
-        }
-      }
-    }
-
-    return { success: true, sectionId: secData.id };
+    return { success: false, error: res.errors[0] || "Failed to import section." };
   } catch (err: any) {
     return { success: false, error: err.message };
   }
 }
 
-// ─── Sample Weekly Module & Quiz JSON Templates ──────────────────────
+// ─── Sample Template JSON (Comprehensive with Quizzes & Variations) ──
+
+export const SAMPLE_COURSE_JSON: JsonCoursePayload = {
+  title: "Complete Artificial Intelligence & Agentic Engineering Masterclass",
+  description: "Master AI workflows, LangChain, autonomous agents, and model fine-tuning with hands-on projects, graded quizzes, and live classes.",
+  domain: "Data Science & AI",
+  credit_points: 4,
+  price: 1999,
+  original_price: 3499,
+  organization_name: "Orbit AI Academy",
+  organization_logo_url: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80",
+  is_published: true,
+  sections: [
+    {
+      title: "Module 1: AI & LLM Foundations",
+      week_number: 1,
+      allocated_hours: 4.0,
+      topic_name: "Transformers, Attention Mechanisms & Prompt Engineering",
+      aura_points: 20,
+      items: [
+        {
+          title: "Introduction to Agentic Architecture & LLMs",
+          type: "video",
+          url: "https://www.youtube.com/watch?v=example1",
+          duration_minutes: 35
+        },
+        {
+          title: "Transformers & Attention Mechanism Architecture Slide Deck",
+          type: "presentation",
+          url: "https://docs.google.com/presentation/d/1A2b3C4dExAmPlE/embed",
+          duration_minutes: 30
+        },
+        {
+          title: "Prompt Engineering Principles & Frameworks",
+          type: "text",
+          content_text: "# Prompt Engineering Fundamentals\n\nPrompt engineering is the practice of structuring text that can be interpreted and understood by a generative AI model.\n\n## Key Patterns:\n1. **Chain of Thought (CoT)**: Step-by-step reasoning.\n2. **Few-shot Prompting**: Providing exemplar input-output pairs.\n3. **ReAct Pattern**: Synergizing reasoning and acting."
+        },
+        {
+          title: "Official LLM Guidelines & Prompt Reference PDF",
+          type: "pdf",
+          url: "https://example.com/llm-prompt-guide.pdf",
+          duration_minutes: 25
+        },
+        {
+          title: "🔴 Live Interactive Workshop: Building Your First Agent",
+          type: "live",
+          url: "https://meet.google.com/orbit-live-ai-agent",
+          scheduled_at: "2026-08-25T18:00:00Z",
+          duration_minutes: 60
+        },
+        {
+          title: "Module 1 Practice Quiz (Self-Assessment)",
+          type: "quiz",
+          is_graded: false,
+          time_limit_minutes: 10,
+          points: 20,
+          questions: [
+            {
+              question_text: "What does 'temperature' in an LLM API control?",
+              type: "mcq",
+              options: [
+                "The randomness and creativity of the generated tokens",
+                "The physical CPU temperature of the GPU cluster",
+                "The context window size in tokens",
+                "The network latency speed"
+              ],
+              correct_answer: "The randomness and creativity of the generated tokens",
+              points: 10
+            },
+            {
+              question_text: "Does increasing temperature make the model output more deterministic?",
+              type: "boolean",
+              options: ["True", "False"],
+              correct_answer: "False",
+              points: 10
+            }
+          ]
+        },
+        {
+          title: "Module 1 Graded Examination Quiz",
+          type: "quiz",
+          is_graded: true,
+          points: 50,
+          time_limit_minutes: 20,
+          questions: [
+            {
+              question_text: "Which architectural component enables Transformers to process all tokens in parallel?",
+              type: "mcq",
+              options: [
+                "Self-Attention Mechanism",
+                "Recurrent Hidden State",
+                "Convolutional Kernel",
+                "Gradient Accumulation"
+              ],
+              correct_answer: "Self-Attention Mechanism",
+              points: 15
+            },
+            {
+              question_text: "In the ReAct prompting framework, the agent alternates between Reasoning and Acting.",
+              type: "boolean",
+              options: ["True", "False"],
+              correct_answer: "True",
+              points: 10
+            },
+            {
+              question_text: "Explain the difference between Zero-Shot and Few-Shot prompting.",
+              type: "short",
+              points: 15
+            },
+            {
+              question_text: "Describe how Hallucination mitigation can be achieved using Retrieval-Augmented Generation (RAG).",
+              type: "long",
+              points: 10
+            }
+          ]
+        }
+      ]
+    },
+    {
+      title: "Module 2: LangChain & Vector Databases",
+      week_number: 2,
+      allocated_hours: 4.0,
+      topic_name: "Vector Embeddings, FAISS & Retrieval-Augmented Generation",
+      aura_points: 20,
+      items: [
+        {
+          title: "Vector Embeddings & Semantic Search Explained",
+          type: "video",
+          url: "https://drive.google.com/file/d/1A2b3C4dExAmPlE/view",
+          duration_minutes: 40
+        },
+        {
+          title: "LangChain Chains & Agents Documentation",
+          type: "text",
+          content_text: "# LangChain Agent Architecture\n\nLangChain simplifies the creation of applications using LLMs through modular abstractions."
+        },
+        {
+          title: "LangChain Multi-Agent Practical Project",
+          type: "assignment",
+          description: "Build a Python script using LangChain that retrieves research papers from arXiv and summarizes key findings. Submit GitHub repo URL or .zip file.",
+          points: 100,
+          due_date: "2026-09-15T23:59:00Z"
+        },
+        {
+          title: "Module 2 Vector DB Quiz",
+          type: "quiz",
+          is_graded: true,
+          points: 30,
+          time_limit_minutes: 15,
+          questions: [
+            {
+              question_text: "Which distance metric is most commonly used for high-dimensional cosine similarity in vector search?",
+              type: "mcq",
+              options: ["Cosine Distance / Dot Product", "Manhattan Distance", "Hamming Distance", "Jaccard Index"],
+              correct_answer: "Cosine Distance / Dot Product",
+              points: 10
+            },
+            {
+              question_text: "Vector databases store dense numeric vector embeddings of text or multimedia.",
+              type: "boolean",
+              options: ["True", "False"],
+              correct_answer: "True",
+              points: 10
+            },
+            {
+              question_text: "Describe the chunking trade-offs in RAG systems.",
+              type: "long",
+              points: 10
+            }
+          ]
+        }
+      ]
+    }
+  ]
+};
 
 export const SAMPLE_WEEKLY_MODULE_JSON: JsonSection = {
-  title: "Week 1: Orbit Flight Preparations & Launch Systems",
+  title: "Week 1: Autonomous Agent Design & Tool Calling",
   week_number: 1,
   allocated_hours: 4.0,
-  topic_name: "Spacecraft Electronics & Propulsion Fundamentals",
+  topic_name: "Function Calling, Planning & State Machines",
   aura_points: 25,
   items: [
     {
-      title: "Introduction to Orbital Propulsion Systems",
+      title: "Function Calling & Tool Execution in AI Agents",
       type: "video",
       url: "https://www.youtube.com/watch?v=example_space",
       duration_minutes: 45
     },
     {
-      title: "Rocket Engine & Guidance Notes",
+      title: "Agent Tooling & State Persistence Reference Notes",
       type: "text",
-      content_text: "# Rocket Propulsion Basics\n\nPropulsion Systems derive thrust by accelerating mass backward according to Newton's third law.",
+      content_text: "# Tool Calling in Autonomous Agents\n\nAgents use JSON schemas to declare executable tools and receive structured tool call arguments from the LLM.",
       duration_minutes: 30
     },
     {
-      title: "Orbital Mechanics Week 1 Assessment Quiz",
+      title: "Agentic Tool Calling Assessment Quiz",
       type: "quiz",
       is_graded: true,
       time_limit_minutes: 20,
       points: 50,
       questions: [
         {
-          question_text: "What is the escape velocity from Earth's orbit?",
+          question_text: "How does an LLM execute a tool call?",
           type: "mcq",
-          options: ["7.9 km/s", "11.2 km/s", "15.0 km/s", "3.0 km/s"],
-          correct_answer: "11.2 km/s",
+          options: [
+            "It outputs structured JSON arguments which the client application executes",
+            "The model runs binary code inside its neural network weights",
+            "The model opens a TCP socket directly from GPU memory",
+            "Tools are executed by the training loss function"
+          ],
+          correct_answer: "It outputs structured JSON arguments which the client application executes",
+          points: 20
+        },
+        {
+          question_text: "Can an agent execute multiple tool calls in a single turn?",
+          type: "boolean",
+          options: ["True", "False"],
+          correct_answer: "True",
           points: 10
+        },
+        {
+          question_text: "Explain the purpose of state persistence (memory) in multi-turn agent conversations.",
+          type: "long",
+          points: 20
         }
       ]
     }
@@ -1100,30 +1052,41 @@ export const SAMPLE_WEEKLY_MODULE_JSON: JsonSection = {
 };
 
 export const SAMPLE_QUIZ_JSON: JsonQuiz = {
-  title: "Orbit Velocity & Trajectory Assessment Quiz",
-  description: "Test your understanding of orbital velocity vectors and trajectory maneuvers.",
+  title: "Agentic AI & Neural Systems Assessment Quiz",
+  description: "Comprehensive test evaluating your understanding of LLM reasoning, tools, and evaluation metrics.",
   type: "quiz",
   is_graded: true,
   time_limit_minutes: 15,
-  points: 40,
+  points: 50,
   questions: [
     {
-      question_text: "Which orbit requires the lowest energy delta-V transition?",
+      question_text: "Which prompting technique forces the model to generate intermediate reasoning steps before the final answer?",
       type: "mcq",
-      options: ["Hohmann Transfer Orbit", "Bi-elliptic Transfer", "Direct Hyperbolic Escape", "Polar Circular Orbit"],
-      correct_answer: "Hohmann Transfer Orbit",
-      points: 10
+      options: [
+        "Chain of Thought (CoT)",
+        "Zero-shot Direct Output",
+        "Greedy Token Decoding",
+        "Top-P Truncation"
+      ],
+      correct_answer: "Chain of Thought (CoT)",
+      points: 15
     },
     {
-      question_text: "Does atmospheric drag affect satellites in Low Earth Orbit (LEO)?",
+      question_text: "Embedding vectors for semantically similar sentences are close to each other in vector space.",
       type: "boolean",
-      correct_answer: "true",
+      options: ["True", "False"],
+      correct_answer: "True",
       points: 10
     },
     {
-      question_text: "Define Kepler's Third Law of Planetary Motion.",
+      question_text: "Explain how RAG helps prevent model hallucinations.",
+      type: "short",
+      points: 15
+    },
+    {
+      question_text: "Discuss the security considerations of executing arbitrary code tools generated by an LLM agent.",
       type: "long",
-      points: 20
+      points: 10
     }
   ]
 };

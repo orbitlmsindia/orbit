@@ -48,7 +48,7 @@ export default function AdminCourseDetail() {
         // Fetch course details
         const { data: courseData, error: courseError } = await supabase
             .from('courses')
-            .select('id, title, description, is_deletion_requested, deletion_requested_at')
+            .select('id, title, description, domain, credit_points, is_published, price, original_price, organization_name, is_deletion_requested, deletion_requested_at')
             .eq('id', id)
             .single();
 
@@ -59,7 +59,10 @@ export default function AdminCourseDetail() {
             return;
         }
 
-        setCourse(courseData);
+        setCourse({
+            ...courseData,
+            credit_points: courseData.credit_points !== undefined && courseData.credit_points !== null ? courseData.credit_points : 3
+        });
 
         // Fetch enrollments with student details
         const { data: enrollmentData } = await supabase
@@ -118,7 +121,53 @@ export default function AdminCourseDetail() {
 
             if (error) throw error;
 
-            toast({ title: "Enrollment Approved", description: "The student now has access to the course." });
+            try {
+                const enrObj = enrollments.find(e => e.id === enrollmentId);
+                const studentName = enrObj?.student?.full_name;
+                const txnId = enrObj?.transaction_id;
+
+                await supabase
+                    .from('notifications')
+                    .delete()
+                    .eq('enrollment_id', enrollmentId);
+
+                if (studentName) {
+                    await supabase
+                        .from('notifications')
+                        .delete()
+                        .eq('course_id', id)
+                        .ilike('message', `%${studentName}%`);
+
+                    await supabase
+                        .from('notifications')
+                        .delete()
+                        .ilike('message', `%${studentName}%`)
+                        .eq('notification_type', 'enrollment');
+                }
+
+                if (txnId) {
+                    await supabase
+                        .from('notifications')
+                        .delete()
+                        .ilike('message', `%${txnId}%`)
+                        .eq('notification_type', 'enrollment');
+                }
+
+                const studentId = enrObj?.student_id || enrObj?.student?.id;
+                if (studentId) {
+                    await supabase.from('notifications').insert([{
+                        user_id: studentId,
+                        title: "Enrollment Approved! 🎉",
+                        message: `Congratulations! Your enrollment in "${course?.title || 'the course'}" has been approved by the administration. You now have full access to curriculum and calendar schedules.`,
+                        notification_type: "enrollment_approved",
+                        sender_role: "admin",
+                        course_id: id,
+                        is_read: false
+                    }]);
+                }
+            } catch (e) {}
+
+            toast({ title: "Enrollment Approved ✅", description: "The student now has access to the course." });
             fetchCourseData(); // Refresh list
         } catch (error: any) {
             toast({ variant: "destructive", title: "Error", description: error.message || "Failed to approve enrollment." });
@@ -133,6 +182,13 @@ export default function AdminCourseDetail() {
                 .eq('id', enrollmentId);
 
             if (error) throw error;
+
+            try {
+                await supabase
+                    .from('notifications')
+                    .delete()
+                    .eq('enrollment_id', enrollmentId);
+            } catch (e) {}
 
             toast({ title: "Enrollment Declined", description: "The student's enrollment request has been declined." });
             fetchCourseData(); // Refresh list
@@ -191,6 +247,35 @@ export default function AdminCourseDetail() {
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+    };
+
+    const [savingSettings, setSavingSettings] = useState(false);
+
+    const handleSaveCourseSettings = async () => {
+        if (!course || !id) return;
+        setSavingSettings(true);
+        try {
+            const { error } = await supabase
+                .from('courses')
+                .update({
+                    title: course.title,
+                    description: course.description,
+                    domain: course.domain || "Software Engineering",
+                    credit_points: parseInt(course.credit_points) || 3,
+                })
+                .eq('id', id);
+
+            if (error) throw error;
+            toast({
+                title: "Course Settings Saved! ✅",
+                description: `Updated details and set Academic Credits to ${course.credit_points || 3} Credits.`
+            });
+            fetchCourseData();
+        } catch (err: any) {
+            toast({ variant: "destructive", title: "Update Failed", description: err.message });
+        } finally {
+            setSavingSettings(false);
+        }
     };
 
     const handleDeleteCourseAdmin = async () => {
@@ -269,6 +354,9 @@ export default function AdminCourseDetail() {
                 <div className="flex-1">
                     <div className="flex items-center gap-2">
                         <h1 className="text-2xl font-display font-bold">{course.title}</h1>
+                        <Badge variant="outline" className="bg-purple-500/10 text-purple-600 border-purple-500/30 font-mono font-bold text-xs">
+                            🎓 {course.credit_points || 3} Credits
+                        </Badge>
                         {course.is_deletion_requested && (
                             <Badge className="bg-amber-500 text-slate-900 font-bold">Deletion Requested ⚠️</Badge>
                         )}
@@ -352,15 +440,94 @@ export default function AdminCourseDetail() {
                 </TabsContent>
 
                 <TabsContent value="overview">
-                    <Card>
-                        <CardContent className="pt-6 space-y-4">
-                            <div className="space-y-2">
-                                <Label>Course Title</Label>
-                                <Input defaultValue={course.title} disabled />
+                    <Card className="border border-border shadow-xs">
+                        <CardContent className="pt-6 space-y-5">
+                            <div className="flex items-center justify-between pb-2 border-b">
+                                <div>
+                                    <h3 className="font-bold text-base text-foreground">Course Configuration & Academic Settings</h3>
+                                    <p className="text-xs text-muted-foreground">Admin can override course title, category domain, and academic credit point values.</p>
+                                </div>
+                                <Badge className="bg-purple-500/10 text-purple-600 border-purple-500/30 font-mono font-bold text-xs">
+                                    Current: {course.credit_points || 3} Credits
+                                </Badge>
                             </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-bold">Course Title</Label>
+                                    <Input
+                                        value={course.title || ""}
+                                        onChange={(e) => setCourse({ ...course, title: e.target.value })}
+                                        placeholder="Course Title"
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-bold">Domain / Category</Label>
+                                    <Input
+                                        value={course.domain || "Software Engineering"}
+                                        onChange={(e) => setCourse({ ...course, domain: e.target.value })}
+                                        placeholder="e.g. Software Engineering, Data Science & AI"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-bold text-primary flex items-center gap-1.5">
+                                        🎓 Academic Credit Points (Credits)
+                                    </Label>
+                                    <Input
+                                        type="number"
+                                        value={course.credit_points !== undefined && course.credit_points !== null ? course.credit_points : 3}
+                                        onChange={(e) => setCourse({ ...course, credit_points: parseInt(e.target.value) || 0 })}
+                                        placeholder="3"
+                                        min="1"
+                                        max="30"
+                                        className="font-bold font-mono"
+                                    />
+                                    <p className="text-[11px] text-muted-foreground">
+                                        Number of academic credits awarded upon completion (e.g. 3, 4, 5 credits).
+                                    </p>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-bold">Course Pricing (₹ INR)</Label>
+                                    <Input
+                                        type="number"
+                                        value={course.price || 0}
+                                        onChange={(e) => setCourse({ ...course, price: parseFloat(e.target.value) || 0 })}
+                                        placeholder="1499"
+                                    />
+                                </div>
+                            </div>
+
                             <div className="space-y-2">
-                                <Label>Description</Label>
-                                <Textarea className="min-h-[100px]" defaultValue={course.description} disabled />
+                                <Label className="text-xs font-bold">Description</Label>
+                                <Textarea
+                                    className="min-h-[120px] text-sm"
+                                    value={course.description || ""}
+                                    onChange={(e) => setCourse({ ...course, description: e.target.value })}
+                                    placeholder="Comprehensive course description..."
+                                />
+                            </div>
+
+                            <div className="flex justify-end pt-2">
+                                <Button
+                                    onClick={handleSaveCourseSettings}
+                                    disabled={savingSettings}
+                                    className="gap-2 font-bold bg-primary text-primary-foreground shadow-md hover:bg-primary/90"
+                                >
+                                    {savingSettings ? (
+                                        <>
+                                            <Loader2 className="h-4 w-4 animate-spin" /> Saving Changes...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <CheckCircle className="h-4 w-4" /> Save Course Settings & Credits (Admin)
+                                        </>
+                                    )}
+                                </Button>
                             </div>
                         </CardContent>
                     </Card>
