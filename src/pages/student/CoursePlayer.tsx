@@ -530,11 +530,13 @@ export default function CoursePlayer() {
                                                     PROTECTED • {userEmail || "Orbit Student"}
                                                 </span>
                                             </div>
+                                            <div className="absolute top-0 right-0 w-40 h-14 z-30 pointer-events-auto cursor-pointer bg-transparent" title="Protected Content" onClick={(e) => e.stopPropagation()} />
                                             <iframe
                                                 src={getEmbeddablePresentationUrl(currentContent.content_url || currentContent.pdf_url || currentContent.url || '')}
                                                 className="w-full h-full border-none"
                                                 title={currentContent.title}
                                                 allow="fullscreen"
+                                                sandbox="allow-scripts allow-same-origin allow-presentation"
                                             />
                                         </div>
                                     </div>
@@ -556,11 +558,13 @@ export default function CoursePlayer() {
                                                     PROTECTED • {userEmail || "Orbit Student"}
                                                 </span>
                                             </div>
+                                            <div className="absolute top-0 right-0 w-40 h-14 z-30 pointer-events-auto cursor-pointer bg-transparent" title="Protected Material" onClick={(e) => e.stopPropagation()} />
                                             <iframe
                                                 src={getEmbeddableDocUrl(currentContent.content_url || currentContent.pdf_url || currentContent.url || '')}
                                                 className="w-full h-full border-none"
                                                 title={currentContent.title}
                                                 allow="fullscreen"
+                                                sandbox="allow-scripts allow-same-origin allow-presentation"
                                             />
                                         </div>
                                     </div>

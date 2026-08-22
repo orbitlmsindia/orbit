@@ -1583,110 +1583,121 @@ export default function StudentCourses() {
 
             {/* ENROLLMENT / PAYMENT DIALOG */}
             <Dialog open={enrollmentDialog.isOpen} onOpenChange={(open) => { setEnrollmentDialog(prev => ({ ...prev, isOpen: open })); if (!open) { setCouponApplied(null); setCouponCode(""); setCouponError(""); } }}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>Enroll in {enrollmentDialog.courseName}</DialogTitle>
-                        <DialogDescription>
+                <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col p-0 overflow-hidden shadow-2xl border border-border/80">
+                    <DialogHeader className="p-5 sm:p-6 pb-3 border-b bg-card shrink-0">
+                        <DialogTitle className="text-lg sm:text-xl font-bold">Enroll in {enrollmentDialog.courseName}</DialogTitle>
+                        <DialogDescription className="text-xs sm:text-sm">
                             {enrollmentDialog.coursePrice > 0
                                 ? "Please scan the QR code to pay the course fee. You can apply a coupon code for a discount."
                                 : "This course is free! Click submit to enroll."}
                         </DialogDescription>
                     </DialogHeader>
 
-                    {enrollmentDialog.coursePrice > 0 && (
-                        <>
-                            {/* Pricing Summary */}
-                            <div className="p-4 rounded-xl bg-muted/30 border space-y-2">
-                                <div className="flex items-center justify-between text-sm">
-                                    <span className="text-muted-foreground">Course Price</span>
-                                    <span className="font-bold">₹{enrollmentDialog.coursePrice.toLocaleString('en-IN')}</span>
-                                </div>
-                                {couponApplied && (
-                                    <div className="flex items-center justify-between text-sm">
-                                        <span className="text-emerald-600 flex items-center gap-1">
-                                            <Ticket className="h-3.5 w-3.5" />
-                                            Coupon ({couponApplied.code})
-                                        </span>
-                                        <span className="font-bold text-emerald-600">-₹{couponApplied.discount.toLocaleString('en-IN')}</span>
+                    <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4 max-h-[calc(90vh-130px)]">
+                        {enrollmentDialog.coursePrice > 0 && (
+                            <>
+                                {/* Pricing Summary */}
+                                <div className="p-3.5 sm:p-4 rounded-xl bg-muted/30 border space-y-2">
+                                    <div className="flex items-center justify-between text-xs sm:text-sm">
+                                        <span className="text-muted-foreground">Course Price</span>
+                                        <span className="font-bold">₹{enrollmentDialog.coursePrice.toLocaleString('en-IN')}</span>
                                     </div>
-                                )}
-                                <div className="flex items-center justify-between text-base font-bold pt-2 border-t border-border">
-                                    <span>Total Payable</span>
-                                    <span className="text-primary">
-                                        ₹{Math.max(0, enrollmentDialog.coursePrice - (couponApplied?.discount || 0)).toLocaleString('en-IN')}
-                                    </span>
-                                </div>
-                            </div>
-
-                            {/* Coupon Code Input */}
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium flex items-center gap-1.5">
-                                    <Ticket className="h-4 w-4 text-emerald-600" /> Have a Coupon Code?
-                                </label>
-                                {couponApplied ? (
-                                    <div className="flex items-center justify-between p-3 rounded-lg border border-emerald-500/40 bg-emerald-500/10">
-                                        <div className="flex items-center gap-2">
-                                            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                                            <span className="font-mono font-bold text-sm text-emerald-700 dark:text-emerald-300">{couponApplied.code}</span>
-                                            <Badge className="bg-emerald-600 text-white text-[10px]">
-                                                {couponApplied.type === 'percentage' ? `${couponApplied.value}% OFF` : `₹${couponApplied.value} OFF`}
-                                            </Badge>
+                                    {couponApplied && (
+                                        <div className="flex items-center justify-between text-xs sm:text-sm">
+                                            <span className="text-emerald-600 flex items-center gap-1">
+                                                <Ticket className="h-3.5 w-3.5" />
+                                                Coupon ({couponApplied.code})
+                                            </span>
+                                            <span className="font-bold text-emerald-600">-₹{couponApplied.discount.toLocaleString('en-IN')}</span>
                                         </div>
-                                        <Button variant="ghost" size="sm" onClick={handleRemoveCoupon} className="text-red-500 hover:text-red-600 text-xs h-7">
-                                            Remove
-                                        </Button>
+                                    )}
+                                    <div className="flex items-center justify-between text-sm sm:text-base font-bold pt-2 border-t border-border">
+                                        <span>Total Payable</span>
+                                        <span className="text-primary">
+                                            ₹{Math.max(0, enrollmentDialog.coursePrice - (couponApplied?.discount || 0)).toLocaleString('en-IN')}
+                                        </span>
                                     </div>
-                                ) : (
-                                    <div className="flex gap-2">
-                                        <Input
-                                            value={couponCode}
-                                            onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponError(""); }}
-                                            placeholder="Enter coupon code"
-                                            className="font-mono uppercase"
-                                        />
-                                        <Button
-                                            variant="outline"
-                                            onClick={handleApplyCoupon}
-                                            disabled={couponLoading || !couponCode.trim()}
-                                            className="shrink-0 gap-1.5 border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/5"
-                                        >
-                                            {couponLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Tag className="h-4 w-4" />}
-                                            Apply
-                                        </Button>
-                                    </div>
-                                )}
-                                {couponError && (
-                                    <p className="text-xs text-red-500 font-medium">{couponError}</p>
-                                )}
-                            </div>
-
-                            {/* QR Code */}
-                            <div className="flex flex-col items-center gap-4 py-2">
-                                <div className="w-40 h-40 border rounded-lg bg-muted flex flex-col items-center justify-center p-3">
-                                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=example_payment_link" alt="Payment QR Code" className="w-full h-full opacity-80" />
                                 </div>
-                                <p className="text-xs font-medium text-muted-foreground">Scan to Pay via UPI / QR</p>
-                            </div>
-                        </>
-                    )}
 
-                    <div className="space-y-2">
-                        <label htmlFor="transactionId" className="text-sm font-medium">
-                            {enrollmentDialog.coursePrice > 0 ? "Transaction / Reference ID" : "Any Reference Note (optional)"}
-                        </label>
-                        <Input
-                            id="transactionId"
-                            placeholder={enrollmentDialog.coursePrice > 0 ? "e.g. UPI123456789" : "Optional"}
-                            value={transactionId}
-                            onChange={(e) => setTransactionId(e.target.value)}
-                        />
+                                {/* Coupon Code Input */}
+                                <div className="space-y-2">
+                                    <label className="text-xs sm:text-sm font-medium flex items-center gap-1.5">
+                                        <Ticket className="h-4 w-4 text-emerald-600" /> Have a Coupon Code?
+                                    </label>
+                                    {couponApplied ? (
+                                        <div className="flex items-center justify-between p-3 rounded-lg border border-emerald-500/40 bg-emerald-500/10">
+                                            <div className="flex items-center gap-2">
+                                                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                                                <span className="font-mono font-bold text-xs sm:text-sm text-emerald-700 dark:text-emerald-300">{couponApplied.code}</span>
+                                                <Badge className="bg-emerald-600 text-white text-[10px]">
+                                                    {couponApplied.type === 'percentage' ? `${couponApplied.value}% OFF` : `₹${couponApplied.value} OFF`}
+                                                </Badge>
+                                            </div>
+                                            <Button variant="ghost" size="sm" onClick={handleRemoveCoupon} className="text-red-500 hover:text-red-600 text-xs h-7">
+                                                Remove
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex gap-2">
+                                            <Input
+                                                value={couponCode}
+                                                onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponError(""); }}
+                                                placeholder="Enter coupon code"
+                                                className="font-mono uppercase text-xs sm:text-sm"
+                                            />
+                                            <Button
+                                                variant="outline"
+                                                onClick={handleApplyCoupon}
+                                                disabled={couponLoading || !couponCode.trim()}
+                                                className="shrink-0 gap-1.5 border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/5 text-xs sm:text-sm"
+                                            >
+                                                {couponLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Tag className="h-4 w-4" />}
+                                                Apply
+                                            </Button>
+                                        </div>
+                                    )}
+                                    {couponError && (
+                                        <p className="text-xs text-red-500 font-medium">{couponError}</p>
+                                    )}
+                                </div>
+
+                                {/* QR Code */}
+                                <div className="flex flex-col items-center gap-3 py-1 bg-muted/20 rounded-xl p-3 border border-border/50">
+                                    <div className="w-32 h-32 sm:w-40 sm:h-40 border rounded-xl bg-white p-2.5 shadow-xs flex items-center justify-center">
+                                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=example_payment_link" alt="Payment QR Code" className="w-full h-full object-contain" />
+                                    </div>
+                                    <div className="text-center space-y-0.5">
+                                        <p className="text-xs font-semibold text-foreground">Scan to Pay via UPI / Any Payment App</p>
+                                        <p className="text-[11px] text-muted-foreground">After payment, enter the Reference/UPI Transaction ID below.</p>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
+                        <div className="space-y-2 pt-1">
+                            <label htmlFor="transactionId" className="text-xs sm:text-sm font-semibold flex items-center gap-1.5">
+                                {enrollmentDialog.coursePrice > 0 ? "Transaction / Reference ID *" : "Any Reference Note (optional)"}
+                            </label>
+                            <Input
+                                id="transactionId"
+                                placeholder={enrollmentDialog.coursePrice > 0 ? "e.g. 12-digit UTR or UPI Transaction ID (e.g. 423456789012)" : "Optional"}
+                                value={transactionId}
+                                onChange={(e) => setTransactionId(e.target.value)}
+                                className="font-mono text-xs sm:text-sm h-10 border-primary/40 focus:border-primary focus:ring-1 focus:ring-primary"
+                            />
+                            {enrollmentDialog.coursePrice > 0 && (
+                                <p className="text-[11px] text-muted-foreground">
+                                    Kindly double check your Transaction/UTR number for quick verification by college admin/teacher.
+                                </p>
+                            )}
+                        </div>
                     </div>
 
-                    <DialogFooter className="mt-4">
-                        <Button variant="outline" onClick={() => setEnrollmentDialog({ isOpen: false, courseId: null, courseName: null, coursePrice: 0 })} disabled={isSubmitting}>
+                    <DialogFooter className="p-4 sm:p-5 bg-muted/30 border-t shrink-0 flex flex-row items-center justify-end gap-2">
+                        <Button variant="outline" onClick={() => setEnrollmentDialog({ isOpen: false, courseId: null, courseName: null, coursePrice: 0 })} disabled={isSubmitting} className="text-xs sm:text-sm">
                             Cancel
                         </Button>
-                        <Button onClick={handleConfirmEnrollment} disabled={isSubmitting || (enrollmentDialog.coursePrice > 0 && !transactionId.trim())}>
+                        <Button onClick={handleConfirmEnrollment} disabled={isSubmitting || (enrollmentDialog.coursePrice > 0 && !transactionId.trim())} className="text-xs sm:text-sm font-semibold">
                             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             {enrollmentDialog.coursePrice > 0 ? "Submit for Verification" : "Enroll Now"}
                         </Button>

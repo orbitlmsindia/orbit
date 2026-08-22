@@ -554,24 +554,57 @@ export function SecureVideoPlayer({
             src={embedSrc}
             className="w-full h-full border-0 pointer-events-auto"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            sandbox="allow-scripts allow-same-origin allow-presentation"
             title={title}
           />
         )}
 
-        {/* ── 6. ANTI-EXTRACTION CORNER MASKS ── */}
-        {/* Top Right Extraction Protection */}
-        <div
-          className="absolute top-0 right-0 w-16 h-12 z-[40] pointer-events-auto cursor-pointer bg-transparent"
-          onClick={(e) => {
-            e.stopPropagation();
-            toast({
-              variant: "destructive",
-              title: "External Links Restricted",
-              description: "Direct lecture URLs are protected by Cyber Security Guard.",
-            });
-          }}
-          title="Protected Stream"
-        />
+        {/* ── 6. ANTI-EXTRACTION CORNER MASKS & DRIVE SHIELDS ── */}
+        {/* Google Drive Specific Anti-Download & Anti-Popout Shield Masks */}
+        {isDrive ? (
+          <>
+            {/* Top-Right Google Drive Popout & Download Button Mask */}
+            <div
+              className="absolute top-0 right-0 w-48 h-16 z-[45] pointer-events-auto cursor-pointer bg-transparent"
+              onClick={(e) => {
+                e.stopPropagation();
+                toast({
+                  variant: "destructive",
+                  title: "Download & External Pop-out Restricted 🔒",
+                  description: "Direct Google Drive video downloads and pop-outs are strictly disabled for course lectures.",
+                });
+              }}
+              title="Protected Google Drive Stream"
+            />
+            {/* Top-Left Drive Title Link Mask */}
+            <div
+              className="absolute top-0 left-0 w-48 h-16 z-[45] pointer-events-auto cursor-pointer bg-transparent"
+              onClick={(e) => {
+                e.stopPropagation();
+                toast({
+                  variant: "destructive",
+                  title: "Protected Lecture Stream 🔒",
+                  description: "Direct file URL extraction is prohibited by Cyber Security Guard.",
+                });
+              }}
+              title="Protected Stream"
+            />
+          </>
+        ) : (
+          /* General Top Right Extraction Protection */
+          <div
+            className="absolute top-0 right-0 w-24 h-12 z-[40] pointer-events-auto cursor-pointer bg-transparent"
+            onClick={(e) => {
+              e.stopPropagation();
+              toast({
+                variant: "destructive",
+                title: "External Links Restricted",
+                description: "Direct lecture URLs are protected by Cyber Security Guard.",
+              });
+            }}
+            title="Protected Stream"
+          />
+        )}
 
         {/* Bottom Right YouTube Link Guard Overlay */}
         {isYouTube && (
