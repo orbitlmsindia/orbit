@@ -11,5 +11,16 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // Create a dummy client or a real one depending on config
 export const supabase = createClient(
     supabaseUrl || "https://placeholder.supabase.co",
-    supabaseAnonKey || "placeholder"
+    supabaseAnonKey || "placeholder",
+    {
+        auth: {
+            persistSession: true,
+            autoRefreshToken: true,
+            detectSessionInUrl: true,
+            // Bypass navigator.locks to prevent "signal is aborted without reason" AbortError in browsers
+            lock: async (_name, _acquireTimeout, fn) => {
+                return await fn();
+            },
+        },
+    }
 );

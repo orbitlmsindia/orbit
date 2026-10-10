@@ -1,12 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { StudentLayout } from "@/components/layout/StudentLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { BookOpen, Clock, AlertCircle, CheckCircle2, PlayCircle, ArrowRight, Bell, Award, Loader2, Quote, Video } from "lucide-react";
+import { BookOpen, Clock, AlertCircle, CheckCircle2, PlayCircle, ArrowRight, Bell, Award, Loader2, Quote, Video, ChevronLeft, ChevronRight, Calendar, Search } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 
 export default function StudentDashboard() {
     const [loading, setLoading] = useState(true);
@@ -16,6 +18,19 @@ export default function StudentDashboard() {
     const [upcomingDeadlines, setUpcomingDeadlines] = useState<any[]>([]);
     const [liveClasses, setLiveClasses] = useState<any[]>([]);
     const [dailyQuote, setDailyQuote] = useState<string | null>(null);
+
+    // Live Classes Carousel & Modal state
+    const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+    const [scheduleSearchQuery, setScheduleSearchQuery] = useState("");
+    const [scheduleFilter, setScheduleFilter] = useState<"all" | "upcoming" | "past">("all");
+    const carouselRef = useRef<HTMLDivElement>(null);
+
+    const scrollCarousel = (direction: 'left' | 'right') => {
+        if (carouselRef.current) {
+            const scrollAmount = direction === 'left' ? -340 : 340;
+            carouselRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+        }
+    };
 
     useEffect(() => {
         fetchStudentData();
@@ -165,6 +180,55 @@ export default function StudentDashboard() {
         );
     }
 
+    // Categorize Live Classes
+    const now = new Date();
+
+    // Live Now: started & not exceeded duration (or past start time within duration)
+    const liveNowClasses = liveClasses.filter(c => {
+        const start = new Date(c.scheduled_at);
+        const durationMs = (c.duration_minutes || 120) * 60 * 1000;
+        const end = new Date(start.getTime() + durationMs);
+        return start <= now && now <= end;
+    });
+
+    const upcomingClasses = liveClasses.filter(c => {
+        const start = new Date(c.scheduled_at);
+        return start > now;
+    }).sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
+
+    const pastClasses = liveClasses.filter(c => {
+        const start = new Date(c.scheduled_at);
+        const durationMs = (c.duration_minutes || 120) * 60 * 1000;
+        const end = new Date(start.getTime() + durationMs);
+        return now > end;
+    }).sort((a, b) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime());
+
+    // Near / Recent upcoming classes to present in Carousel (Live now + nearest 5 upcoming)
+    const carouselLiveClasses = [...liveNowClasses, ...upcomingClasses].slice(0, 6);
+
+    // Modal filtered classes
+    const filteredModalClasses = liveClasses.filter((lc) => {
+        const start = new Date(lc.scheduled_at);
+        const durationMs = (lc.duration_minutes || 120) * 60 * 1000;
+        const end = new Date(start.getTime() + durationMs);
+        const isLiveNow = start <= now && now <= end;
+        const isPast = now > end;
+        const isUpcoming = start > now;
+
+        if (scheduleFilter === 'upcoming' && !isLiveNow && !isUpcoming) return false;
+        if (scheduleFilter === 'past' && !isPast) return false;
+
+        if (scheduleSearchQuery.trim() !== '') {
+            const query = scheduleSearchQuery.toLowerCase();
+            const matchesTitle = lc.title?.toLowerCase().includes(query);
+            const matchesCourse = lc.course?.title?.toLowerCase().includes(query);
+            const matchesTeacher = lc.course?.teacher?.full_name?.toLowerCase().includes(query);
+            return matchesTitle || matchesCourse || matchesTeacher;
+        }
+
+        return true;
+    });
+
     return (
         <StudentLayout>
             <div className="flex flex-col gap-6 animate-fade-in">
@@ -188,48 +252,168 @@ export default function StudentDashboard() {
                         </div>
                     </div>
                 )}
-                {/* Live Classes Card */}
+
+                {/* Live Classes Carousel Card */}
                 {liveClasses.length > 0 && (
-                    <Card className="border-red-500/30 bg-gradient-to-r from-red-500/10 via-background to-background shadow-md overflow-hidden">
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-xl font-bold flex items-center justify-between">
-                                <div className="flex items-center gap-2 text-foreground">
-                                    <span className="h-3 w-3 rounded-full bg-red-500 animate-pulse"></span>
-                                    🔴 Live Classes & Interactive Sessions
-                                </div>
-                                <Badge className="bg-red-500 text-white font-mono text-xs">
-                                    {liveClasses.filter(c => new Date(c.scheduled_at) <= new Date()).length > 0 ? "LIVE NOW" : `${liveClasses.length} Scheduled`}
-                                </Badge>
-                            </CardTitle>
+                    <Card className="border-red-500/30 bg-gradient-to-r from-red-950/20 via-background to-background shadow-md overflow-hidden relative">
+                        <CardHeader className="pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/40">
+                            <div className="flex items-center gap-2.5 flex-wrap">
+                                <span className="relative flex h-3 w-3">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                                </span>
+                                <CardTitle className="text-lg sm:text-xl font-bold text-foreground flex items-center gap-2">
+                                    Live Classes & Interactive Sessions
+                                </CardTitle>
+                                {liveNowClasses.length > 0 ? (
+                                    <Badge className="bg-red-600 text-white font-mono text-[10px] uppercase tracking-wider animate-pulse px-2 py-0.5">
+                                        🔴 {liveNowClasses.length} Live Now
+                                    </Badge>
+                                ) : (
+                                    <Badge variant="outline" className="border-red-500/30 text-red-400 font-mono text-[10px]">
+                                        {liveClasses.length} Scheduled
+                                    </Badge>
+                                )}
+                            </div>
+
+                            <div className="flex items-center gap-2 self-end sm:self-auto">
+                                {/* Carousel Navigation Buttons */}
+                                {carouselLiveClasses.length > 1 && (
+                                    <div className="flex items-center gap-1 mr-1">
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="h-8 w-8 rounded-full border-border/60 hover:bg-red-500/10 hover:border-red-500/40"
+                                            onClick={() => scrollCarousel('left')}
+                                            title="Previous Live Class"
+                                        >
+                                            <ChevronLeft className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="h-8 w-8 rounded-full border-border/60 hover:bg-red-500/10 hover:border-red-500/40"
+                                            onClick={() => scrollCarousel('right')}
+                                            title="Next Live Class"
+                                        >
+                                            <ChevronRight className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                )}
+
+                                {/* Show Complete Schedule Button */}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setIsScheduleModalOpen(true)}
+                                    className="gap-1.5 text-xs font-semibold border-red-500/40 bg-red-500/10 hover:bg-red-500/20 text-foreground transition-all shadow-sm"
+                                >
+                                    <Calendar className="h-3.5 w-3.5 text-red-400" />
+                                    Show Complete Schedule ({liveClasses.length})
+                                </Button>
+                            </div>
                         </CardHeader>
-                        <CardContent className="space-y-3">
-                            {liveClasses.map((lc) => {
-                                const isLiveNow = new Date(lc.scheduled_at) <= new Date();
-                                return (
-                                    <div key={lc.id} className="p-4 rounded-xl border bg-card flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:border-red-500/40 transition-colors">
-                                        <div className="space-y-1">
-                                            <div className="flex items-center gap-2">
-                                                <Badge variant="outline" className={isLiveNow ? "bg-red-500 text-white border-red-500 font-bold text-[10px] animate-pulse" : "bg-primary/10 text-primary border-primary/20 text-[10px]"}>
-                                                    {isLiveNow ? "🔴 HAPPENING NOW" : "UPCOMING CLASS"}
-                                                </Badge>
-                                                <h3 className="font-bold text-base text-foreground">{lc.title}</h3>
+
+                        <CardContent className="pt-4 pb-4">
+                            <div
+                                ref={carouselRef}
+                                className="flex gap-4 overflow-x-auto scrollbar-thin scrollbar-thumb-red-500/20 hover:scrollbar-thumb-red-500/40 pb-2 snap-x snap-mandatory scroll-smooth"
+                                style={{ scrollbarWidth: 'thin' }}
+                            >
+                                {carouselLiveClasses.map((lc) => {
+                                    const start = new Date(lc.scheduled_at);
+                                    const durationMs = (lc.duration_minutes || 120) * 60 * 1000;
+                                    const end = new Date(start.getTime() + durationMs);
+                                    const isLiveNow = start <= now && now <= end;
+
+                                    return (
+                                        <div
+                                            key={lc.id}
+                                            className={`snap-start min-w-[290px] sm:min-w-[340px] max-w-[360px] shrink-0 p-4 rounded-xl border flex flex-col justify-between gap-3 transition-all duration-200 ${
+                                                isLiveNow
+                                                    ? "bg-gradient-to-b from-red-950/40 via-red-900/10 to-card border-red-500/60 shadow-lg shadow-red-950/30"
+                                                    : "bg-card hover:bg-accent/10 border-border/60 hover:border-red-500/30"
+                                            }`}
+                                        >
+                                            <div className="space-y-2">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <Badge
+                                                        variant="outline"
+                                                        className={
+                                                            isLiveNow
+                                                                ? "bg-red-600 text-white border-red-600 font-bold text-[10px] animate-pulse px-2 py-0.5"
+                                                                : "bg-primary/10 text-primary border-primary/20 text-[10px] font-semibold"
+                                                        }
+                                                    >
+                                                        {isLiveNow ? "🔴 HAPPENING NOW" : "UPCOMING CLASS"}
+                                                    </Badge>
+                                                    <span className="text-[11px] font-mono text-muted-foreground flex items-center gap-1">
+                                                        ⏱️ {lc.duration_minutes || 60} mins
+                                                    </span>
+                                                </div>
+
+                                                <div>
+                                                    <h3 className="font-bold text-base text-foreground line-clamp-1 group-hover:text-red-400 transition-colors" title={lc.title}>
+                                                        {lc.title}
+                                                    </h3>
+                                                    <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                                                        <span className="text-foreground/80 font-medium">{lc.course?.title}</span>
+                                                    </p>
+                                                </div>
                                             </div>
-                                            <p className="text-xs text-muted-foreground">
-                                                Course: <span className="font-semibold text-foreground">{lc.course?.title}</span> • Teacher: <span className="font-semibold text-primary">{lc.course?.teacher?.full_name || "Instructor"}</span>
-                                            </p>
-                                            <div className="flex items-center gap-4 text-xs font-mono text-muted-foreground pt-0.5">
-                                                <span>📅 {new Date(lc.scheduled_at).toLocaleString()}</span>
-                                                <span>⏱️ {lc.duration_minutes || 60} mins</span>
+
+                                            <div className="pt-2 border-t border-border/40 flex flex-col gap-2">
+                                                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                                    <span className="font-mono flex items-center gap-1 text-[11px]">
+                                                        📅 {new Date(lc.scheduled_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} at {new Date(lc.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center justify-between gap-2 pt-1">
+                                                    <span className="text-[11px] text-muted-foreground truncate">
+                                                        By <span className="text-primary font-medium">{lc.course?.teacher?.full_name || "Instructor"}</span>
+                                                    </span>
+                                                    <a
+                                                        href={lc.meeting_link}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="shrink-0"
+                                                    >
+                                                        <Button
+                                                            size="sm"
+                                                            className={`gap-1.5 text-xs font-bold shadow-md ${
+                                                                isLiveNow
+                                                                    ? "bg-red-600 hover:bg-red-700 text-white animate-bounce-short"
+                                                                    : "bg-red-600/90 hover:bg-red-600 text-white"
+                                                            }`}
+                                                        >
+                                                            <Video className="h-3.5 w-3.5" /> Join Live ↗
+                                                        </Button>
+                                                    </a>
+                                                </div>
                                             </div>
                                         </div>
-                                        <a href={lc.meeting_link} target="_blank" rel="noopener noreferrer" className="shrink-0">
-                                            <Button size="default" className="gap-2 bg-red-600 hover:bg-red-700 text-white font-bold shadow-md">
-                                                <Video className="h-4 w-4" /> Join Live Class ↗
-                                            </Button>
-                                        </a>
+                                    );
+                                })}
+
+                                {/* View Complete Schedule Card at end of carousel */}
+                                {liveClasses.length > carouselLiveClasses.length && (
+                                    <div
+                                        onClick={() => setIsScheduleModalOpen(true)}
+                                        className="snap-start min-w-[220px] shrink-0 p-4 rounded-xl border border-dashed border-red-500/40 bg-red-500/5 hover:bg-red-500/10 flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:scale-[1.02]"
+                                    >
+                                        <div className="h-10 w-10 rounded-full bg-red-500/20 flex items-center justify-center text-red-400 mb-2">
+                                            <Calendar className="h-5 w-5" />
+                                        </div>
+                                        <h4 className="font-bold text-sm text-foreground">View All Classes</h4>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            +{liveClasses.length - carouselLiveClasses.length} more sessions scheduled
+                                        </p>
+                                        <Button variant="ghost" size="sm" className="mt-2 text-xs text-red-400 hover:text-red-300 p-0 h-auto font-semibold">
+                                            Open Schedule ↗
+                                        </Button>
                                     </div>
-                                );
-                            })}
+                                )}
+                            </div>
                         </CardContent>
                     </Card>
                 )}
@@ -318,7 +502,6 @@ export default function StudentDashboard() {
                                     <div className="divide-y">
                                         {upcomingDeadlines.map((deadline) => {
                                             const dueDate = new Date(deadline.due_date);
-                                            const now = new Date();
                                             const daysUntil = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
                                             const isUrgent = daysUntil <= 2;
 
@@ -414,6 +597,146 @@ export default function StudentDashboard() {
                     </div>
                 </div>
             </div>
+
+            {/* Complete Live Class Schedule Modal */}
+            <Dialog open={isScheduleModalOpen} onOpenChange={setIsScheduleModalOpen}>
+                <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col p-6 gap-4 bg-background border-red-500/20">
+                    <DialogHeader className="space-y-1">
+                        <div className="flex items-center gap-2">
+                            <span className="h-3 w-3 rounded-full bg-red-500 animate-pulse"></span>
+                            <DialogTitle className="text-xl font-bold">
+                                Complete Live Classes & Sessions Schedule
+                            </DialogTitle>
+                        </div>
+                        <DialogDescription className="text-sm text-muted-foreground">
+                            View all live sessions, upcoming interactive classes, and previous recordings for your enrolled courses.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {/* Filter and Search Controls */}
+                    <div className="flex flex-col sm:flex-row justify-between gap-3 pt-2">
+                        {/* Filter Tabs */}
+                        <div className="flex items-center gap-1 bg-muted/40 p-1 rounded-lg border">
+                            <button
+                                onClick={() => setScheduleFilter('all')}
+                                className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
+                                    scheduleFilter === 'all'
+                                        ? 'bg-background text-foreground shadow-sm'
+                                        : 'text-muted-foreground hover:text-foreground'
+                                }`}
+                            >
+                                All ({liveClasses.length})
+                            </button>
+                            <button
+                                onClick={() => setScheduleFilter('upcoming')}
+                                className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
+                                    scheduleFilter === 'upcoming'
+                                        ? 'bg-background text-foreground shadow-sm'
+                                        : 'text-muted-foreground hover:text-foreground'
+                                }`}
+                            >
+                                Upcoming ({upcomingClasses.length + liveNowClasses.length})
+                            </button>
+                            <button
+                                onClick={() => setScheduleFilter('past')}
+                                className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
+                                    scheduleFilter === 'past'
+                                        ? 'bg-background text-foreground shadow-sm'
+                                        : 'text-muted-foreground hover:text-foreground'
+                                }`}
+                            >
+                                Past ({pastClasses.length})
+                            </button>
+                        </div>
+
+                        {/* Search Input */}
+                        <div className="relative w-full sm:w-64">
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Search classes or course..."
+                                value={scheduleSearchQuery}
+                                onChange={(e) => setScheduleSearchQuery(e.target.value)}
+                                className="pl-8 h-9 text-xs"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Live Classes List in Modal */}
+                    <div className="flex-1 overflow-y-auto space-y-3 pr-1 max-h-[55vh]">
+                        {filteredModalClasses.length > 0 ? (
+                            filteredModalClasses.map((lc) => {
+                                const start = new Date(lc.scheduled_at);
+                                const durationMs = (lc.duration_minutes || 120) * 60 * 1000;
+                                const end = new Date(start.getTime() + durationMs);
+                                const isLiveNow = start <= now && now <= end;
+                                const isPast = now > end;
+
+                                return (
+                                    <div
+                                        key={lc.id}
+                                        className={`p-4 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-colors ${
+                                            isLiveNow
+                                                ? "bg-red-950/20 border-red-500/50 shadow-sm"
+                                                : "bg-card hover:bg-accent/5 border-border"
+                                        }`}
+                                    >
+                                        <div className="space-y-1 flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <Badge
+                                                    variant="outline"
+                                                    className={
+                                                        isLiveNow
+                                                            ? "bg-red-600 text-white border-red-600 font-bold text-[10px] animate-pulse"
+                                                            : isPast
+                                                            ? "bg-muted text-muted-foreground text-[10px]"
+                                                            : "bg-primary/10 text-primary border-primary/20 text-[10px]"
+                                                    }
+                                                >
+                                                    {isLiveNow ? "🔴 HAPPENING NOW" : isPast ? "COMPLETED" : "UPCOMING CLASS"}
+                                                </Badge>
+                                                <h3 className="font-bold text-base text-foreground truncate">{lc.title}</h3>
+                                            </div>
+                                            <p className="text-xs text-muted-foreground">
+                                                Course: <span className="font-semibold text-foreground">{lc.course?.title}</span> • Teacher: <span className="font-semibold text-primary">{lc.course?.teacher?.full_name || "Instructor"}</span>
+                                            </p>
+                                            {lc.description && (
+                                                <p className="text-xs text-muted-foreground line-clamp-1">{lc.description}</p>
+                                            )}
+                                            <div className="flex items-center gap-4 text-xs font-mono text-muted-foreground pt-1">
+                                                <span>📅 {new Date(lc.scheduled_at).toLocaleString()}</span>
+                                                <span>⏱️ {lc.duration_minutes || 60} mins</span>
+                                            </div>
+                                        </div>
+                                        <a
+                                            href={lc.meeting_link}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="shrink-0 w-full sm:w-auto"
+                                        >
+                                            <Button
+                                                size="default"
+                                                className={`w-full sm:w-auto gap-2 font-bold ${
+                                                    isLiveNow
+                                                        ? "bg-red-600 hover:bg-red-700 text-white shadow-md animate-pulse"
+                                                        : "bg-primary text-primary-foreground hover:bg-primary/90"
+                                                }`}
+                                            >
+                                                <Video className="h-4 w-4" /> {isPast ? "View Link / Recording" : "Join Live Class ↗"}
+                                            </Button>
+                                        </a>
+                                    </div>
+                                );
+                            })
+                        ) : (
+                            <div className="py-12 text-center text-muted-foreground border rounded-xl bg-muted/10">
+                                <Calendar className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                                <p className="text-sm font-medium">No live classes match your filter or search.</p>
+                            </div>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
         </StudentLayout>
     );
 }
+
