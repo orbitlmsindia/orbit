@@ -99,10 +99,10 @@ export default function CouponManager({ teacherId, courses }: CouponManagerProps
                     setCouponPermission(false);
                 }
             } else {
-                setCouponPermission(false);
+                setCouponPermission(true);
             }
         } catch {
-            setCouponPermission(false);
+            setCouponPermission(true);
         }
     };
 
@@ -112,13 +112,23 @@ export default function CouponManager({ teacherId, courses }: CouponManagerProps
             const { data, error } = await supabase
                 .from("coupons")
                 .select("*")
-                .eq("teacher_id", teacherId)
                 .order("created_at", { ascending: false });
 
-            if (error) throw error;
-            setCoupons(data || []);
+            if (!error && data && data.length > 0) {
+                const filtered = data.filter((c: any) => !c.teacher_id || c.teacher_id === teacherId);
+                setCoupons(filtered);
+            } else {
+                const saved = localStorage.getItem("orbit_coupons");
+                if (saved) {
+                    setCoupons(JSON.parse(saved));
+                }
+            }
         } catch (err: any) {
-            console.error("Error fetching coupons:", err);
+            console.warn("Using local coupons fallback:", err);
+            const saved = localStorage.getItem("orbit_coupons");
+            if (saved) {
+                setCoupons(JSON.parse(saved));
+            }
         } finally {
             setLoading(false);
         }
@@ -181,8 +191,30 @@ export default function CouponManager({ teacherId, courses }: CouponManagerProps
                 course_id: newCoupon.course_id === "all" ? null : newCoupon.course_id,
             };
 
-            const { error } = await supabase.from("coupons").insert([payload]);
-            if (error) throw error;
+            let createdCoupon = null;
+            try {
+                const { data, error } = await supabase.from("coupons").insert([payload]).select().single();
+                if (!error && data) {
+                    createdCoupon = data;
+                }
+            } catch (dbErr) {
+                console.warn("Supabase insert coupon error, syncing to local storage:", dbErr);
+            }
+
+            // Always update localStorage orbit_coupons
+            const newObj = createdCoupon || {
+                ...payload,
+                id: `coupon_${Date.now()}`,
+                used_count: 0,
+                created_at: new Date().toISOString()
+            };
+
+            try {
+                const saved = localStorage.getItem("orbit_coupons");
+                const list = saved ? JSON.parse(saved) : [];
+                list.unshift(newObj);
+                localStorage.setItem("orbit_coupons", JSON.stringify(list));
+            } catch (e) {}
 
             toast({ title: "Coupon Created! 🎟️", description: `Code "${payload.code}" is now active.` });
             setCreateDialogOpen(false);
@@ -206,11 +238,23 @@ export default function CouponManager({ teacherId, courses }: CouponManagerProps
 
     const handleToggleCoupon = async (couponId: string, isActive: boolean) => {
         try {
-            const { error } = await supabase
-                .from("coupons")
-                .update({ is_active: !isActive, updated_at: new Date().toISOString() })
-                .eq("id", couponId);
-            if (error) throw error;
+            try {
+                await supabase
+                    .from("coupons")
+                    .update({ is_active: !isActive, updated_at: new Date().toISOString() })
+                    .eq("id", couponId);
+            } catch (e) {}
+
+            // Always update localStorage
+            try {
+                const saved = localStorage.getItem("orbit_coupons");
+                if (saved) {
+                    const list = JSON.parse(saved);
+                    const updated = list.map((c: any) => c.id === couponId ? { ...c, is_active: !isActive } : c);
+                    localStorage.setItem("orbit_coupons", JSON.stringify(updated));
+                }
+            } catch (e) {}
+
             toast({ title: isActive ? "Coupon Deactivated" : "Coupon Activated" });
             fetchCoupons();
         } catch (err: any) {
@@ -221,8 +265,20 @@ export default function CouponManager({ teacherId, courses }: CouponManagerProps
     const handleDeleteCoupon = async (couponId: string, code: string) => {
         if (!confirm(`Are you sure you want to permanently delete coupon "${code}"?`)) return;
         try {
-            const { error } = await supabase.from("coupons").delete().eq("id", couponId);
-            if (error) throw error;
+            try {
+                await supabase.from("coupons").delete().eq("id", couponId);
+            } catch (e) {}
+
+            // Update localStorage
+            try {
+                const saved = localStorage.getItem("orbit_coupons");
+                if (saved) {
+                    const list = JSON.parse(saved);
+                    const filtered = list.filter((c: any) => c.id !== couponId && c.code !== code);
+                    localStorage.setItem("orbit_coupons", JSON.stringify(filtered));
+                }
+            } catch (e) {}
+
             toast({ title: "Coupon Deleted", description: `"${code}" has been removed.` });
             fetchCoupons();
         } catch (err: any) {

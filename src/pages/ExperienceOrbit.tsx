@@ -314,7 +314,7 @@ export default function ExperienceOrbit() {
                 <motion.div
                     initial={{ opacity: 0, y: 80, scale: 0.94 }}
                     whileInView={{ opacity: 1, y: 0, scale: 1 }}
-                    viewport={{ once: false, amount: 0.2 }}
+                    viewport={{ once: true, amount: 0.15 }}
                     transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
                     className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center"
                 >
@@ -391,7 +391,7 @@ export default function ExperienceOrbit() {
                 <motion.div
                     initial={{ opacity: 0, y: 80, scale: 0.94 }}
                     whileInView={{ opacity: 1, y: 0, scale: 1 }}
-                    viewport={{ once: false, amount: 0.2 }}
+                    viewport={{ once: true, amount: 0.15 }}
                     transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
                     className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center"
                 >
@@ -497,7 +497,7 @@ export default function ExperienceOrbit() {
                 <motion.div
                     initial={{ opacity: 0, y: 80, scale: 0.94 }}
                     whileInView={{ opacity: 1, y: 0, scale: 1 }}
-                    viewport={{ once: false, amount: 0.2 }}
+                    viewport={{ once: true, amount: 0.15 }}
                     transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
                     className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center"
                 >
@@ -591,7 +591,7 @@ export default function ExperienceOrbit() {
                 <motion.div
                     initial={{ opacity: 0, y: 80, scale: 0.94 }}
                     whileInView={{ opacity: 1, y: 0, scale: 1 }}
-                    viewport={{ once: false, amount: 0.2 }}
+                    viewport={{ once: true, amount: 0.15 }}
                     transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
                     className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center"
                 >
@@ -673,7 +673,7 @@ export default function ExperienceOrbit() {
                 <motion.div
                     initial={{ opacity: 0, y: 80, scale: 0.94 }}
                     whileInView={{ opacity: 1, y: 0, scale: 1 }}
-                    viewport={{ once: false, amount: 0.2 }}
+                    viewport={{ once: true, amount: 0.15 }}
                     transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
                     className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center"
                 >
@@ -737,7 +737,7 @@ export default function ExperienceOrbit() {
                 <motion.div
                     initial={{ opacity: 0, y: 80, scale: 0.94 }}
                     whileInView={{ opacity: 1, y: 0, scale: 1 }}
-                    viewport={{ once: false, amount: 0.2 }}
+                    viewport={{ once: true, amount: 0.15 }}
                     transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
                     className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center"
                 >

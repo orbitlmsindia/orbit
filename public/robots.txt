@@ -1,14 +1,24 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
+# Orbit LMS Robots Policy
+# Compliant with RFC 9309 and Search Engine Crawling Standards
 
 User-agent: *
 Allow: /
+Allow: /courses
+Allow: /login
+Allow: /register
+Allow: /experience
+Allow: /blog
+Allow: /careers
+Allow: /public/
+
+# Protect authenticated and institutional administrative surfaces
+Disallow: /admin/
+Disallow: /teacher/
+Disallow: /student/
+Disallow: /master/
+Disallow: /finance/
+Disallow: /api/
+
+# Host and Sitemap
+Host: https://orbitlms.com
+Sitemap: https://orbitlms.com/sitemap.xml

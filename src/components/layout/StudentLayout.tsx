@@ -121,9 +121,9 @@ export function StudentLayout({ children, showTopBar = true }: StudentLayoutProp
         <SidebarProvider>
             <div className="min-h-screen flex w-full bg-background">
                 <StudentSidebar />
-                <SidebarInset className="flex-1 flex flex-col min-w-0">
+                <SidebarInset className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
                     {showTopBar && <TopBar />}
-                    <main className="flex-1 p-3 sm:p-4 lg:p-6 overflow-auto bg-background/50 pb-20 lg:pb-6">
+                    <main className="flex-1 p-3 sm:p-4 lg:p-6 overflow-auto bg-background/50 pb-24 lg:pb-8 touch-pan-smooth">
                         <div className="max-w-7xl mx-auto w-full space-y-4 sm:space-y-6">
                             {children}
                         </div>

@@ -35,6 +35,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { useToast } from "@/hooks/use-toast";
 import { MarkdownRenderer } from "@/components/ui/MarkdownRenderer";
 import { SecureVideoPlayer } from "@/components/video/SecureVideoPlayer";
+import { CourseAchievementsModal } from "@/components/gamification/CourseAchievementsModal";
+import { Trophy, ShieldAlert, ShieldCheck } from "lucide-react";
+import { DynamicWatermark } from "@/components/security/DynamicWatermark";
 import { getEmbeddablePresentationUrl, getEmbeddableDocUrl, isGoogleDriveUrl } from "@/lib/googleDriveUtils";
 
 export default function CoursePlayer() {
@@ -50,6 +53,7 @@ export default function CoursePlayer() {
     const [currentContent, setCurrentContent] = useState<any>(null);
     const [userEmail, setUserEmail] = useState<string>("");
     const [userId, setUserId] = useState<string>("");
+    const [userName, setUserName] = useState<string>("Orbit Student");
     const [isBlurred, setIsBlurred] = useState(false);
     const [isBlackedOut, setIsBlackedOut] = useState(false);
 
@@ -59,16 +63,26 @@ export default function CoursePlayer() {
     const [unlockedSections, setUnlockedSections] = useState<Set<string>>(new Set());
     const [watchProgressMap, setWatchProgressMap] = useState<Record<string, number>>({});
     const [streakModalOpen, setStreakModalOpen] = useState(false);
+    const [achievementsModalOpen, setAchievementsModalOpen] = useState(false);
     const [streakCount, setStreakCount] = useState(3);
 
     useEffect(() => {
         if (id) fetchCourseContent();
 
-        // 0. Fetch current user for watermark
+        // 0. Fetch current user for dynamic watermark & security
         const checkUser = async () => {
             const { data: { user } } = await supabase.auth.getUser();
-            if (user?.email) {
-                setUserEmail(user.email);
+            if (user) {
+                setUserEmail(user.email || "student@orbitlms.com");
+                setUserId(user.id);
+                const { data: profile } = await supabase
+                    .from('users')
+                    .select('full_name')
+                    .eq('id', user.id)
+                    .maybeSingle();
+                if (profile?.full_name) {
+                    setUserName(profile.full_name);
+                }
             }
         };
         checkUser();
@@ -78,25 +92,49 @@ export default function CoursePlayer() {
             e.preventDefault();
         };
 
-        // 2. Prevent common keyboard shortcuts for screenshots and saving
+        // 2. Comprehensive Security, Screen Capture & DevTools Interception
         const handleKeyDown = (e: KeyboardEvent) => {
+            // PrintScreen & Screenshot shortcuts
             if (e.key === 'PrintScreen' || e.code === 'PrintScreen') {
                 e.preventDefault();
-                navigator.clipboard.writeText(""); // Clear clipboard to prevent taking actual screenshots usually
+                try {
+                    navigator.clipboard.writeText("LEAK PREVENTION: Course materials are protected by OrbitLMS DRM. Screenshots are prohibited.");
+                } catch (_) {}
                 setIsBlackedOut(true);
-                toast({ variant: "destructive", title: "Action Not Allowed", description: "Taking screenshots is strictly prohibited." });
-                setTimeout(() => setIsBlackedOut(false), 3000); // Blackout for 3s to deter
+                toast({ variant: "destructive", title: "Screenshot Blocked", description: "Taking screenshots of proprietary educational material is prohibited." });
+                setTimeout(() => setIsBlackedOut(false), 3500);
+                return;
             }
             if (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4' || e.key === '5' || e.key.toLowerCase() === 's')) {
                 e.preventDefault();
-                navigator.clipboard.writeText("");
+                try { navigator.clipboard.writeText(""); } catch (_) {}
                 setIsBlackedOut(true);
-                toast({ variant: "destructive", title: "Action Not Allowed", description: "Taking screenshots is strictly prohibited." });
-                setTimeout(() => setIsBlackedOut(false), 3000);
+                toast({ variant: "destructive", title: "Screen Capture Blocked", description: "Taking screenshots is strictly prohibited." });
+                setTimeout(() => setIsBlackedOut(false), 3500);
+                return;
             }
-            if (e.ctrlKey && (e.key === 'p' || e.key === 's' || e.key === 'c' || e.key === 'PrintScreen' || e.code === 'PrintScreen')) {
+            // DevTools Blocking (F12, Ctrl+Shift+I/J/C)
+            if (e.key === 'F12' || e.code === 'F12' || (e.ctrlKey && e.shiftKey && ['KeyI', 'KeyJ', 'KeyC', 'i', 'I', 'j', 'J', 'c', 'C'].includes(e.code || e.key))) {
                 e.preventDefault();
-                toast({ variant: "destructive", title: "Action Not Allowed", description: "Print, Save, and Copy actions are disabled." });
+                e.stopPropagation();
+                toast({ variant: "destructive", title: "Developer Tools Disabled", description: "Inspection of course content is strictly forbidden." });
+                return;
+            }
+            // View Source (Ctrl+U), Save (Ctrl+S), Print (Ctrl+P)
+            if (e.ctrlKey && ['u', 'U', 's', 'S', 'p', 'P'].includes(e.key)) {
+                e.preventDefault();
+                e.stopPropagation();
+                toast({ variant: "destructive", title: "Action Restricted", description: "Printing, saving, and source viewing are disabled." });
+                return;
+            }
+            // Block Copy outside inputs
+            if (e.ctrlKey && (e.key === 'c' || e.key === 'C')) {
+                const active = document.activeElement;
+                const isInput = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
+                if (!isInput) {
+                    e.preventDefault();
+                    toast({ variant: "destructive", title: "Copying Blocked", description: "Copying course material is prohibited." });
+                }
             }
         };
 
@@ -195,7 +233,7 @@ export default function CoursePlayer() {
                 .from('course_sections')
                 .select(`
                     id, title, order_index, week_number, allocated_hours, topic_name,
-                    items:section_contents(id, title, video_url, pdf_url, content_text, duration_minutes, order_index, created_at, min_watch_percent)
+                    items:section_contents(id, title, type, content_url, video_url, pdf_url, content_text, duration_minutes, order_index, created_at, min_watch_percent)
                 `)
                 .eq('course_id', id)
                 .order('order_index', { ascending: true });
@@ -206,7 +244,7 @@ export default function CoursePlayer() {
                     .from('course_sections')
                     .select(`
                         id, title, week_number, allocated_hours, topic_name,
-                        items:section_contents(id, title, video_url, pdf_url, content_text, duration_minutes, created_at, min_watch_percent)
+                        items:section_contents(id, title, type, content_url, video_url, pdf_url, content_text, duration_minutes, created_at, min_watch_percent)
                     `)
                     .eq('course_id', id);
                 sectionsData = fallbackSections || [];
@@ -403,15 +441,18 @@ export default function CoursePlayer() {
         <>
             {/* Blackout Warning for Screenshots */}
             {isBlackedOut && (
-                <div className="fixed inset-0 z-[10000] bg-black flex items-center justify-center">
-                    <div className="text-center p-8 text-white max-w-md mx-4">
-                        <div className="h-20 w-20 bg-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <Video className="h-10 w-10 text-white" />
-                        </div>
-                        <h2 className="text-3xl font-bold mb-4">Screenshots Disabled</h2>
-                        <p className="text-lg opacity-80">
-                            Taking screenshots or recording is strictly prohibited.
-                        </p>
+                <div className="fixed inset-0 z-[10000] bg-black flex flex-col items-center justify-center text-white p-6 text-center select-none animate-fade-in">
+                    <div className="h-20 w-20 bg-red-950/80 border border-red-500/50 rounded-full flex items-center justify-center mx-auto mb-5 text-red-400 animate-bounce">
+                        <ShieldAlert className="h-10 w-10" />
+                    </div>
+                    <h2 className="text-2xl sm:text-3xl font-bold font-display mb-3 text-red-400">
+                        CONTENT PROTECTION ACTIVE
+                    </h2>
+                    <p className="text-sm sm:text-base text-slate-300 max-w-md leading-relaxed mb-4">
+                        Taking screenshots or screen recording of course lectures and study materials is strictly prohibited by OrbitLMS DRM.
+                    </p>
+                    <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl font-mono text-xs text-slate-400">
+                        Student: {userEmail} • Forensic Security Telemetry Logged
                     </div>
                 </div>
             )}
@@ -432,11 +473,11 @@ export default function CoursePlayer() {
             )}
 
             <div className={cn(
-                "flex h-screen w-full bg-background overflow-hidden flex-col select-none",
+                "flex h-screen w-full bg-background overflow-hidden flex-col select-none content-protected",
                 isBlurred && "filter blur-md pointer-events-none"
             )}>
                 {/* Top Bar for Learning Mode */}
-                <header className="h-16 border-b flex items-center px-4 justify-between bg-card z-10 shrink-0 shadow-2xs">
+                <header className="h-16 border-b flex items-center px-4 justify-between bg-card/90 backdrop-blur-xl z-10 shrink-0 shadow-2xs pt-[env(safe-area-inset-top,0px)]">
                     <div className="flex items-center gap-3 min-w-0">
                         <Link to="/student/courses" className="shrink-0">
                             <Button variant="ghost" size="icon" className="h-9 w-9">
@@ -462,6 +503,17 @@ export default function CoursePlayer() {
                             <Progress value={overallProgressPercent} className="h-1.5 w-full bg-muted" />
                         </div>
 
+                                                {/* 🏆 Course Achievements & Aura Modal Trigger */}
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => setAchievementsModalOpen(true)}
+                            className="gap-1.5 font-bold border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 text-xs px-2.5 h-9"
+                            title="View Course Achievements, Aura Points & Leaderboard"
+                        >
+                            <Trophy className="h-4 w-4 text-amber-500" />
+                            <span className="hidden md:inline">Achievements & Aura</span>
+                        </Button>
                         {/* Sidebar Toggle Button (Visible on both Desktop & Mobile) */}
                         <Button 
                             variant={sidebarOpen ? "secondary" : "default"} 
@@ -525,18 +577,26 @@ export default function CoursePlayer() {
                                             <Badge className="bg-purple-600/10 text-purple-600 border-purple-500/30 text-xs">Protected Content</Badge>
                                         </div>
                                         <div className="relative aspect-video rounded-xl overflow-hidden bg-black border border-border shadow-inner">
-                                            <div className="absolute inset-0 pointer-events-none z-20 flex items-center justify-center opacity-15 rotate-[-25deg]">
-                                                <span className="text-lg sm:text-2xl font-mono font-bold text-foreground tracking-widest uppercase">
-                                                    PROTECTED • {userEmail || "Orbit Student"}
-                                                </span>
-                                            </div>
-                                            <div className="absolute top-0 right-0 w-40 h-14 z-30 pointer-events-auto cursor-pointer bg-transparent" title="Protected Content" onClick={(e) => e.stopPropagation()} />
+                                            <DynamicWatermark userEmail={userEmail} userName={userName} studentId={userId} opacity={0.08} />
+                                            <div 
+                                                className="absolute top-0 right-0 w-64 h-16 z-30 pointer-events-auto cursor-not-allowed bg-transparent" 
+                                                title="Direct Downloads Restricted" 
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    e.preventDefault();
+                                                    toast({ 
+                                                        variant: "destructive", 
+                                                        title: "🔒 Download & External Pop-out Restricted", 
+                                                        description: "Direct presentation downloads and external popouts are strictly disabled for proprietary course materials." 
+                                                    });
+                                                }} 
+                                            />
                                             <iframe
                                                 src={getEmbeddablePresentationUrl(currentContent.content_url || currentContent.pdf_url || currentContent.url || '')}
                                                 className="w-full h-full border-none"
                                                 title={currentContent.title}
                                                 allow="fullscreen"
-                                                sandbox="allow-scripts allow-same-origin allow-presentation"
+                                                sandbox="allow-scripts allow-same-origin allow-presentation allow-forms"
                                             />
                                         </div>
                                     </div>
@@ -553,18 +613,26 @@ export default function CoursePlayer() {
                                             <Badge className="bg-blue-500/10 text-blue-600 border-blue-500/30 text-xs">Proprietary Material</Badge>
                                         </div>
                                         <div className="relative h-[380px] sm:h-[550px] w-full rounded-xl overflow-hidden bg-muted/20 border border-border shadow-inner">
-                                            <div className="absolute inset-0 pointer-events-none z-20 flex items-center justify-center opacity-15 rotate-[-25deg]">
-                                                <span className="text-lg sm:text-2xl font-mono font-bold text-foreground tracking-widest uppercase">
-                                                    PROTECTED • {userEmail || "Orbit Student"}
-                                                </span>
-                                            </div>
-                                            <div className="absolute top-0 right-0 w-40 h-14 z-30 pointer-events-auto cursor-pointer bg-transparent" title="Protected Material" onClick={(e) => e.stopPropagation()} />
+                                            <DynamicWatermark userEmail={userEmail} userName={userName} studentId={userId} opacity={0.08} />
+                                            <div 
+                                                className="absolute top-0 right-0 w-64 h-16 z-30 pointer-events-auto cursor-not-allowed bg-transparent" 
+                                                title="Direct Downloads Restricted" 
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    e.preventDefault();
+                                                    toast({ 
+                                                        variant: "destructive", 
+                                                        title: "🔒 Download & External Pop-out Restricted", 
+                                                        description: "Direct document downloads and external popouts are strictly disabled for proprietary course materials." 
+                                                    });
+                                                }} 
+                                            />
                                             <iframe
                                                 src={getEmbeddableDocUrl(currentContent.content_url || currentContent.pdf_url || currentContent.url || '')}
                                                 className="w-full h-full border-none"
                                                 title={currentContent.title}
                                                 allow="fullscreen"
-                                                sandbox="allow-scripts allow-same-origin allow-presentation"
+                                                sandbox="allow-scripts allow-same-origin allow-presentation allow-forms"
                                             />
                                         </div>
                                     </div>
@@ -572,12 +640,15 @@ export default function CoursePlayer() {
 
                                 {/* 4. Text Notes Content */}
                                 {currentContent.content_text && (
-                                    <div className="bg-card p-5 sm:p-8 rounded-xl border shadow-xs max-w-none select-none" onContextMenu={(e) => e.preventDefault()}>
-                                        <div className="flex items-center gap-2 mb-4 pb-3 border-b">
+                                    <div className="bg-card p-5 sm:p-8 rounded-xl border shadow-xs max-w-none select-none relative overflow-hidden" onContextMenu={(e) => e.preventDefault()}>
+                                        <DynamicWatermark userEmail={userEmail} userName={userName} studentId={userId} opacity={0.06} />
+                                        <div className="flex items-center gap-2 mb-4 pb-3 border-b relative z-10">
                                             <Type className="h-5 w-5 text-primary" />
                                             <h3 className="text-base sm:text-lg font-bold">Lesson Notes & Material</h3>
                                         </div>
-                                        <MarkdownRenderer content={currentContent.content_text} />
+                                        <div className="relative z-10">
+                                            <MarkdownRenderer content={currentContent.content_text} />
+                                        </div>
                                     </div>
                                 )}
 
@@ -630,8 +701,11 @@ export default function CoursePlayer() {
                             </div>
                         )}
 
-                        {/* Navigation Footer */}
-                        <div className="shrink-0 p-3 sm:p-4 border-t bg-card flex items-center justify-between max-w-4xl mx-auto w-full gap-2">
+                        {/* Navigation Footer with Safe Area */}
+                        <div 
+                            className="shrink-0 p-3 sm:p-4 border-t bg-card/95 backdrop-blur-xl flex items-center justify-between max-w-4xl mx-auto w-full gap-2"
+                            style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 12px)" }}
+                        >
                             <Button 
                                 variant="outline" 
                                 size="sm"

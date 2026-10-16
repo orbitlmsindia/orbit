@@ -13,7 +13,8 @@ import {
   LogOut,
   Calendar,
   Trophy,
-  Mail
+  Mail,
+  Receipt
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -47,6 +48,7 @@ import { useNotifications } from "@/contexts/NotificationContext";
 
 const mainNavItems = [
   { title: "Dashboard", url: "/admin", icon: Home },
+  { title: "Subscriptions & Invoices", url: "/admin/billing", icon: Receipt },
   { title: "Get In Touch", url: "/admin/inquiries", icon: Mail },
   { title: "User Management", url: "/admin/users", icon: Users },
   { title: "Course Management", url: "/admin/courses", icon: BookOpen },

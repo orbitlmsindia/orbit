@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/lib/supabase";
-import { Loader2, FileJson, Button } from "lucide-react";
+import { Loader2, FileJson } from "lucide-react";
 import { format } from "date-fns";
 import { JsonCalendarUpdaterModal } from "@/components/calendar/JsonCalendarUpdaterModal";
 

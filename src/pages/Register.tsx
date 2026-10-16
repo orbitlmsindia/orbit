@@ -4,9 +4,8 @@ import { AuthLayout } from "@/components/layout/AuthLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, AlertCircle, CheckCircle2, User, GraduationCap } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle2, User, GraduationCap, Eye, EyeOff, Check, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { motion } from "framer-motion";
@@ -18,13 +17,17 @@ export default function Register() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // Password visibility toggles (REG-01)
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
     const [formData, setFormData] = useState({
         firstName: "",
         lastName: "",
         email: "",
         password: "",
         confirmPassword: "",
-        department: "", // For mentors/teachers
+        department: "",
         aadhar: "",
         mobile: "",
         address: ""
@@ -34,6 +37,13 @@ export default function Register() {
         setRole(selectedRole);
         setStep("form");
     };
+
+    // Password requirement checks (REG-02)
+    const hasMinLength = formData.password.length >= 8;
+    const hasUpperCase = /[A-Z]/.test(formData.password);
+    const hasNumber = /\d/.test(formData.password);
+    const hasSpecialChar = /[@$!%*?&#^()_\-+={}[\]:;"'<>,.?/\\|]/.test(formData.password);
+    const isPasswordValid = hasMinLength && hasUpperCase && hasNumber && hasSpecialChar;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -45,8 +55,20 @@ export default function Register() {
             return;
         }
 
-        if (role === "student" && (!formData.aadhar || !formData.mobile || !formData.address)) {
-            setError("Please fill in all student details (Aadhar, Mobile, Address).");
+        // Mobile validation (REG-03)
+        const cleanMobile = formData.mobile.replace(/\D/g, '').slice(-10);
+        if (cleanMobile.length !== 10) {
+            setError("Please enter a valid 10-digit mobile number.");
+            return;
+        }
+
+        if (role === "student" && (!formData.aadhar || !formData.address)) {
+            setError("Please fill in all student details (Aadhar and Address).");
+            return;
+        }
+
+        if (role === "student" && formData.aadhar.replace(/\D/g, '').length !== 12) {
+            setError("Please enter a valid 12-digit Aadhar number.");
             return;
         }
 
@@ -55,9 +77,8 @@ export default function Register() {
             return;
         }
 
-        const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-        if (!passwordRegex.test(formData.password)) {
-            setError("Password must be at least 8 characters long, and include an uppercase letter, a number, and a special character.");
+        if (!isPasswordValid) {
+            setError("Password must meet all requirements: at least 8 characters, 1 uppercase letter, 1 number, and 1 special symbol.");
             return;
         }
 
@@ -70,10 +91,9 @@ export default function Register() {
 
         try {
             const fullName = `${formData.firstName} ${formData.lastName}`;
+            const normalizedMobile = `+91 ${cleanMobile}`;
 
             // Sign up with Supabase
-            // We pass the role in metadata. The handle_new_user trigger must handle this.
-            // We are banking on an 'status' field being added or handled by admin later.
             const { data, error: signUpError } = await supabase.auth.signUp({
                 email: formData.email,
                 password: formData.password,
@@ -82,9 +102,9 @@ export default function Register() {
                         full_name: fullName,
                         role: role,
                         department: formData.department,
-                        status: role === "student" ? "active" : "pending", // Auto approve student
+                        status: role === "student" ? "active" : "pending",
                         aadhar_number: formData.aadhar,
-                        mobile_number: formData.mobile,
+                        mobile_number: normalizedMobile,
                         address: formData.address
                     },
                 },
@@ -93,9 +113,7 @@ export default function Register() {
             if (signUpError) throw signUpError;
 
             if (data.user) {
-                // FALLBACK: Manually insert user data if the trigger failed to do so.
-                // We attempt an UPSERT to be safe (idempotent).
-                // Note: RLS must allow users to insert their own row.
+                // Upsert to public users table
                 const { error: insertError } = await supabase.from('users').upsert({
                     id: data.user.id,
                     email: formData.email,
@@ -103,18 +121,17 @@ export default function Register() {
                     role: role,
                     status: role === 'student' ? 'active' : 'pending',
                     department: formData.department || null,
-                    // Assuming these columns might not exist yet in public table, but we try sending them if they do
-                    // or rely on metadata. But usually public 'users' table is for display.
-                    // Storing sensitive info like Aadhar in public table requires Row Level Security (RLS) to be very strict.
+                    mobile_number: normalizedMobile,
+                    aadhar_number: formData.aadhar,
+                    address: formData.address
                 }, { onConflict: 'id' });
 
                 if (insertError) {
-                    // Try to log it, but don't block success if the trigger actually worked and this failed due to redundancy
-                    console.warn("Manual user insert warning (might be handled by trigger):", insertError);
+                    console.warn("Manual user insert notice:", insertError);
                 }
 
                 if (role === "student") {
-                    navigate("/student"); // Automatically login and redirect student
+                    navigate("/student");
                 } else {
                     setStep("success");
                 }
@@ -229,12 +246,15 @@ export default function Register() {
 
                     {role === "student" && (
                         <div className="space-y-2">
-                            <Label htmlFor="aadhar">Aadhar Number</Label>
+                            <Label htmlFor="aadhar">Aadhar Number (12 digits)</Label>
                             <Input
                                 id="aadhar"
                                 placeholder="12-digit Aadhar Number"
                                 value={formData.aadhar}
-                                onChange={(e) => setFormData({ ...formData, aadhar: e.target.value })}
+                                onChange={(e) => {
+                                    const digits = e.target.value.replace(/\D/g, '').slice(0, 12);
+                                    setFormData({ ...formData, aadhar: digits });
+                                }}
                                 required
                                 maxLength={12}
                             />
@@ -243,17 +263,24 @@ export default function Register() {
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label htmlFor="mobile">Mobile Number</Label>
+                            <Label htmlFor="mobile">10-Digit Mobile Number</Label>
                             <Input
                                 id="mobile"
-                                placeholder="+91 XXXXXXXXXX"
+                                placeholder="9876543210"
                                 value={formData.mobile}
-                                onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
+                                onChange={(e) => {
+                                    const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
+                                    setFormData({ ...formData, mobile: digits });
+                                }}
                                 required
+                                maxLength={10}
                             />
+                            {formData.mobile && formData.mobile.length !== 10 && (
+                                <p className="text-[11px] text-amber-500">Must be exactly 10 digits ({formData.mobile.length}/10)</p>
+                            )}
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="address">Address</Label>
+                            <Label htmlFor="address">Address / City</Label>
                             <Input
                                 id="address"
                                 placeholder="City, State"
@@ -285,33 +312,86 @@ export default function Register() {
                         </div>
                     )}
 
+                    {/* Password field with Eye toggle (REG-01) */}
                     <div className="space-y-2">
                         <Label htmlFor="password">Password</Label>
-                        <Input
-                            id="password"
-                            type="password"
-                            placeholder="Create a password"
-                            value={formData.password}
-                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                            required
-                            minLength={6}
-                        />
+                        <div className="relative">
+                            <Input
+                                id="password"
+                                type={showPassword ? "text" : "password"}
+                                placeholder="Create a strong password"
+                                value={formData.password}
+                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                required
+                                className="pr-10"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
+                                aria-label={showPassword ? "Hide password" : "Show password"}
+                            >
+                                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                        </div>
+
+                        {/* Real-time Password Requirements Checklist (REG-02) */}
+                        {formData.password && (
+                            <div className="p-2.5 rounded-lg bg-muted/40 border space-y-1 text-xs">
+                                <p className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider mb-1">
+                                    Password Requirements:
+                                </p>
+                                <div className="grid grid-cols-2 gap-1 text-[11px]">
+                                    <div className={`flex items-center gap-1.5 ${hasMinLength ? "text-emerald-600 font-medium" : "text-muted-foreground"}`}>
+                                        {hasMinLength ? <Check className="h-3 w-3" /> : <X className="h-3 w-3 text-muted-foreground/60" />}
+                                        <span>8+ characters</span>
+                                    </div>
+                                    <div className={`flex items-center gap-1.5 ${hasUpperCase ? "text-emerald-600 font-medium" : "text-muted-foreground"}`}>
+                                        {hasUpperCase ? <Check className="h-3 w-3" /> : <X className="h-3 w-3 text-muted-foreground/60" />}
+                                        <span>1 uppercase (A-Z)</span>
+                                    </div>
+                                    <div className={`flex items-center gap-1.5 ${hasNumber ? "text-emerald-600 font-medium" : "text-muted-foreground"}`}>
+                                        {hasNumber ? <Check className="h-3 w-3" /> : <X className="h-3 w-3 text-muted-foreground/60" />}
+                                        <span>1 number (0-9)</span>
+                                    </div>
+                                    <div className={`flex items-center gap-1.5 ${hasSpecialChar ? "text-emerald-600 font-medium" : "text-muted-foreground"}`}>
+                                        {hasSpecialChar ? <Check className="h-3 w-3" /> : <X className="h-3 w-3 text-muted-foreground/60" />}
+                                        <span>1 symbol (@$!%*...)</span>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
+                    {/* Confirm Password field with Eye toggle */}
                     <div className="space-y-2">
                         <Label htmlFor="confirmPassword">Confirm Password</Label>
-                        <Input
-                            id="confirmPassword"
-                            type="password"
-                            placeholder="Confirm password"
-                            value={formData.confirmPassword}
-                            onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                            required
-                        />
+                        <div className="relative">
+                            <Input
+                                id="confirmPassword"
+                                type={showConfirmPassword ? "text" : "password"}
+                                placeholder="Confirm your password"
+                                value={formData.confirmPassword}
+                                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                                required
+                                className="pr-10"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
+                                aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                            >
+                                {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                        </div>
+                        {formData.confirmPassword && formData.password !== formData.confirmPassword && (
+                            <p className="text-[11px] text-destructive">Passwords do not match</p>
+                        )}
                     </div>
 
                     <div className="flex flex-col gap-4 mt-6">
-                        <Button type="submit" className="w-full" size="lg" disabled={loading}>
+                        <Button type="submit" className="w-full" size="lg" disabled={loading || !isPasswordValid}>
                             {loading ? (
                                 <>
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

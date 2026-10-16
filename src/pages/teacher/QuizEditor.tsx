@@ -3,11 +3,13 @@ import { useParams, useNavigate } from "react-router-dom";
 import { TeacherLayout } from "@/components/layout/TeacherLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Trash2, Plus, Save, ChevronLeft, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Trash2, Plus, Save, ChevronLeft, Loader2, FileCode, Upload, Sparkles } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 
@@ -17,6 +19,10 @@ export default function QuizEditor() {
     const { toast } = useToast();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+
+    // Import modal state
+    const [importModalOpen, setImportModalOpen] = useState(false);
+    const [jsonPaperText, setJsonPaperText] = useState("");
 
     const [quiz, setQuiz] = useState<any>(null);
     const [questions, setQuestions] = useState<any[]>([]);
@@ -185,6 +191,52 @@ export default function QuizEditor() {
         }
     };
 
+    const handleImportQuestionsJson = () => {
+        try {
+            if (!jsonPaperText.trim()) {
+                toast({ variant: "destructive", title: "Error", description: "Please enter JSON questions." });
+                return;
+            }
+
+            const parsed = JSON.parse(jsonPaperText);
+            const rawQuestions = Array.isArray(parsed) ? parsed : (parsed.questions || []);
+
+            if (!Array.isArray(rawQuestions) || rawQuestions.length === 0) {
+                toast({ variant: "destructive", title: "Invalid Format", description: "JSON must be an array of questions or an object with a 'questions' array." });
+                return;
+            }
+
+            const formatted = rawQuestions.map((item: any, idx: number) => {
+                const qType = item.type || (item.options ? 'mcq' : 'short');
+                let options = item.options;
+                if (qType === 'boolean' && (!options || options.length === 0)) {
+                    options = ["True", "False"];
+                } else if (qType === 'mcq' && (!options || options.length === 0)) {
+                    options = ["Option 1", "Option 2", "Option 3", "Option 4"];
+                }
+
+                return {
+                    id: `temp-${Date.now()}-${idx}`,
+                    type: qType,
+                    question_text: item.question_text || item.question || `Question ${idx + 1}`,
+                    points: item.points !== undefined ? Number(item.points) : (item.marks !== undefined ? Number(item.marks) : 10),
+                    options: options || null,
+                    correct_answer: item.correct_answer || item.answer || (options ? options[0] : "")
+                };
+            });
+
+            setQuestions(prev => [...prev, ...formatted]);
+            toast({
+                title: "Questions Imported! 🚀",
+                description: `Successfully loaded ${formatted.length} question(s) into this quiz.`
+            });
+            setImportModalOpen(false);
+            setJsonPaperText("");
+        } catch (e: any) {
+            toast({ variant: "destructive", title: "JSON Syntax Error", description: e.message });
+        }
+    };
+
     if (loading) {
         return (
             <TeacherLayout>
@@ -197,18 +249,29 @@ export default function QuizEditor() {
 
     return (
         <TeacherLayout>
-            <div className="flex items-center gap-4 mb-6 animate-fade-in">
-                <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-                    <ChevronLeft className="h-5 w-5" />
-                </Button>
-                <div className="flex-1">
-                    <h1 className="text-2xl font-display font-bold">Edit Quiz: {quiz?.title}</h1>
-                    <p className="text-muted-foreground text-sm">Add and configure Multiple Choice (MCQs), Boolean (True/False), and open-ended questions.</p>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 animate-fade-in">
+                <div className="flex items-center gap-4">
+                    <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+                        <ChevronLeft className="h-5 w-5" />
+                    </Button>
+                    <div>
+                        <h1 className="text-2xl font-display font-bold">Edit Quiz: {quiz?.title}</h1>
+                        <p className="text-muted-foreground text-sm">Add and configure Multiple Choice (MCQs), Boolean (True/False), and open-ended questions.</p>
+                    </div>
                 </div>
-                <Button onClick={saveQuiz} disabled={saving} className="gap-2 font-bold bg-primary hover:bg-primary/90">
-                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                    Save Changes
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        onClick={() => setImportModalOpen(true)}
+                        className="gap-2 border-primary/20 text-primary hover:bg-primary/5 font-semibold"
+                    >
+                        <FileCode className="h-4 w-4" /> Import JSON Paper
+                    </Button>
+                    <Button onClick={saveQuiz} disabled={saving} className="gap-2 font-bold bg-primary hover:bg-primary/90">
+                        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                        Save Changes
+                    </Button>
+                </div>
             </div>
 
             <div className="space-y-6 max-w-4xl mx-auto pb-10">
@@ -337,6 +400,75 @@ export default function QuizEditor() {
                     <Plus className="h-4 w-4" /> Add Question (MCQ / True-False)
                 </Button>
             </div>
+
+            {/* Import Questions from JSON Question Paper Dialog */}
+            <Dialog open={importModalOpen} onOpenChange={setImportModalOpen}>
+                <DialogContent className="sm:max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <FileCode className="h-5 w-5 text-primary" />
+                            Import Questions from Exam Paper JSON
+                        </DialogTitle>
+                        <DialogDescription>
+                            Paste your JSON question bank or Exam Paper format. Questions will be validated and automatically loaded into this quiz editor.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4 py-2">
+                        <div className="flex items-center justify-between">
+                            <Label className="text-xs font-semibold text-muted-foreground">JSON Question Array or Paper Payload:</Label>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                    setJsonPaperText(JSON.stringify([
+                                        {
+                                            question_text: "What is the primary architectural benefit of Row-Level Security (RLS)?",
+                                            type: "mcq",
+                                            points: 10,
+                                            options: ["Kernel-level isolation", "Database-enforced tenant security", "Higher network throughput", "Client-side encryption"],
+                                            correct_answer: "Database-enforced tenant security"
+                                        },
+                                        {
+                                            question_text: "PostgreSQL functions configured with SECURITY DEFINER run with the privileges of the defining role.",
+                                            type: "boolean",
+                                            points: 5,
+                                            options: ["True", "False"],
+                                            correct_answer: "True"
+                                        },
+                                        {
+                                            question_text: "Explain the difference between horizontal and vertical database sharding in distributed systems.",
+                                            type: "short",
+                                            points: 15,
+                                            correct_answer: "Horizontal sharding splits rows across multiple database instances, while vertical sharding splits columns or tables across specialized nodes."
+                                        }
+                                    ], null, 2));
+                                }}
+                                className="text-xs text-primary gap-1"
+                            >
+                                <Sparkles className="h-3 w-3" /> Load Sample Questions
+                            </Button>
+                        </div>
+                        <Textarea
+                            rows={12}
+                            placeholder={`[\n  {\n    "question_text": "Sample MCQ Question?",\n    "type": "mcq",\n    "points": 10,\n    "options": ["A", "B", "C", "D"],\n    "correct_answer": "A"\n  }\n]`}
+                            value={jsonPaperText}
+                            onChange={(e) => setJsonPaperText(e.target.value)}
+                            className="font-mono text-xs"
+                        />
+                    </div>
+
+                    <DialogFooter className="gap-2">
+                        <Button variant="outline" onClick={() => setImportModalOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={handleImportQuestionsJson} className="gap-2 font-bold bg-primary">
+                            <Upload className="h-4 w-4" />
+                            Import Questions
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </TeacherLayout>
     );
 }

@@ -12,10 +12,10 @@ export default function FinanceDashboard() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
-    totalRevenueINR: 145000,
-    pendingPaymentsCount: 3,
-    approvedEnrollmentsCount: 28,
-    activeCouponsCount: 4
+    totalRevenueINR: 0,
+    pendingPaymentsCount: 0,
+    approvedEnrollmentsCount: 0,
+    activeCouponsCount: 0
   });
 
   const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
@@ -25,15 +25,67 @@ export default function FinanceDashboard() {
   }, []);
 
   const fetchFinanceMetrics = async () => {
-    setLoading(false);
-    // Mock/Real financial transactions
-    setRecentTransactions([
-      { id: "TXN-901", student: "Aarav Sharma", course: "Foundations of AI & ML", amount: 4999, mode: "UPI QR", status: "completed", date: "2026-08-03" },
-      { id: "TXN-902", student: "Priya Patel", course: "Intelligent Data Analytics", amount: 3999, mode: "Credit Card", status: "completed", date: "2026-08-02" },
-      { id: "TXN-903", student: "Rohan Verma", course: "Embedded Robotics & IoT", amount: 5999, mode: "UPI Direct", status: "pending", date: "2026-08-02" },
-      { id: "TXN-904", student: "Neha Singh", course: "Mastering OOP with Java", amount: 2999, mode: "Net Banking", status: "completed", date: "2026-08-01" },
-      { id: "TXN-905", student: "Vikram Rathore", course: "Civil Engineering & TKS", amount: 4499, mode: "UPI QR", status: "pending", date: "2026-08-01" },
-    ]);
+    try {
+      setLoading(true);
+      const { data: enrollments, error } = await supabase
+        .from("enrollments")
+        .select(`
+          id,
+          course_id,
+          student_id,
+          status,
+          transaction_id,
+          payment_method,
+          enrolled_at,
+          courses (id, title, price),
+          users:users!student_id (id, full_name, email)
+        `)
+        .order("enrolled_at", { ascending: false });
+
+      if (error) {
+        console.warn("Could not query enrollments for finance:", error);
+      }
+
+      const list = (enrollments as any[]) || [];
+      const approved = list.filter((e: any) => e.status === "approved" || e.status === "active");
+      const pending = list.filter((e: any) => e.status === "pending");
+
+      const totalRevenue = approved.reduce((sum: number, item: any) => {
+        const p = Number(item.courses?.price) || 0;
+        return sum + p;
+      }, 0);
+
+      let couponCount = 0;
+      try {
+        const { count } = await supabase.from("coupons").select("*", { count: "exact", head: true });
+        couponCount = count || 0;
+      } catch {
+        couponCount = 0;
+      }
+
+      setStats({
+        totalRevenueINR: totalRevenue,
+        pendingPaymentsCount: pending.length,
+        approvedEnrollmentsCount: approved.length,
+        activeCouponsCount: couponCount,
+      });
+
+      const formatted = list.slice(0, 10).map((tx: any) => ({
+        id: tx.transaction_id || `TXN-${tx.id.slice(0, 8).toUpperCase()}`,
+        student: tx.users?.full_name || tx.users?.email || "Student",
+        course: tx.courses?.title || "Standard Course",
+        amount: Number(tx.courses?.price) || 0,
+        mode: (tx.payment_method || "UPI / QR").toUpperCase(),
+        status: tx.status === "approved" || tx.status === "active" ? "completed" : tx.status,
+        date: tx.enrolled_at ? new Date(tx.enrolled_at).toISOString().split("T")[0] : "Recent",
+      }));
+
+      setRecentTransactions(formatted);
+    } catch (err) {
+      console.error("Finance metrics error:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

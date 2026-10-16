@@ -88,8 +88,11 @@ export default function TeacherHelpCenter() {
                             <p className="text-sm text-muted-foreground mb-4">
                                 For urgent institute-related queries.
                             </p>
-                            <Button variant="outline" className="w-full" disabled>
-                                -
+                            <Button variant="outline" className="w-full gap-2 text-primary border-primary/30 hover:bg-primary/5 font-semibold" asChild>
+                                <a href="tel:+919876543210">
+                                    <Phone className="h-4 w-4" />
+                                    Call Hotline: +91 98765 43210
+                                </a>
                             </Button>
                         </CardContent>
                     </Card>

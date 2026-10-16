@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  <url>
+    <loc>https://orbitlms.com/</loc>
+    <lastmod>2026-10-16</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="en-IN" href="https://orbitlms.com/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://orbitlms.com/" />
+    <image:image>
+      <image:loc>https://orbitlms.com/logo.jpeg</image:loc>
+      <image:title>Orbit LMS Academic Intelligence Platform</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://orbitlms.com/courses</loc>
+    <lastmod>2026-10-16</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="en-IN" href="https://orbitlms.com/courses" />
+  </url>
+  <url>
+    <loc>https://orbitlms.com/experience</loc>
+    <lastmod>2026-10-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://orbitlms.com/blog</loc>
+    <lastmod>2026-10-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://orbitlms.com/careers</loc>
+    <lastmod>2026-10-16</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://orbitlms.com/login</loc>
+    <lastmod>2026-10-16</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://orbitlms.com/register</loc>
+    <lastmod>2026-10-16</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+</urlset>

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { getTopicRelatedThumbnail } from "@/lib/thumbnailUtils";
 import { StudentLayout } from "@/components/layout/StudentLayout";
 import { CertificateCourseDetailModal } from "@/components/courses/CertificateCourseDetailModal";
+import { CourseAchievementsModal } from "@/components/gamification/CourseAchievementsModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -37,7 +38,8 @@ import {
     ExternalLink,
     IndianRupee,
     Ticket,
-    Tag
+    Tag,
+    Trophy
 } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
@@ -105,6 +107,7 @@ export default function StudentCourses() {
     const [selectedInstructor, setSelectedInstructor] = useState<string>("all");
     const [selectedOrganization, setSelectedOrganization] = useState<string>("all");
     const [selectedProgramForPreview, setSelectedProgramForPreview] = useState<any | null>(null);
+    const [selectedAchievementCourse, setSelectedAchievementCourse] = useState<{ id: string; title: string } | null>(null);
 
     // Course Overview Preview Modal State
     const [selectedCourseForPreview, setSelectedCourseForPreview] = useState<any | null>(null);
@@ -664,8 +667,10 @@ export default function StudentCourses() {
     };
 
     // Coupon validation
+    // Coupon validation with active/disabled checking and local fallback
     const handleApplyCoupon = async () => {
-        if (!couponCode.trim()) {
+        const cleanCode = couponCode.toUpperCase().trim();
+        if (!cleanCode) {
             setCouponError("Please enter a coupon code.");
             return;
         }
@@ -674,16 +679,42 @@ export default function StudentCourses() {
             setCouponError("");
             setCouponApplied(null);
 
-            const { data: coupon, error } = await supabase
-                .from('coupons')
-                .select('*')
-                .eq('code', couponCode.toUpperCase().trim())
-                .eq('is_active', true)
-                .maybeSingle();
+            let coupon: any = null;
 
-            if (error) throw error;
+            // 1. First try Supabase query
+            try {
+                const { data, error } = await supabase
+                    .from('coupons')
+                    .select('*')
+                    .eq('code', cleanCode)
+                    .maybeSingle();
+
+                if (!error && data) {
+                    coupon = data;
+                }
+            } catch (e) {
+                console.warn("Supabase coupon lookup error, checking local storage:", e);
+            }
+
+            // 2. Fallback to localStorage orbit_coupons
             if (!coupon) {
-                setCouponError("Invalid or expired coupon code.");
+                const localStr = localStorage.getItem("orbit_coupons");
+                if (localStr) {
+                    try {
+                        const localList = JSON.parse(localStr);
+                        coupon = localList.find((c: any) => c.code.toUpperCase().trim() === cleanCode);
+                    } catch (e) {}
+                }
+            }
+
+            if (!coupon) {
+                setCouponError("Invalid coupon code. Please verify the code.");
+                return;
+            }
+
+            // Check if coupon has been disabled by Administrator
+            if (coupon.is_active === false) {
+                setCouponError("This coupon has been disabled by the administrator.");
                 return;
             }
 
@@ -694,7 +725,7 @@ export default function StudentCourses() {
             }
 
             // Check max uses
-            if (coupon.max_uses !== null && coupon.used_count >= coupon.max_uses) {
+            if (coupon.max_uses !== null && coupon.max_uses !== undefined && (coupon.used_count || 0) >= coupon.max_uses) {
                 setCouponError("This coupon has reached its maximum usage limit.");
                 return;
             }
@@ -707,39 +738,41 @@ export default function StudentCourses() {
 
             // Check min purchase
             if (coupon.min_purchase > 0 && enrollmentDialog.coursePrice < coupon.min_purchase) {
-                setCouponError(`Minimum purchase of \u20b9${coupon.min_purchase} required for this coupon.`);
+                setCouponError(`Minimum purchase of ₹${coupon.min_purchase} required for this coupon.`);
                 return;
             }
 
             // Check if student already used this coupon for this course
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
-                const { data: usage } = await supabase
-                    .from('coupon_usage')
-                    .select('id')
-                    .eq('coupon_id', coupon.id)
-                    .eq('student_id', user.id)
-                    .eq('course_id', enrollmentDialog.courseId)
-                    .maybeSingle();
-                if (usage) {
-                    setCouponError("You have already used this coupon for this course.");
-                    return;
-                }
+                try {
+                    const { data: usage } = await supabase
+                        .from('coupon_usage')
+                        .select('id')
+                        .eq('coupon_id', coupon.id)
+                        .eq('student_id', user.id)
+                        .eq('course_id', enrollmentDialog.courseId)
+                        .maybeSingle();
+                    if (usage) {
+                        setCouponError("You have already used this coupon for this course.");
+                        return;
+                    }
+                } catch (e) {}
             }
 
             // Calculate discount
             let discount = 0;
             if (coupon.discount_type === 'percentage') {
-                discount = Math.round((enrollmentDialog.coursePrice * coupon.discount_value) / 100);
+                discount = Math.round((enrollmentDialog.coursePrice * Number(coupon.discount_value)) / 100);
             } else {
-                discount = Math.min(coupon.discount_value, enrollmentDialog.coursePrice);
+                discount = Math.min(Number(coupon.discount_value), enrollmentDialog.coursePrice);
             }
 
             setCouponApplied({
                 code: coupon.code,
                 discount,
                 type: coupon.discount_type,
-                value: coupon.discount_value
+                value: Number(coupon.discount_value)
             });
 
         } catch (err: any) {
@@ -756,8 +789,9 @@ export default function StudentCourses() {
     };
 
     const handleConfirmEnrollment = async () => {
-        if (!transactionId.trim()) {
-            toast({ variant: "destructive", title: "Error", description: "Please enter your transaction ID." });
+        const isFree = enrollmentDialog.coursePrice <= 0 || (couponApplied && couponApplied.discount >= enrollmentDialog.coursePrice);
+        if (!isFree && !transactionId.trim()) {
+            toast({ variant: "destructive", title: "Transaction ID Required", description: "Please enter your UPI / Reference Transaction ID." });
             return;
         }
 
@@ -774,19 +808,22 @@ export default function StudentCourses() {
                 .maybeSingle();
 
             if (existingEnrollment) {
-                toast({ title: "Already Enrolled", description: "You already have a requested or active enrollment for this course." });
-                setEnrolledCourseStatus(prev => ({ ...prev, [enrollmentDialog.courseId as string]: existingEnrollment.status || 'pending' }));
-                setEnrollmentDialog({ isOpen: false, courseId: null, courseName: null });
+                toast({ title: "Already Enrolled", description: "You already have an enrollment record for this course." });
+                setEnrolledCourseStatus(prev => ({ ...prev, [enrollmentDialog.courseId as string]: existingEnrollment.status || 'approved' }));
+                setEnrollmentDialog({ isOpen: false, courseId: null, courseName: null, coursePrice: 0 });
                 return;
             }
+
+            const enrollmentStatus = isFree ? 'approved' : 'pending';
+            const finalTxnId = isFree ? (transactionId.trim() || 'FREE_ENROLLMENT') : transactionId.trim();
 
             const { data: insertedEnrollment, error } = await supabase
                 .from('enrollments')
                 .insert([{
                     student_id: user.id,
                     course_id: enrollmentDialog.courseId,
-                    transaction_id: transactionId,
-                    status: 'pending'
+                    transaction_id: finalTxnId,
+                    status: enrollmentStatus
                 }])
                 .select('id')
                 .single();
@@ -814,8 +851,10 @@ export default function StudentCourses() {
                 if (courseInfo?.teacher_id) {
                     notifRows.push({
                         user_id: courseInfo.teacher_id,
-                        title: "New Student Enrollment",
-                        message: `${studentName} has enrolled in your course: ${courseTitle} (Txn: ${transactionId}). Review & Approve.`,
+                        title: isFree ? "Student Enrolled (Free Course)" : "New Student Enrollment Verification",
+                        message: isFree 
+                            ? `${studentName} has enrolled in your free course: ${courseTitle}.` 
+                            : `${studentName} has enrolled in your course: ${courseTitle} (Txn: ${finalTxnId}). Review & Approve.`,
                         notification_type: "course",
                         sender_role: "student",
                         is_read: false,
@@ -835,8 +874,10 @@ export default function StudentCourses() {
                         if (adm.id !== courseInfo?.teacher_id) {
                             notifRows.push({
                                 user_id: adm.id,
-                                title: "New Student Enrollment",
-                                message: `${studentName} has enrolled in course: ${courseTitle} (Txn: ${transactionId}). Approval required.`,
+                                title: isFree ? "New Free Course Enrollment" : "New Student Enrollment",
+                                message: isFree
+                                    ? `${studentName} enrolled in free course: ${courseTitle}.`
+                                    : `${studentName} has enrolled in course: ${courseTitle} (Txn: ${finalTxnId}). Approval required.`,
                                 notification_type: "course",
                                 sender_role: "student",
                                 is_read: false,
@@ -876,14 +917,39 @@ export default function StudentCourses() {
                             .update({ used_count: (couponData.used_count || 0) + 1 })
                             .eq('id', couponData.id);
                     }
+                    // Update local storage orbit_coupons
+                    try {
+                        const localStr = localStorage.getItem("orbit_coupons");
+                        if (localStr) {
+                            const list = JSON.parse(localStr);
+                            const updated = list.map((c: any) => 
+                                c.code.toUpperCase().trim() === couponApplied.code.toUpperCase().trim() 
+                                    ? { ...c, used_count: (c.used_count || 0) + 1 } 
+                                    : c
+                            );
+                            localStorage.setItem("orbit_coupons", JSON.stringify(updated));
+                        }
+                    } catch (e) {}
                 } catch (cErr) {
                     console.error("Error recording coupon usage:", cErr);
                 }
             }
 
-            toast({ title: "Enrollment Submitted!", description: "Your enrollment is pending admin verification." });
-            setEnrolledCourseStatus(prev => ({ ...prev, [enrollmentDialog.courseId as string]: 'pending' }));
-            setEnrollmentDialog({ isOpen: false, courseId: null, courseName: null });
+            if (isFree) {
+                toast({
+                    title: "Enrollment Successful! 🎉",
+                    description: `You are now enrolled in ${enrollmentDialog.courseName || 'the course'}. Start learning immediately!`
+                });
+                setEnrolledCourseStatus(prev => ({ ...prev, [enrollmentDialog.courseId as string]: 'approved' }));
+            } else {
+                toast({
+                    title: "Enrollment Submitted!",
+                    description: "Your payment reference has been submitted. Course access will be granted once verified."
+                });
+                setEnrolledCourseStatus(prev => ({ ...prev, [enrollmentDialog.courseId as string]: 'pending' }));
+            }
+
+            setEnrollmentDialog({ isOpen: false, courseId: null, courseName: null, coursePrice: 0 });
 
             // Close preview modal as well if open for the same course
             if (selectedCourseForPreview?.id === enrollmentDialog.courseId) {
@@ -1226,7 +1292,7 @@ export default function StudentCourses() {
                                 <div 
                                     key={course.id} 
                                     onClick={() => handleOpenPreviewModal(course)}
-                                    className="group bg-card rounded-xl border border-border shadow-sm overflow-hidden hover:shadow-lg transition-all duration-300 flex flex-col h-full cursor-pointer hover:-translate-y-1"
+                                    className="group bg-card rounded-2xl border border-border/70 shadow-sm overflow-hidden hover:shadow-xl transition-all duration-300 flex flex-col h-full cursor-pointer hover:-translate-y-1 touch-press"
                                 >
                                     <div className="relative h-48 bg-muted overflow-hidden shrink-0">
                                         <div className="absolute inset-0 bg-primary/10 flex items-center justify-center">
@@ -1329,15 +1395,30 @@ export default function StudentCourses() {
                                             </div>
 
                                             {isApproved ? (
-                                                <Link 
-                                                    to={`/student/courses/${course.id}/learn`} 
-                                                    className="w-full"
-                                                    onClick={(e) => e.stopPropagation()}
-                                                >
-                                                    <Button className="w-full gap-2 font-semibold" variant="secondary">
-                                                        <PlayCircle className="h-4 w-4 text-primary" /> Continue Learning
+                                                <div className="flex items-center gap-2 w-full">
+                                                    <Link 
+                                                        to={`/student/courses/${course.id}/learn`} 
+                                                        className="flex-1"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        <Button className="w-full gap-2 font-semibold" variant="secondary">
+                                                            <PlayCircle className="h-4 w-4 text-primary" /> Continue Learning
+                                                        </Button>
+                                                    </Link>
+                                                    <Button 
+                                                        size="sm" 
+                                                        variant="outline" 
+                                                        className="h-10 px-3 gap-1.5 shrink-0 border-amber-500/30 text-amber-500 hover:bg-amber-500/10 hover:text-amber-400 font-semibold"
+                                                        title="Course Achievements & Aura Leaderboard"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setSelectedAchievementCourse({ id: course.id, title: course.title });
+                                                        }}
+                                                    >
+                                                        <Trophy className="h-4 w-4" />
+                                                        <span className="text-xs">Aura</span>
                                                     </Button>
-                                                </Link>
+                                                </div>
                                             ) : isPending ? (
                                                 <Button 
                                                     className="w-full gap-2" 
@@ -1564,6 +1645,16 @@ export default function StudentCourses() {
                 </DialogContent>
             </Dialog>
 
+            {/* COURSE ACHIEVEMENTS & AURA MODAL */}
+            {selectedAchievementCourse && (
+                <CourseAchievementsModal
+                    isOpen={!!selectedAchievementCourse}
+                    onClose={() => setSelectedAchievementCourse(null)}
+                    courseId={selectedAchievementCourse.id}
+                    courseTitle={selectedAchievementCourse.title}
+                />
+            )}
+
             {/* CERTIFICATE COURSE PREVIEW MODAL */}
             <CertificateCourseDetailModal
                 course={selectedCourseForPreview}
@@ -1613,8 +1704,9 @@ export default function StudentCourses() {
                                     )}
                                     <div className="flex items-center justify-between text-sm sm:text-base font-bold pt-2 border-t border-border">
                                         <span>Total Payable</span>
-                                        <span className="text-primary">
+                                        <span className={Math.max(0, enrollmentDialog.coursePrice - (couponApplied?.discount || 0)) === 0 ? "text-emerald-600 font-extrabold text-base" : "text-primary"}>
                                             ₹{Math.max(0, enrollmentDialog.coursePrice - (couponApplied?.discount || 0)).toLocaleString('en-IN')}
+                                            {Math.max(0, enrollmentDialog.coursePrice - (couponApplied?.discount || 0)) === 0 && " (100% Free Waiver)"}
                                         </span>
                                     </div>
                                 </div>
@@ -1642,7 +1734,7 @@ export default function StudentCourses() {
                                             <Input
                                                 value={couponCode}
                                                 onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponError(""); }}
-                                                placeholder="Enter coupon code"
+                                                placeholder="Enter coupon code (e.g. WELCOME100)"
                                                 className="font-mono uppercase text-xs sm:text-sm"
                                             />
                                             <Button
@@ -1661,34 +1753,59 @@ export default function StudentCourses() {
                                     )}
                                 </div>
 
-                                {/* QR Code */}
-                                <div className="flex flex-col items-center gap-3 py-1 bg-muted/20 rounded-xl p-3 border border-border/50">
-                                    <div className="w-32 h-32 sm:w-40 sm:h-40 border rounded-xl bg-white p-2.5 shadow-xs flex items-center justify-center">
-                                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=example_payment_link" alt="Payment QR Code" className="w-full h-full object-contain" />
+                                {/* QR Code & Payment Instructions (Only if amount remains > 0) */}
+                                {Math.max(0, enrollmentDialog.coursePrice - (couponApplied?.discount || 0)) > 0 ? (
+                                    <div className="flex flex-col items-center gap-3 py-1 bg-muted/20 rounded-xl p-3 border border-border/50">
+                                        <div className="w-32 h-32 sm:w-40 sm:h-40 border rounded-xl bg-white p-2.5 shadow-xs flex items-center justify-center">
+                                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=example_payment_link" alt="Payment QR Code" className="w-full h-full object-contain" />
+                                        </div>
+                                        <div className="text-center space-y-0.5">
+                                            <p className="text-xs font-semibold text-foreground">Scan to Pay via UPI / Any Payment App</p>
+                                            <p className="text-[11px] text-muted-foreground">After payment, enter the Reference/UPI Transaction ID below.</p>
+                                        </div>
                                     </div>
-                                    <div className="text-center space-y-0.5">
-                                        <p className="text-xs font-semibold text-foreground">Scan to Pay via UPI / Any Payment App</p>
-                                        <p className="text-[11px] text-muted-foreground">After payment, enter the Reference/UPI Transaction ID below.</p>
+                                ) : (
+                                    <div className="p-3.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 flex items-center gap-3 text-xs sm:text-sm">
+                                        <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+                                        <div>
+                                            <p className="font-bold">100% Scholarship / Fee Waiver Active</p>
+                                            <p className="text-xs opacity-90">No payment is required. You can click "Enroll Free Now" to immediately access your course!</p>
+                                        </div>
                                     </div>
-                                </div>
+                                )}
                             </>
                         )}
 
                         <div className="space-y-2 pt-1">
-                            <label htmlFor="transactionId" className="text-xs sm:text-sm font-semibold flex items-center gap-1.5">
-                                {enrollmentDialog.coursePrice > 0 ? "Transaction / Reference ID *" : "Any Reference Note (optional)"}
-                            </label>
-                            <Input
-                                id="transactionId"
-                                placeholder={enrollmentDialog.coursePrice > 0 ? "e.g. 12-digit UTR or UPI Transaction ID (e.g. 423456789012)" : "Optional"}
-                                value={transactionId}
-                                onChange={(e) => setTransactionId(e.target.value)}
-                                className="font-mono text-xs sm:text-sm h-10 border-primary/40 focus:border-primary focus:ring-1 focus:ring-primary"
-                            />
-                            {enrollmentDialog.coursePrice > 0 && (
-                                <p className="text-[11px] text-muted-foreground">
-                                    Kindly double check your Transaction/UTR number for quick verification by college admin/teacher.
-                                </p>
+                            {Math.max(0, enrollmentDialog.coursePrice - (couponApplied?.discount || 0)) > 0 ? (
+                                <>
+                                    <label htmlFor="transactionId" className="text-xs sm:text-sm font-semibold flex items-center gap-1.5">
+                                        Transaction / Reference ID *
+                                    </label>
+                                    <Input
+                                        id="transactionId"
+                                        placeholder="e.g. 12-digit UTR or UPI Transaction ID (e.g. 423456789012)"
+                                        value={transactionId}
+                                        onChange={(e) => setTransactionId(e.target.value)}
+                                        className="font-mono text-xs sm:text-sm h-10 border-primary/40 focus:border-primary focus:ring-1 focus:ring-primary"
+                                    />
+                                    <p className="text-[11px] text-muted-foreground">
+                                        Kindly double check your Transaction/UTR number for quick verification by college admin/teacher.
+                                    </p>
+                                </>
+                            ) : (
+                                <>
+                                    <label htmlFor="transactionId" className="text-xs sm:text-sm font-semibold flex items-center gap-1.5 text-muted-foreground">
+                                        Optional Note / Student Remarks
+                                    </label>
+                                    <Input
+                                        id="transactionId"
+                                        placeholder="Optional remark or left empty"
+                                        value={transactionId}
+                                        onChange={(e) => setTransactionId(e.target.value)}
+                                        className="text-xs sm:text-sm h-10 border-border"
+                                    />
+                                </>
                             )}
                         </div>
                     </div>
@@ -1697,9 +1814,13 @@ export default function StudentCourses() {
                         <Button variant="outline" onClick={() => setEnrollmentDialog({ isOpen: false, courseId: null, courseName: null, coursePrice: 0 })} disabled={isSubmitting} className="text-xs sm:text-sm">
                             Cancel
                         </Button>
-                        <Button onClick={handleConfirmEnrollment} disabled={isSubmitting || (enrollmentDialog.coursePrice > 0 && !transactionId.trim())} className="text-xs sm:text-sm font-semibold">
+                        <Button 
+                            onClick={handleConfirmEnrollment} 
+                            disabled={isSubmitting || (Math.max(0, enrollmentDialog.coursePrice - (couponApplied?.discount || 0)) > 0 && !transactionId.trim())} 
+                            className={`text-xs sm:text-sm font-semibold ${Math.max(0, enrollmentDialog.coursePrice - (couponApplied?.discount || 0)) === 0 ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}`}
+                        >
                             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            {enrollmentDialog.coursePrice > 0 ? "Submit for Verification" : "Enroll Now"}
+                            {Math.max(0, enrollmentDialog.coursePrice - (couponApplied?.discount || 0)) === 0 ? "Enroll Free Now 🎉" : "Submit for Verification"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

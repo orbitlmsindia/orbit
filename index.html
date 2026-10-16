@@ -1,23 +1,112 @@
 <!doctype html>
-<html lang="en">
+<html lang="en-IN" prefix="og: https://ogp.me/ns#">
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <!-- TODO: Set the document title to the name of your application -->
-  <title>Orbit Launchpad</title>
-  <meta name="description" content="Lovable Generated Project" />
-  <meta name="author" content="Lovable" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  
+  <!-- Security Headers (Client-Side Defensive Layer) -->
+  <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
 
-  <!-- TODO: Update og:title to match your application name -->
-  <meta property="og:title" content="Lovable App" />
-  <meta property="og:description" content="Lovable Generated Project" />
+  <!-- Core Page Title & Metadata -->
+  <title>Orbit LMS - Next-Gen Academic Intelligence & Enterprise Learning</title>
+  <meta name="description" content="Orbit LMS is India's leading institutional learning management platform. Experience AI-powered course delivery, proctored examinations, automated grading, gamified student aura points, and multi-tenant college administration." />
+  <meta name="keywords" content="Orbit LMS, learning management system, online exams, proctored quiz, AI course builder, student aura points, college ERP, education software India" />
+  <meta name="author" content="Orbit LMS Academic Technologies" />
+  <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+
+  <!-- Canonical & Geo-Targeting (India & International) -->
+  <link rel="canonical" href="https://orbitlms.com/" />
+  <link rel="alternate" hreflang="en-IN" href="https://orbitlms.com/" />
+  <link rel="alternate" hreflang="en" href="https://orbitlms.com/" />
+  <link rel="alternate" hreflang="x-default" href="https://orbitlms.com/" />
+  <meta name="geo.region" content="IN-DL" />
+  <meta name="geo.placename" content="India" />
+  <meta name="geo.position" content="28.6139;77.2090" />
+  <meta name="ICBM" content="28.6139, 77.2090" />
+
+  <!-- Native Mobile App & PWA Ergonomics -->
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Orbit LMS" />
+  <meta name="application-name" content="Orbit LMS" />
+  <meta name="theme-color" content="#090d16" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+  <meta name="format-detection" content="telephone=no" />
+
+  <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website" />
-  <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+  <meta property="og:url" content="https://orbitlms.com/" />
+  <meta property="og:title" content="Orbit LMS - Next-Gen Academic Intelligence" />
+  <meta property="og:description" content="Enterprise Academic Management, Proctored Assessments, Gamified Learning, and Multi-Tenant Institutional Infrastructure." />
+  <meta property="og:site_name" content="Orbit LMS" />
+  <meta property="og:locale" content="en_IN" />
+  <meta property="og:image" content="https://orbitlms.com/logo.jpeg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Orbit LMS Platform Banner" />
 
+  <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:site" content="@Lovable" />
-  <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+  <meta name="twitter:site" content="@OrbitLMS" />
+  <meta name="twitter:creator" content="@OrbitLMS" />
+  <meta name="twitter:title" content="Orbit LMS - Academic Intelligence & Course Platform" />
+  <meta name="twitter:description" content="AI Course Importer, Secure Proctored Online Exams, Automated Gradebook, and College Management." />
+  <meta name="twitter:image" content="https://orbitlms.com/logo.jpeg" />
+
+  <!-- Favicon & Icons -->
+  <link rel="icon" type="image/jpeg" href="/logo.jpeg" />
+  <link rel="apple-touch-icon" href="/logo.jpeg" />
+
+  <!-- Structured Data (JSON-LD) for Search Engine Rich Snippets -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "EducationalOrganization",
+        "@id": "https://orbitlms.com/#organization",
+        "name": "Orbit LMS Academic Intelligence",
+        "url": "https://orbitlms.com",
+        "logo": "https://orbitlms.com/logo.jpeg",
+        "description": "Next-Gen Enterprise Academic Management, Proctored Examinations, and Institutional Learning Platform.",
+        "address": {
+          "@type": "PostalAddress",
+          "addressCountry": "IN"
+        },
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "contactType": "Customer Support",
+          "email": "support@orbitlms.com"
+        }
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://orbitlms.com/#website",
+        "url": "https://orbitlms.com",
+        "name": "Orbit LMS",
+        "publisher": {
+          "@id": "https://orbitlms.com/#organization"
+        },
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": "https://orbitlms.com/courses?search={search_term_string}",
+          "query-input": "required name=search_term_string"
+        }
+      },
+      {
+        "@type": "Course",
+        "name": "Orbital Software Engineering & Applied AI",
+        "description": "Comprehensive engineering curriculum with live classes, interactive quizzes, dynamic exam papers, and industry-grade certification.",
+        "provider": {
+          "@id": "https://orbitlms.com/#organization"
+        }
+      }
+    ]
+  }
+  </script>
 </head>
 
 <body>

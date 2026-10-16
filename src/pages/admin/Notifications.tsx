@@ -55,7 +55,7 @@ export default function Notifications() {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [selectedAudience, setSelectedAudience] = useState("all");
   const [selectedCourses, setSelectedCourses] = useState<number[]>([]);
-  const [notificationType, setNotificationType] = useState("announcement");
+  const [notificationType, setNotificationType] = useState("general");
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
 
@@ -69,23 +69,27 @@ export default function Notifications() {
 
   const fetchData = async () => {
     setLoading(true);
-    // Fetch Notifications
-    const { data: notifs, error } = await supabase
-      .from('notifications')
-      .select('id, title, message, visibility, notification_type, created_at')
-      .order('created_at', { ascending: false });
+    // Fetch Notifications safely
+    try {
+      const { data: notifs, error } = await supabase
+        .from('notifications')
+        .select('id, title, message, notification_type, created_at')
+        .order('created_at', { ascending: false });
 
-    if (notifs) {
-      setNotificationsHistory(notifs.map((n: any) => ({
-        id: n.id,
-        title: n.title,
-        message: n.message,
-        audience: n.visibility || "all",
-        type: n.notification_type || "announcement",
-        status: "sent",
-        sentAt: new Date(n.created_at).toLocaleString(),
-        readRate: 0 // Requires tracking
-      })));
+      if (notifs) {
+        setNotificationsHistory(notifs.map((n: any) => ({
+          id: n.id,
+          title: n.title,
+          message: n.message,
+          audience: (n as any).visibility || (n.notification_type === 'course' ? 'courses' : 'all'),
+          type: n.notification_type || "general",
+          status: "sent",
+          sentAt: new Date(n.created_at).toLocaleString(),
+          readRate: 0
+        })));
+      }
+    } catch (e) {
+      console.warn("Error fetching notification history:", e);
     }
 
     // Fetch Courses for selection
@@ -121,27 +125,61 @@ export default function Notifications() {
       const userRole = userData?.role || 'admin';
       const priority = userRole === 'admin' ? 2 : 1;
 
+      // Map UI notification type to DB constraint compliant type
+      const safeNotificationType = selectedAudience === "courses" ? "course" : (
+        notificationType === "reminder" ? "deadline" : "general"
+      );
+
       if (selectedAudience === "courses") {
-        // Send to specific courses using RPC function
         let totalSent = 0;
         for (const courseId of selectedCourses) {
-          const { data: count, error } = await supabase.rpc('x_n_c_s', {
-            p_course_id: courseId,
-            p_title: title,
-            p_message: message,
-            p_notification_type: notificationType,
-            p_sender_id: user.id,
-            p_sender_role: userRole,
-            p_priority: priority
-          });
+          let rpcSuccess = false;
+          try {
+            const { data: count, error } = await supabase.rpc('x_n_c_s', {
+              p_course_id: courseId,
+              p_title: title,
+              p_message: message,
+              p_notification_type: safeNotificationType,
+              p_sender_id: user.id,
+              p_sender_role: userRole,
+              p_priority: priority
+            });
+            if (!error && count !== null) {
+              totalSent += (count || 0);
+              rpcSuccess = true;
+            }
+          } catch (rpcErr) {
+            console.warn("RPC x_n_c_s failed, falling back to direct enrollment notification:", rpcErr);
+          }
 
-          if (error) throw error;
-          totalSent += (count || 0);
+          if (!rpcSuccess) {
+            // Direct fallback: find students enrolled in course
+            const { data: enrs } = await supabase
+              .from('enrollments')
+              .select('student_id')
+              .eq('course_id', courseId)
+              .in('status', ['approved', 'active']);
+
+            if (enrs && enrs.length > 0) {
+              const notifs = enrs.map((e: any) => ({
+                user_id: e.student_id,
+                title,
+                message,
+                notification_type: 'course',
+                course_id: courseId,
+                sender_role: userRole,
+                sender_id: user.id,
+                created_at: new Date().toISOString()
+              }));
+              await supabase.from('notifications').insert(notifs);
+              totalSent += enrs.length;
+            }
+          }
         }
 
         toast({
           title: "Notifications Sent",
-          description: `Successfully sent ${totalSent} notifications to ${selectedCourses.length} course(s).`
+          description: `Successfully sent ${totalSent} notifications to course students.`
         });
       } else {
         // Send to all users of a specific role
@@ -163,15 +201,29 @@ export default function Notifications() {
           user_id: u.id,
           title,
           message,
-          notification_type: notificationType,
-          priority,
+          notification_type: safeNotificationType,
           sender_role: userRole,
-          visibility: selectedAudience,
+          sender_id: user.id,
           created_at: new Date().toISOString()
         }));
 
-        const { error } = await supabase.from('notifications').insert(notifications);
-        if (error) throw error;
+        try {
+          const { error } = await supabase.from('notifications').insert(notifications);
+          if (error) {
+            console.warn("Standard insert error, retrying minimal fields:", error);
+            const minimalNotifs = targetUsers.map(u => ({
+              user_id: u.id,
+              title,
+              message,
+              notification_type: 'general',
+              created_at: new Date().toISOString()
+            }));
+            const { error: minErr } = await supabase.from('notifications').insert(minimalNotifs);
+            if (minErr) throw minErr;
+          }
+        } catch (insertErr: any) {
+          throw insertErr;
+        }
 
         toast({
           title: "Notifications Sent",

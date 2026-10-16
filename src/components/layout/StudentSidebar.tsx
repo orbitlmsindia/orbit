@@ -10,7 +10,8 @@ import {
     Settings,
     HelpCircle,
     LogOut,
-    Trophy
+    Trophy,
+    CheckSquare
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -32,30 +33,38 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { useCollegeFeatures } from "@/hooks/useCollegeFeatures";
+import { Lock } from "lucide-react";
 
-const studentNavItems = [
+interface StudentNavItem {
+    title: string;
+    url: string;
+    icon: any;
+    featureId?: string;
+}
+
+const studentNavItems: StudentNavItem[] = [
     { title: "Dashboard", url: "/student", icon: Home },
     { title: "My Courses", url: "/student/courses", icon: BookOpen },
-    { title: "Leaderboard", url: "/student/leaderboard", icon: Trophy },
-    { title: "Assignments", url: "/student/assignments", icon: Clock },
-    { title: "Grades & Results", url: "/student/grades", icon: Award },
+    { title: "Leaderboard", url: "/student/leaderboard", icon: Trophy, featureId: "leaderboard" },
+    { title: "Assignments", url: "/student/assignments", icon: Clock, featureId: "assignments" },
+    { title: "Grades & Results", url: "/student/grades", icon: Award, featureId: "certificates" },
     { title: "Calendar", url: "/student/calendar", icon: Calendar },
+    { title: "My Attendance", url: "/student/attendance", icon: CheckSquare, featureId: "attendance_tracker" },
     { title: "Notifications", url: "/student/notifications", icon: Bell },
 ];
 
-const supportItems = [
+const supportItems: StudentNavItem[] = [
     { title: "Settings", url: "/student/settings", icon: Settings },
-    { title: "Help Center", url: "/student/help-center", icon: HelpCircle },
+    { title: "Help Center", url: "/student/help-center", icon: HelpCircle, featureId: "ticket_raising" },
 ];
-
-
-
 
 export function StudentSidebar() {
     const { state, isMobile, setOpenMobile } = useSidebar();
     const location = useLocation();
     const navigate = useNavigate();
     const { unreadCount } = useNotifications();
+    const { isFeatureEnabled } = useCollegeFeatures();
     const currentPath = location.pathname;
     const collapsed = state === "collapsed";
 
@@ -95,8 +104,9 @@ export function StudentSidebar() {
         return currentPath.startsWith(path);
     };
 
-    const NavItem = ({ item }: { item: typeof studentNavItems[0] & { badge?: number } }) => {
+    const NavItem = ({ item }: { item: StudentNavItem & { badge?: number } }) => {
         const badgeCount = item.title === "Notifications" ? unreadCount : undefined;
+        const isLocked = item.featureId ? !isFeatureEnabled(item.featureId) : false;
 
         return (
             <SidebarMenuItem>
@@ -107,13 +117,20 @@ export function StudentSidebar() {
                         onClick={() => {
                             if (isMobile) setOpenMobile(false);
                         }}
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all hover:bg-sidebar-accent group"
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all hover:bg-sidebar-accent group ${
+                            isLocked ? "opacity-75" : ""
+                        }`}
                         activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
                     >
                         <item.icon className="h-5 w-5 shrink-0" />
                         {!collapsed && (
                             <>
                                 <span className="flex-1">{item.title}</span>
+                                {isLocked && (
+                                    <span className="flex items-center gap-1 text-[10px] text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                                        <Lock className="h-2.5 w-2.5" /> Plan
+                                    </span>
+                                )}
                                 {badgeCount !== undefined && badgeCount > 0 && (
                                     <Badge variant="destructive" className="h-5 min-w-5 text-[10px]">
                                         {badgeCount > 99 ? '99+' : badgeCount}

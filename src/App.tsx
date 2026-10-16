@@ -19,6 +19,7 @@ import Monitoring from "./pages/admin/Monitoring";
 import Settings from "./pages/admin/Settings";
 import HelpCenter from "./pages/admin/HelpCenter";
 import Notifications from "./pages/admin/Notifications";
+import AdminBilling from "./pages/admin/AdminBilling";
 import TeacherDashboard from "./pages/teacher/Dashboard";
 import TeacherCourses from "./pages/teacher/Courses";
 import CourseDetail from "./pages/teacher/CourseDetail";
@@ -45,21 +46,32 @@ import StudentCalendar from "./pages/student/StudentCalendar";
 import StudentSettings from "./pages/student/Settings";
 import StudentHelpCenter from "./pages/student/HelpCenter";
 import StudentNotifications from "./pages/student/Notifications";
+import StudentAttendance from "./pages/student/Attendance";
 import NotFound from "./pages/NotFound";
 import Profile from "./pages/Profile";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import LandingPage from "./pages/LandingPage";
 import ExperienceOrbit from "./pages/ExperienceOrbit";
 import Register from "./pages/Register";
+import ServiceMaintenance from "./pages/ServiceMaintenance";
 
 // Master Admin Imports
 import MasterLogin from "./pages/master/MasterLogin";
 import MasterDashboard from "./pages/master/MasterDashboard";
 import MasterColleges from "./pages/master/MasterColleges";
 import MasterCollegeDetail from "./pages/master/MasterCollegeDetail";
+import MasterAccounts from "./pages/master/MasterAccounts";
+import MasterCourses from "./pages/master/MasterCourses";
 import MasterBilling from "./pages/master/MasterBilling";
+import MasterPlans from "./pages/master/MasterPlans";
+import MasterBlogs from "./pages/master/MasterBlogs";
+import MasterCareers from "./pages/master/MasterCareers";
 import MasterAnalytics from "./pages/master/MasterAnalytics";
 import MasterMonitoring from "./pages/master/MasterMonitoring";
+import MasterRoles from "./pages/master/MasterRoles";
+import BlogList from "./pages/blog/BlogList";
+import BlogPostDetail from "./pages/blog/BlogPostDetail";
+import Careers from "./pages/careers/Careers";
 import FinanceDashboard from "./pages/finance/FinanceDashboard";
 import FinanceTransactions from "./pages/finance/FinanceTransactions";
 import FinanceInvoices from "./pages/finance/FinanceInvoices";
@@ -81,6 +93,10 @@ const App = () => (
             <Route path="/experience" element={<ExperienceOrbit />} />
             <Route path="/explore" element={<ExperienceOrbit />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/blog" element={<BlogList />} />
+            <Route path="/blog/:slug" element={<BlogPostDetail />} />
+            <Route path="/careers" element={<Careers />} />
+            <Route path="/service-maintenance" element={<ServiceMaintenance />} />
             <Route path="/login" element={<Login />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
@@ -91,6 +107,7 @@ const App = () => (
 
             {/* Admin Routes */}
             <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+            <Route path="/admin/billing" element={<ProtectedRoute><AdminBilling /></ProtectedRoute>} />
             <Route path="/admin/inquiries" element={<ProtectedRoute><AdminInquiries /></ProtectedRoute>} />
             <Route path="/admin/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
             <Route path="/admin/courses" element={<ProtectedRoute><CourseManagement /></ProtectedRoute>} />
@@ -129,6 +146,7 @@ const App = () => (
             <Route path="/student/quiz/:id" element={<ProtectedRoute><QuizPlayer /></ProtectedRoute>} />
             <Route path="/student/grades" element={<ProtectedRoute><StudentGrades /></ProtectedRoute>} />
             <Route path="/student/calendar" element={<ProtectedRoute><StudentCalendar /></ProtectedRoute>} />
+            <Route path="/student/attendance" element={<ProtectedRoute><StudentAttendance /></ProtectedRoute>} />
             <Route path="/student/settings" element={<ProtectedRoute><StudentSettings /></ProtectedRoute>} />
             <Route path="/student/help-center" element={<ProtectedRoute><StudentHelpCenter /></ProtectedRoute>} />
             <Route path="/student/notifications" element={<ProtectedRoute><StudentNotifications /></ProtectedRoute>} />
@@ -143,9 +161,15 @@ const App = () => (
             <Route path="/master" element={<ProtectedRoute><MasterDashboard /></ProtectedRoute>} />
             <Route path="/master/colleges" element={<ProtectedRoute><MasterColleges /></ProtectedRoute>} />
             <Route path="/master/colleges/:id" element={<ProtectedRoute><MasterCollegeDetail /></ProtectedRoute>} />
+            <Route path="/master/accounts" element={<ProtectedRoute><MasterAccounts /></ProtectedRoute>} />
+            <Route path="/master/courses" element={<ProtectedRoute><MasterCourses /></ProtectedRoute>} />
             <Route path="/master/billing" element={<ProtectedRoute><MasterBilling /></ProtectedRoute>} />
+            <Route path="/master/plans" element={<ProtectedRoute><MasterPlans /></ProtectedRoute>} />
+            <Route path="/master/blogs" element={<ProtectedRoute><MasterBlogs /></ProtectedRoute>} />
+            <Route path="/master/careers" element={<ProtectedRoute><MasterCareers /></ProtectedRoute>} />
             <Route path="/master/analytics" element={<ProtectedRoute><MasterAnalytics /></ProtectedRoute>} />
             <Route path="/master/monitoring" element={<ProtectedRoute><MasterMonitoring /></ProtectedRoute>} />
+            <Route path="/master/roles" element={<ProtectedRoute><MasterRoles /></ProtectedRoute>} />
 
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

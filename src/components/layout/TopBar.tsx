@@ -118,6 +118,23 @@ export function TopBar({
     const title = (notif.title || '').toLowerCase();
     const msg = (notif.message || '');
     
+    // 0. Billing / Purchasing / Renewal reminder notification -> Navigate to /admin/billing
+    if (
+      notif.notification_type === 'billing' ||
+      notif.notification_type === 'invoice' ||
+      title.includes('billing') ||
+      title.includes('renewal') ||
+      title.includes('purchase') ||
+      title.includes('invoice') ||
+      title.includes('reminder from master admin') ||
+      msg.toLowerCase().includes('master admin')
+    ) {
+      if (userRole === 'admin' || userRole === 'super_admin') {
+        navigate('/admin/billing');
+        return;
+      }
+    }
+
     // 1. Enrollment notification -> Navigate to teacher/admin student verification tab
     if (notif.notification_type === 'enrollment' || title.includes('enrollment') || msg.includes('enrolled')) {
       if (notif.course_id) {
@@ -188,10 +205,10 @@ export function TopBar({
   };
 
   return (
-    <header className="h-16 border-b border-border/40 bg-background/95 backdrop-blur-md sticky top-0 z-40 px-3 sm:px-4 md:px-6 flex items-center justify-between gap-2">
+    <header className="h-16 border-b border-border/40 bg-background/85 backdrop-blur-xl sticky top-0 z-40 px-3 sm:px-4 md:px-6 flex items-center justify-between gap-2 pt-[env(safe-area-inset-top,0px)] shadow-2xs">
       {/* Left section: Sidebar trigger & Mobile Menu */}
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-        <SidebarTrigger />
+        <SidebarTrigger className="touch-press rounded-xl" />
         <div className="hidden md:flex items-center gap-2 text-muted-foreground text-xs">
           <span>Press</span>
           <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
@@ -205,41 +222,43 @@ export function TopBar({
         </div>
       </div>
 
-      {/* Center Search Bar - Full on sm+, compact icon button on mobile */}
+      {/* Center Search Bar - Native mobile rounded capsule */}
       <div className="flex-1 max-w-md mx-1 sm:mx-4">
         <button
           type="button"
           onClick={() => setSpotlightOpen(true)}
-          className="w-full h-9 px-2.5 sm:px-3 rounded-lg border border-input bg-muted/30 text-muted-foreground text-xs flex items-center justify-between hover:bg-muted/50 transition-colors"
+          className="w-full h-9 px-2.5 sm:px-3 rounded-full border border-border/60 bg-muted/40 text-muted-foreground text-xs flex items-center justify-between hover:bg-muted/70 transition-all touch-press shadow-2xs"
         >
           <span className="flex items-center gap-2 truncate">
-            <Search className="h-3.5 w-3.5 shrink-0" />
+            <Search className="h-3.5 w-3.5 text-primary shrink-0" />
             <span className="hidden sm:inline truncate">Search courses, students, settings...</span>
-            <span className="sm:hidden text-xs truncate">Search...</span>
+            <span className="sm:hidden text-xs truncate">Search Orbit...</span>
           </span>
           <span className="hidden sm:inline font-mono text-[10px] bg-background border px-1.5 py-0.5 rounded">⌘G</span>
         </button>
       </div>
 
       {/* Right Action Icons & User Profile */}
-      <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-        {/* Gamified Aura Points & Credits Navbar Ledger Pill */}
-        <button
-          type="button"
-          onClick={() => setLedgerSheetOpen(true)}
-          className="h-8 sm:h-9 px-2 sm:px-3 rounded-full border bg-muted/40 hover:bg-muted/70 transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer text-[11px] sm:text-xs font-mono font-semibold shadow-xs"
-          title="Click to view Gamified Ledger & Credits"
-        >
-          <span className="text-amber-500 font-bold flex items-center gap-1">
-            <Sparkles className="h-3.5 w-3.5 text-amber-500 fill-amber-500/20 shrink-0" />
-            <span>{auraPoints}</span>
-          </span>
-          <span className="text-muted-foreground text-[10px]">•</span>
-          <span className="text-primary font-bold flex items-center gap-1">
-            <Award className="h-3.5 w-3.5 text-primary shrink-0" />
-            <span>{totalCredits}</span>
-          </span>
-        </button>
+      <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+        {/* Gamified Aura Points & Credits Navbar Ledger Pill (Students Only) */}
+        {userRole === 'student' && (
+          <button
+            type="button"
+            onClick={() => setLedgerSheetOpen(true)}
+            className="h-8 sm:h-9 px-2 sm:px-3 rounded-full border border-amber-500/25 bg-amber-500/10 hover:bg-amber-500/20 text-foreground transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer text-[11px] sm:text-xs font-mono font-bold shadow-2xs touch-press"
+            title="Click to view Gamified Ledger & Credits"
+          >
+            <span className="text-amber-500 font-bold flex items-center gap-1">
+              <Sparkles className="h-3.5 w-3.5 text-amber-500 fill-amber-500/30 shrink-0" />
+              <span>{auraPoints}</span>
+            </span>
+            <span className="text-muted-foreground/60 text-[10px]">•</span>
+            <span className="text-primary font-bold flex items-center gap-1">
+              <Award className="h-3.5 w-3.5 text-primary shrink-0" />
+              <span>{totalCredits}</span>
+            </span>
+          </button>
+        )}
         {/* Notifications Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

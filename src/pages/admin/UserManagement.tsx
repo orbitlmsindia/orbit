@@ -41,13 +41,14 @@ import {
   Building2,
   Trash2,
   Sparkles,
+  FileCode,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useDepartments } from "@/hooks/useDepartments";
 import { AdminBulkUserCreatorModal } from "@/components/admin/AdminBulkUserCreatorModal";
 
 interface NewUserData {
-  userType: "student" | "teacher" | "finance";
+  userType: "student" | "teacher" | "finance" | "admin";
   firstName: string;
   lastName: string;
   email: string;
@@ -83,19 +84,10 @@ export default function UserManagement() {
   const [userToReset, setUserToReset] = useState<any>(null);
   const [resetPassword, setResetPassword] = useState("");
 
-  const [students, setStudents] = useState<any[]>([
-    { id: "1", name: "Harshvardhan Purohit", email: "ceo@sintechnologies.in", role: "student", status: "active", enrolledCourses: 3, aura_points: 120, bonus_credits: 5 },
-    { id: "2", name: "Divyanshu Bohra", email: "divyanshu@gmail.com", role: "student", status: "active", enrolledCourses: 2, aura_points: 80, bonus_credits: 3 }
-  ]);
-  const [teachers, setTeachers] = useState<any[]>([
-    { id: "3", name: "Prof. Harshvardhan Purohit", email: "harshvardhanpurohit2020@gmail.com", role: "teacher", department: "Computer Science", courses: 4, status: "active" }
-  ]);
-  const [financeUsers, setFinanceUsers] = useState<any[]>([
-    { id: "4", name: "Finance Manager", email: "finance@sintechnologies.in", role: "finance", status: "active" }
-  ]);
-  const [adminUsers, setAdminUsers] = useState<any[]>([
-    { id: "5", name: "Pragya Goyal", email: "pragyagoyal1717@gmail.com", role: "admin", status: "active" }
-  ]);
+  const [students, setStudents] = useState<any[]>([]);
+  const [teachers, setTeachers] = useState<any[]>([]);
+  const [financeUsers, setFinanceUsers] = useState<any[]>([]);
+  const [adminUsers, setAdminUsers] = useState<any[]>([]);
   const [creationSuccess, setCreationSuccess] = useState<{ email: string, password: string } | null>(null);
 
   // View/Edit User State
@@ -109,50 +101,85 @@ export default function UserManagement() {
   useEffect(() => {
     const fetchUsers = async () => {
       setLoading(true);
+      // Query users table with safe column select
       const { data, error } = await supabase
         .from('users')
-        .select('id, role, full_name, email, status, created_at, department, mobile_number, address, aadhar_number, aura_points, bonus_credits, custom_badge, courses(count), enrollments(count)');
+        .select('id, role, full_name, email, status, created_at, department, mobile_number, address, aadhar_number, aura_points, bonus_credits, custom_badge')
+        .order('created_at', { ascending: false });
+
+      // Fetch enrollments count map gracefully
+      let enrollmentCounts: Record<string, number> = {};
+      try {
+        const { data: enrs } = await supabase.from('enrollments').select('student_id');
+        if (enrs) {
+          enrs.forEach((e: any) => {
+            if (e.student_id) {
+              enrollmentCounts[e.student_id] = (enrollmentCounts[e.student_id] || 0) + 1;
+            }
+          });
+        }
+      } catch (e) {
+        console.warn('Could not query enrollments count:', e);
+      }
+
+      // Fetch course counts per teacher gracefully
+      let teacherCourseCounts: Record<string, number> = {};
+      try {
+        const { data: crs } = await supabase.from('courses').select('teacher_id');
+        if (crs) {
+          crs.forEach((c: any) => {
+            if (c.teacher_id) {
+              teacherCourseCounts[c.teacher_id] = (teacherCourseCounts[c.teacher_id] || 0) + 1;
+            }
+          });
+        }
+      } catch (e) {
+        console.warn('Could not query courses count:', e);
+      }
 
       if (error) {
         console.error('Error fetching users:', error);
         toast({
           variant: "destructive",
           title: "Error",
-          description: "Failed to load users.",
+          description: "Failed to load users from database.",
         });
       } else {
-        const _students = data?.filter((u: any) => u.role === 'student').map((u: any) => ({
+        const _students = (data || []).filter((u: any) => (u.role || '').toLowerCase() === 'student').map((u: any) => ({
           ...u,
-          name: u.full_name,
-          enrolledCourses: u.enrollments?.[0]?.count || 0,
-          progress: 0, // Simplified placeholder
+          name: u.full_name || u.email,
+          enrolledCourses: enrollmentCounts[u.id] || 0,
+          progress: 0,
           status: u.status || "pending",
           joinedDate: u.created_at,
-        })) || [];
+        }));
 
-        const _teachers = data?.filter((u: any) => u.role === 'teacher').map((u: any) => ({
+        const _teachers = (data || []).filter((u: any) => (u.role || '').toLowerCase() === 'teacher').map((u: any) => ({
           ...u,
-          name: u.full_name,
+          name: u.full_name || u.email,
           department: u.department || "General",
-          courses: u.courses?.[0]?.count || 0,
-          students: 0, // Calculating total students across all courses is complex here
-          status: u.status || "pending",
-          joinedDate: u.created_at,
-        })) || [];
-
-        const _finance = data?.filter((u: any) => u.role === 'finance').map((u: any) => ({
-          ...u,
-          name: u.full_name,
+          courses: teacherCourseCounts[u.id] || 0,
+          students: 0,
           status: u.status || "active",
           joinedDate: u.created_at,
-        })) || [];
+        }));
 
-        const _admins = data?.filter((u: any) => u.role === 'admin' || u.role === 'super_admin').map((u: any) => ({
+        const _finance = (data || []).filter((u: any) => (u.role || '').toLowerCase() === 'finance').map((u: any) => ({
           ...u,
-          name: u.full_name,
+          name: u.full_name || u.email,
           status: u.status || "active",
           joinedDate: u.created_at,
-        })) || [];
+        }));
+
+        const _admins = (data || []).filter((u: any) => {
+          const r = (u.role || '').toLowerCase();
+          return r === 'admin' || r === 'super_admin' || r === 'master_admin';
+        }).map((u: any) => ({
+          ...u,
+          name: u.full_name || u.email,
+          status: u.status || "active",
+          joinedDate: u.created_at,
+        }));
 
         setStudents(_students);
         setTeachers(_teachers);
@@ -167,7 +194,7 @@ export default function UserManagement() {
 
   const filteredStudents = students.filter(s => {
     if (statusFilter === "all") return true;
-    const sStatus = (s.status || "active").toLowerCase();
+    const sStatus = (s.status || "pending").toLowerCase();
     return sStatus === statusFilter.toLowerCase();
   });
   const filteredTeachers = teachers.filter(t => {
@@ -645,8 +672,8 @@ export default function UserManagement() {
             </Button>
 
             <Button variant="default" className="gap-2 bg-primary text-primary-foreground font-bold shadow-sm" onClick={() => setBulkUserModalOpen(true)}>
-              <Sparkles className="h-4 w-4" />
-              Bulk Create IDs (Students & Teachers)
+              <FileCode className="h-4 w-4" />
+              Import IDs via JSON / Bulk Provision
             </Button>
 
             <Dialog open={addUserModalOpen} onOpenChange={open => {
@@ -714,8 +741,10 @@ export default function UserManagement() {
                           <SelectValue placeholder="Select user type" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="student">Student</SelectItem>
-                          <SelectItem value="teacher">Teacher</SelectItem>
+                          <SelectItem value="student">Student Account</SelectItem>
+                          <SelectItem value="teacher">Faculty / Teacher</SelectItem>
+                          <SelectItem value="finance">Finance Officer</SelectItem>
+                          <SelectItem value="admin">Institutional Administrator</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

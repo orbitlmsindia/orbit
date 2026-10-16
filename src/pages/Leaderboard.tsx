@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Trophy, Sparkles, Award, Medal, Crown, Loader2, Flame, UserCheck } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { FeatureGate } from "@/components/common/FeatureGate";
 
 interface LeaderboardProps {
   userRole?: "teacher" | "student" | "admin";
@@ -69,42 +70,69 @@ export default function Leaderboard({ userRole = "student" }: LeaderboardProps) 
         .select("student_id, grade, status")
         .eq("status", "graded");
 
+      // 5. Fetch completed section progress (+10 Aura per completed section)
+      let sectionProgressMap: Record<string, number> = {};
+      try {
+        const { data: compSections } = await supabase
+          .from("section_progress")
+          .select("user_id, completed")
+          .eq("completed", true);
+
+        if (compSections) {
+          compSections.forEach((sp: any) => {
+            if (sp.user_id) {
+              sectionProgressMap[sp.user_id] = (sectionProgressMap[sp.user_id] || 0) + 10;
+            }
+          });
+        }
+      } catch (spErr) {
+        console.warn("Could not fetch section_progress for leaderboard:", spErr);
+      }
+
       // Calculate total credits & total aura points per student
-      const rankList = (students || []).map((st) => {
-        const studentEnrollments = (enrollments || []).filter(
-          (e) => e.student_id === st.id && (selectedCourse === "all" || e.course_id === selectedCourse)
-        );
+      const rankList = (students || [])
+        .map((st) => {
+          const studentEnrollments = (enrollments || []).filter(
+            (e) => e.student_id === st.id && (selectedCourse === "all" || e.course_id === selectedCourse)
+          );
 
-        // CREDITS ONLY FOR COMPLETED COURSES + ADMIN BONUS OVERRIDE
-        const completedEnrollments = studentEnrollments.filter((e: any) => e.completed === true);
-        const courseCredits = completedEnrollments.reduce((acc, curr: any) => {
-          const credits = Array.isArray(curr.courses) ? curr.courses[0]?.credit_points : curr.courses?.credit_points;
-          return acc + (credits || 3);
-        }, 0);
+          // If filtering by specific course, exclude students not enrolled in this course
+          if (selectedCourse !== "all" && studentEnrollments.length === 0) {
+            return null;
+          }
 
-        const totalCredits = courseCredits + (st.bonus_credits || 0);
+          // CREDITS ONLY FOR COMPLETED COURSES + ADMIN BONUS OVERRIDE
+          const completedEnrollments = studentEnrollments.filter((e: any) => e.completed === true);
+          const courseCredits = completedEnrollments.reduce((acc, curr: any) => {
+            const credits = Array.isArray(curr.courses) ? curr.courses[0]?.credit_points : curr.courses?.credit_points;
+            return acc + (credits || 3);
+          }, 0);
 
-        const studentSubmissions = (submissions || []).filter((s) => s.student_id === st.id);
-        const totalAssignmentGrade = studentSubmissions.reduce((acc, s) => acc + (s.grade || 0), 0);
+          const totalCredits = courseCredits + (st.bonus_credits || 0);
 
-        // Derived Aura Points (base aura_points + graded assignments, NO joining bonus)
-        const computedAura = (st.aura_points || 0) + totalAssignmentGrade;
-        const currentStreak = st.current_streak || 0;
-        const highestStreak = st.highest_streak || currentStreak;
+          const studentSubmissions = (submissions || []).filter((s) => s.student_id === st.id);
+          const totalAssignmentGrade = studentSubmissions.reduce((acc, s) => acc + (s.grade || 0), 0);
 
-        return {
-          id: st.id,
-          fullName: st.full_name || "Orbit Student",
-          email: st.email,
-          avatarUrl: st.avatar_url,
-          auraPoints: computedAura,
-          totalCredits,
-          currentStreak,
-          highestStreak,
-          isPlacementPriority: totalCredits >= 12 || computedAura >= 100,
-          completedCourses: completedEnrollments.length
-        };
-      });
+          // Derived Aura Points: base aura + section completions (+10 each) + graded assignments
+          const sectionAura = sectionProgressMap[st.id] || 0;
+          const computedAura = (st.aura_points || 0) + sectionAura + totalAssignmentGrade;
+          const currentStreak = st.current_streak || 0;
+          const highestStreak = st.highest_streak || currentStreak;
+
+          return {
+            id: st.id,
+            fullName: st.full_name || "Orbit Student",
+            email: st.email,
+            avatarUrl: st.avatar_url,
+            auraPoints: computedAura,
+            totalCredits,
+            currentStreak,
+            highestStreak,
+            isPlacementPriority: totalCredits >= 12 || computedAura >= 100,
+            completedCourses: completedEnrollments.length
+          };
+        })
+        .filter(Boolean);
 
       // Sort by Aura Points desc, then Credits desc, then Streak desc
       rankList.sort((a, b) => b.auraPoints - a.auraPoints || b.totalCredits - a.totalCredits || b.currentStreak - a.currentStreak);
@@ -129,13 +157,14 @@ export default function Leaderboard({ userRole = "student" }: LeaderboardProps) 
 
   return (
     <Layout>
-      <div className="space-y-6 animate-fade-in max-w-6xl mx-auto">
-        {/* Header Bar */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-display font-bold flex items-center gap-2">
-              <Trophy className="h-8 w-8 text-amber-500 animate-bounce" /> Orbit Global Gamified Leaderboard
-            </h1>
+      <FeatureGate featureId="leaderboard">
+        <div className="space-y-6 animate-fade-in max-w-6xl mx-auto">
+          {/* Header Bar */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-display font-bold flex items-center gap-2">
+                <Trophy className="h-8 w-8 text-amber-500 animate-bounce" /> Orbit Global Gamified Leaderboard
+              </h1>
             <p className="text-muted-foreground mt-1">
               Real-time student rankings based on ✨ Aura Points, 🎓 Academic Credits, and Course Excellence.
             </p>
@@ -330,7 +359,8 @@ export default function Leaderboard({ userRole = "student" }: LeaderboardProps) 
             </Card>
           </>
         )}
-      </div>
+        </div>
+      </FeatureGate>
     </Layout>
   );
 }

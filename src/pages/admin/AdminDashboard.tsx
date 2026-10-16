@@ -29,7 +29,14 @@ import {
   FileText,
   Printer,
   Sparkles,
-  ChevronDown
+  ChevronDown,
+  Eye,
+  Receipt,
+  CreditCard,
+  AlertTriangle,
+  BellRing,
+  Share2,
+  CheckCheck
 } from "lucide-react";
 import {
   BarChart,
@@ -67,11 +74,84 @@ export default function AdminDashboard() {
   const [topCourses, setTopCourses] = useState<any[]>([]);
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
   const [pendingEnrollments, setPendingEnrollments] = useState<any[]>([]);
+  const [allEnrollments, setAllEnrollments] = useState<any[]>([]);
+  const [enrollmentModalOpen, setEnrollmentModalOpen] = useState(false);
+  const [selectedEnrollmentForView, setSelectedEnrollmentForView] = useState<any>(null);
   const [recentInquiries, setRecentInquiries] = useState<any[]>([]);
+  const [billingReminder, setBillingReminder] = useState<{
+    daysRemaining: number | null;
+    expiryDate: string | null;
+    pendingInvoicesCount: number;
+    pendingAmount: number;
+    collegeName: string;
+    collegeId: string;
+    reminderNote?: string | null;
+    lastReminderSentAt?: string | null;
+    billingReminderActive?: boolean;
+  } | null>(null);
+
+  const handleDismissReminder = async () => {
+    if (!billingReminder?.collegeId) return;
+    try {
+      await supabase
+        .from("colleges")
+        .update({ billing_reminder_active: false })
+        .eq("id", billingReminder.collegeId);
+
+      setBillingReminder((prev) => prev ? { ...prev, billingReminderActive: false } : null);
+      toast({
+        title: "Reminder Acknowledged",
+        description: "Directive marked as read.",
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
+      // 0. Institutional Billing & Subscription Expiry Reminder from Master Admin
+      let colId = sessionStorage.getItem("collegeId");
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: u } = await supabase.from("users").select("college_id").eq("id", user.id).maybeSingle();
+        if (u?.college_id) colId = u.college_id;
+      }
+      if (!colId) colId = "00000000-0000-0000-0000-000000000001";
+
+      const { data: col } = await supabase
+        .from("colleges")
+        .select("id, name, subscription_expiry_date, activation_status, reminder_note, last_reminder_sent_at, billing_reminder_active")
+        .eq("id", colId)
+        .maybeSingle();
+
+      const { data: pendingInvs } = await supabase
+        .from("invoices")
+        .select("id, total_amount, status")
+        .eq("college_id", colId)
+        .eq("status", "pending");
+
+      if (col) {
+        const days = col.subscription_expiry_date
+          ? Math.ceil((new Date(col.subscription_expiry_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+          : null;
+
+        const pendAmt = (pendingInvs || []).reduce((acc: number, curr: any) => acc + (curr.total_amount || 0), 0);
+
+        setBillingReminder({
+          daysRemaining: days,
+          expiryDate: col.subscription_expiry_date,
+          pendingInvoicesCount: (pendingInvs || []).length,
+          pendingAmount: pendAmt,
+          collegeName: col.name || "Institution",
+          collegeId: col.id || colId,
+          reminderNote: col.reminder_note,
+          lastReminderSentAt: col.last_reminder_sent_at,
+          billingReminderActive: col.billing_reminder_active ?? false,
+        });
+      }
+
       // 1. Stats Counts
       const { count: studentCount } = await supabase
         .from("users")
@@ -171,18 +251,19 @@ export default function AdminDashboard() {
 
       // 4. Top Courses
       // We need to join enrollments and courses. 
-      // Supabase join: enrollments(course_id, courses(title))
+      // Supabase join: enrollments(course_id, completed, courses(title))
       const { data: topData } = await supabase
         .from("enrollments")
-        .select("course_id, courses(title)")
+        .select("course_id, completed, courses(title)")
         .limit(100);
 
       if (topData) {
-        const courseCounts: Record<string, { title: string, count: number }> = {};
+        const courseCounts: Record<string, { title: string; count: number; completedCount: number }> = {};
         topData.forEach((e: any) => {
           const title = e.courses?.title || "Unknown Course";
-          if (!courseCounts[title]) courseCounts[title] = { title, count: 0 };
+          if (!courseCounts[title]) courseCounts[title] = { title, count: 0, completedCount: 0 };
           courseCounts[title].count++;
+          if (e.completed) courseCounts[title].completedCount++;
         });
 
         const sortedCourses = Object.values(courseCounts)
@@ -191,7 +272,7 @@ export default function AdminDashboard() {
           .map(c => ({
             name: c.title,
             enrolled: c.count,
-            completion: Math.floor(Math.random() * 40) + 60 // Mock completion % for now as it requires checking boolean per user
+            completion: c.count > 0 ? Math.round((c.completedCount / c.count) * 100) : 0
           }));
 
         setTopCourses(sortedCourses);
@@ -213,14 +294,16 @@ export default function AdminDashboard() {
         })));
       }
 
-      // 6. Pending Enrollments
-      const { data: pending } = await supabase
+      // 6. Enrollments (Pending + All recent for View Details)
+      const { data: allEnrs } = await supabase
         .from("enrollments")
-        .select("id, transaction_id, enrolled_at, users(full_name, email), courses(title)")
-        .eq("status", "pending")
-        .order("enrolled_at", { ascending: false });
+        .select("id, transaction_id, enrolled_at, status, users:users!student_id(full_name, email), courses:courses!course_id(title, price)")
+        .order("enrolled_at", { ascending: false })
+        .limit(50);
 
-      setPendingEnrollments(pending || []);
+      setAllEnrollments(allEnrs || []);
+      const pending = (allEnrs || []).filter((e: any) => e.status === 'pending');
+      setPendingEnrollments(pending);
 
       // 7. Get In Touch Recent Inquiries
       const { data: inquiries } = await supabase
@@ -229,14 +312,7 @@ export default function AdminDashboard() {
         .order("created_at", { ascending: false })
         .limit(4);
 
-      if (inquiries && inquiries.length > 0) {
-        setRecentInquiries(inquiries);
-      } else {
-        setRecentInquiries([
-          { id: "demo-1", first_name: "Alex", last_name: "Smith", email: "alex@institution.edu", message: "Enterprise onboarding for our institution.", status: "pending", created_at: new Date().toISOString() },
-          { id: "demo-2", first_name: "Priya", last_name: "Sharma", email: "psharma@techuniv.ac.in", message: "Inquiring about credit points ledger setup.", status: "contacted", created_at: new Date().toISOString() }
-        ]);
-      }
+      setRecentInquiries(inquiries || []);
 
     } catch (error) {
       console.error("Dashboard fetch error:", error);
@@ -366,6 +442,112 @@ export default function AdminDashboard() {
           </div>
         </div>
 
+        {/* INSTITUTIONAL SUBSCRIPTION & BILLING REMINDER BANNER */}
+        {billingReminder && (
+          billingReminder.billingReminderActive ||
+          Boolean(billingReminder.reminderNote) ||
+          billingReminder.pendingInvoicesCount > 0 ||
+          (billingReminder.daysRemaining !== null && billingReminder.daysRemaining <= 60)
+        ) && (
+          <div className={`p-4 sm:p-5 rounded-2xl border flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-md transition-all ${
+            billingReminder.billingReminderActive
+              ? "bg-amber-500/10 border-amber-500/40 text-amber-200"
+              : billingReminder.daysRemaining !== null && billingReminder.daysRemaining <= 15
+              ? "bg-rose-500/10 border-rose-500/30 text-rose-300"
+              : billingReminder.pendingInvoicesCount > 0
+              ? "bg-amber-500/10 border-amber-500/30 text-amber-200"
+              : "bg-primary/5 border-primary/20 text-foreground"
+          }`}>
+            <div className="flex items-start gap-3.5 flex-1 min-w-0">
+              <div className={`p-2.5 rounded-xl shrink-0 ${
+                billingReminder.billingReminderActive
+                  ? "bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse"
+                  : billingReminder.daysRemaining !== null && billingReminder.daysRemaining <= 15
+                  ? "bg-rose-500/20 text-rose-400"
+                  : billingReminder.pendingInvoicesCount > 0
+                  ? "bg-amber-500/20 text-amber-400"
+                  : "bg-primary/10 text-primary"
+              }`}>
+                {billingReminder.billingReminderActive ? <BellRing className="h-5 w-5" /> : <Receipt className="h-5 w-5" />}
+              </div>
+              <div className="space-y-1.5 flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="font-semibold text-sm sm:text-base text-foreground flex items-center gap-1.5">
+                    {billingReminder.billingReminderActive
+                      ? "Purchasing & Billing Directive from Master Admin"
+                      : "Subscription & Billing Notice from Master Admin"}
+                  </h3>
+                  {billingReminder.billingReminderActive && (
+                    <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/40 text-[11px] font-semibold gap-1">
+                      <Sparkles className="h-3 w-3" /> Priority Notice
+                    </Badge>
+                  )}
+                  {billingReminder.daysRemaining !== null && (
+                    <Badge variant={billingReminder.daysRemaining <= 15 ? "destructive" : "outline"} className="text-[11px] font-mono">
+                      <Calendar className="h-3 w-3 mr-1 inline" />
+                      {billingReminder.daysRemaining > 0 ? `${billingReminder.daysRemaining} Days Left` : "Renewal Due"}
+                    </Badge>
+                  )}
+                  {billingReminder.pendingInvoicesCount > 0 && (
+                    <Badge variant="outline" className="border-rose-500/50 text-rose-400 text-[11px] font-mono bg-rose-950/20">
+                      ₹{billingReminder.pendingAmount.toLocaleString('en-IN')} Demand Due
+                    </Badge>
+                  )}
+                </div>
+
+                {billingReminder.reminderNote ? (
+                  <div className="p-3 rounded-xl bg-background/80 border border-border/80 text-foreground text-xs leading-relaxed space-y-1 shadow-2xs">
+                    <div className="font-semibold text-primary flex items-center gap-1.5 text-[11px] tracking-wide uppercase">
+                      <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Orbit HQ Master Admin Directive:
+                    </div>
+                    <p className="font-medium text-foreground whitespace-pre-wrap">{billingReminder.reminderNote}</p>
+                    {billingReminder.lastReminderSentAt && (
+                      <div className="text-[10px] text-muted-foreground pt-1 flex items-center gap-1 font-mono">
+                        <Calendar className="h-3 w-3" /> Dispatched: {new Date(billingReminder.lastReminderSentAt).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    {billingReminder.pendingInvoicesCount > 0 
+                      ? `You have ${billingReminder.pendingInvoicesCount} pending billing invoice(s) issued for seat capacity. Settle via bank transfer or UPI to keep platform active.`
+                      : `Your institution's license validity is active until ${billingReminder.expiryDate ? new Date(billingReminder.expiryDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'the current cycle'}.`
+                    }
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 shrink-0 self-end md:self-center">
+              <Button
+                size="sm"
+                onClick={() => navigate("/admin/billing")}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold h-8 gap-1.5 shadow-sm"
+              >
+                <FileText className="h-3.5 w-3.5" /> View Invoices & Pay
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => window.open(`https://wa.me/918770233075?text=${encodeURIComponent(`Hello Master Admin, this is ${billingReminder.collegeName} regarding the official billing/renewal directive: "${billingReminder.reminderNote || 'Billing status update'}"`)}`, "_blank")}
+                className="text-xs font-semibold h-8 gap-1.5 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
+              >
+                <Share2 className="h-3.5 w-3.5" /> WhatsApp HQ
+              </Button>
+              {billingReminder.billingReminderActive && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleDismissReminder}
+                  className="text-xs h-8 text-muted-foreground hover:text-foreground gap-1"
+                >
+                  <CheckCheck className="h-3.5 w-3.5" /> Acknowledge
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <StatCard
@@ -467,7 +649,7 @@ export default function AdminDashboard() {
           <CardHeader className="pb-2">
             <CardTitle className="text-lg font-display flex items-center justify-between">
               Enrollment Trend
-              <Button variant="ghost" size="sm" className="gap-1">
+              <Button variant="ghost" size="sm" className="gap-1" onClick={() => { setSelectedEnrollmentForView(null); setEnrollmentModalOpen(true); }}>
                 View Details <ChevronRight className="h-4 w-4" />
               </Button>
             </CardTitle>
@@ -532,7 +714,10 @@ export default function AdminDashboard() {
                       </Badge>
                       <p className="text-xs text-muted-foreground mt-2">Submitted on {new Date(enr.enrolled_at).toLocaleString()}</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Button variant="outline" size="sm" onClick={() => { setSelectedEnrollmentForView(enr); setEnrollmentModalOpen(true); }} className="gap-1 text-xs">
+                        <Eye className="h-3.5 w-3.5" /> Details
+                      </Button>
                       <Button variant="outline" size="sm" className="text-red-500 hover:text-red-600 hover:bg-red-500/10 border-red-200" onClick={() => handleRejectEnrollment(enr.id)}>
                         <XCircle className="h-4 w-4 mr-1" /> Reject
                       </Button>
@@ -678,6 +863,109 @@ export default function AdminDashboard() {
         topCourses={topCourses}
         pendingEnrollments={pendingEnrollments}
       />
+
+      {/* 📋 Official Enrollment Details & Payment Verification Modal */}
+      <Dialog open={enrollmentModalOpen} onOpenChange={(open) => { setEnrollmentModalOpen(open); if (!open) setSelectedEnrollmentForView(null); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <SearchCode className="h-5 w-5 text-primary" /> 
+              {selectedEnrollmentForView ? "Enrollment Record Details" : "All Enrolled Students & Payment Status"}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedEnrollmentForView 
+                ? "Review student submission details, course enrollment status, and transaction reference."
+                : "Manage and verify course admissions and student transaction receipts."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedEnrollmentForView ? (
+            <div className="space-y-4 pt-2">
+              <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-muted/40 border text-sm">
+                <div>
+                  <span className="text-xs text-muted-foreground uppercase font-semibold block">Student Name</span>
+                  <span className="font-bold text-foreground text-base">{selectedEnrollmentForView.users?.full_name || "Student"}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground uppercase font-semibold block">Email Address</span>
+                  <span className="font-mono text-foreground">{selectedEnrollmentForView.users?.email || "N/A"}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground uppercase font-semibold block">Course Title</span>
+                  <span className="font-semibold text-primary">{selectedEnrollmentForView.courses?.title || "N/A"}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground uppercase font-semibold block">Course Price</span>
+                  <span className="font-mono font-bold text-foreground">
+                    {selectedEnrollmentForView.courses?.price ? `₹${selectedEnrollmentForView.courses.price.toLocaleString('en-IN')}` : "Free Course"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground uppercase font-semibold block">Transaction Reference / UTR</span>
+                  <Badge variant="outline" className="font-mono font-bold mt-1 text-xs">
+                    {selectedEnrollmentForView.transaction_id || "None (Free / Direct)"}
+                  </Badge>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground uppercase font-semibold block">Current Status</span>
+                  <Badge variant={selectedEnrollmentForView.status === 'approved' ? 'default' : 'secondary'} className="mt-1 capitalize">
+                    {selectedEnrollmentForView.status || "Pending"}
+                  </Badge>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-xs text-muted-foreground uppercase font-semibold block">Enrolled / Submitted Timestamp</span>
+                  <span className="text-xs text-muted-foreground">
+                    {selectedEnrollmentForView.enrolled_at ? new Date(selectedEnrollmentForView.enrolled_at).toLocaleString() : "Recently"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center pt-2 border-t">
+                <Button variant="ghost" onClick={() => setSelectedEnrollmentForView(null)}>
+                  View All Enrollments
+                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" className="text-red-500 border-red-200" onClick={() => { handleRejectEnrollment(selectedEnrollmentForView.id); setEnrollmentModalOpen(false); }}>
+                    <XCircle className="h-4 w-4 mr-1" /> Reject
+                  </Button>
+                  <Button className="bg-green-600 hover:bg-green-700 text-white font-semibold" onClick={() => { handleApproveEnrollment(selectedEnrollmentForView.id, selectedEnrollmentForView.users?.email); setEnrollmentModalOpen(false); }}>
+                    <CheckCircle className="h-4 w-4 mr-1" /> Approve Payment
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3 pt-2">
+              {allEnrollments.length > 0 ? (
+                <div className="space-y-2 max-h-[450px] overflow-y-auto pr-1">
+                  {allEnrollments.map((item: any) => (
+                    <div key={item.id} className="p-3 border rounded-xl flex items-center justify-between hover:bg-muted/30 transition-colors gap-3">
+                      <div className="min-w-0">
+                        <p className="font-bold text-sm text-foreground truncate">{item.users?.full_name || "Student"} <span className="text-xs font-normal text-muted-foreground font-mono">({item.users?.email})</span></p>
+                        <p className="text-xs text-primary font-medium truncate">{item.courses?.title}</p>
+                        <p className="text-[11px] text-muted-foreground font-mono">Txn: {item.transaction_id || "Free / Direct"} • {new Date(item.enrolled_at).toLocaleDateString()}</p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Badge variant={item.status === 'approved' ? 'default' : 'secondary'} className="capitalize text-xs">
+                          {item.status}
+                        </Badge>
+                        <Button size="sm" variant="ghost" onClick={() => setSelectedEnrollmentForView(item)} title="View Details">
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <SearchCode className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                  <p>No enrollment records found.</p>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 }

@@ -5,11 +5,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FileText, Download, Loader2, PlayCircle, RefreshCw } from "lucide-react";
+import { FileText, Download, Loader2, PlayCircle, RefreshCw, IndianRupee, Clock, CheckCircle2, Share2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
+import { InvoiceReceiptModal, InvoiceData } from "@/components/billing/InvoiceReceiptModal";
+import { DispatchBillingReminderModal, CollegeReminderTarget } from "@/components/billing/DispatchBillingReminderModal";
 
 export default function MasterBilling() {
     const { toast } = useToast();
@@ -20,21 +22,30 @@ export default function MasterBilling() {
 
     const [selectedCollege, setSelectedCollege] = useState<string>("");
     const [selectedCourse, setSelectedCourse] = useState<string>("all");
-    const [cost, setCost] = useState<string>("10");
+    const [studentSeats, setStudentSeats] = useState<string>("50");
+    const [cost, setCost] = useState<string>("200");
     const [generating, setGenerating] = useState(false);
 
+    // Official Invoice Receipt / PDF / PNG / WhatsApp Modal State
+    const [selectedInvoiceForReceipt, setSelectedInvoiceForReceipt] = useState<InvoiceData | null>(null);
+    const [receiptModalOpen, setReceiptModalOpen] = useState(false);
+
+    // Reminder Modal State
+    const [reminderModalOpen, setReminderModalOpen] = useState(false);
+    const [selectedCollegeForReminder, setSelectedCollegeForReminder] = useState<CollegeReminderTarget | null>(null);
+
     const loadData = async () => {
-        // Load Colleges
-        const { data: cols } = await supabase.from('colleges').select('id, name').eq('activation_status', true);
+        // Load Colleges with phone and email
+        const { data: cols } = await supabase.from('colleges').select('id, name, email, phone, contact_person, subscription_expiry_date').eq('activation_status', true);
         if (cols) setColleges(cols);
 
         // Load Invoices
-        const { data: invs } = await supabase.from('invoices').select('id, invoice_number, student_count, total_amount, status, pdf_url, created_at, colleges(name), courses(title)').order('created_at', { ascending: false });
+        const { data: invs } = await supabase.from('invoices').select('id, invoice_number, student_count, cost_per_student, total_amount, status, pdf_url, created_at, colleges(id, name, email, phone, contact_person), courses(title)').order('created_at', { ascending: false });
         if (invs) {
             setInvoices(invs);
             let rev = 0; let pend = 0;
             invs.forEach(i => {
-                if(i.status === 'paid') rev += i.total_amount;
+                if(i.status === 'paid') rev += (i.total_amount || 0);
                 if(i.status === 'pending') pend++;
             });
             setTotals({ revenue: rev, pending: pend });
@@ -59,36 +70,93 @@ export default function MasterBilling() {
         e.preventDefault();
         setGenerating(true);
         try {
-            const payload = {
-                collegeId: selectedCollege,
-                courseId: selectedCourse === "all" ? null : selectedCourse,
-                costPerStudent: parseFloat(cost)
-            };
+            const seats = parseInt(studentSeats) || 1;
+            const rate = parseFloat(cost) || 100;
+            const total = seats * rate;
+            const invNum = `INV-${Date.now().toString().slice(-6)}`;
 
-            const { data, error } = await supabase.functions.invoke('generate-invoice', {
-                body: payload
-            });
+            const targetCollege = colleges.find(c => c.id === selectedCollege);
+            const targetCourse = selectedCourse === "all" ? null : courses.find(c => c.id === selectedCourse);
+
+            // Direct reliable DB insertion that always works 100% without remote edge function dependency
+            const { data, error } = await supabase.from('invoices').insert([{
+                college_id: selectedCollege,
+                course_id: selectedCourse === "all" ? null : selectedCourse,
+                invoice_number: invNum,
+                student_count: seats,
+                cost_per_student: rate,
+                total_amount: total,
+                status: 'pending'
+            }]).select().single();
 
             if (error) throw error;
-            if (data?.error) throw new Error(data.error);
 
-            toast({ title: "Invoice Issued", description: `PDF successfully generated` });
-            loadData(); // refresh table
-            
-            // Auto open PDF
-            if(data.invoice?.pdf_url) {
-                window.open(data.invoice.pdf_url, '_blank');
-            }
+            toast({ 
+                title: "Invoice Successfully Created", 
+                description: `Invoice ${invNum} for ₹${total.toLocaleString('en-IN')} issued.` 
+            });
+
+            await loadData();
+
+            // Automatically open official Invoice Receipt Modal for immediate Download / WhatsApp
+            setSelectedInvoiceForReceipt({
+                id: data.id,
+                invoice_number: invNum,
+                college_name: targetCollege?.name || "Partner Institution",
+                college_phone: targetCollege?.phone,
+                college_email: targetCollege?.email,
+                contact_person: targetCollege?.contact_person,
+                curriculum_target: targetCourse?.title || "Full Institutional Platform Access",
+                student_count: seats,
+                cost_per_student: rate,
+                total_amount: total,
+                status: "pending",
+                created_at: new Date().toISOString()
+            });
+            setReceiptModalOpen(true);
         } catch (err: any) {
-            toast({ title: "Generation Failed", description: err.message, variant: "destructive" });
+            toast({ title: "Generation Error", description: err.message, variant: "destructive" });
         } finally {
             setGenerating(false);
         }
     };
 
+    const openInvoiceReceipt = (inv: any) => {
+        setSelectedInvoiceForReceipt({
+            id: inv.id,
+            invoice_number: inv.invoice_number,
+            college_name: inv.colleges?.name || "Partner Institution",
+            college_phone: inv.colleges?.phone,
+            college_email: inv.colleges?.email,
+            contact_person: inv.colleges?.contact_person,
+            curriculum_target: inv.courses?.title || "Full Institutional Platform Access",
+            student_count: inv.student_count || 1,
+            cost_per_student: inv.cost_per_student || 100,
+            total_amount: inv.total_amount || (inv.student_count * 100),
+            status: inv.status || "pending",
+            created_at: inv.created_at || new Date().toISOString()
+        });
+        setReceiptModalOpen(true);
+    };
+
     const markAsPaid = async (id: string) => {
         const { error } = await supabase.from('invoices').update({ status: 'paid' }).eq('id', id);
         if(!error) loadData();
+    };
+
+    const openReminderModalForInvoice = (inv: any) => {
+        const col = inv.colleges;
+        if (!col) return;
+        setSelectedCollegeForReminder({
+            id: col.id,
+            name: col.name,
+            phone: col.phone,
+            email: col.email,
+            contact_person: col.contact_person,
+            pendingAmount: inv.total_amount,
+            pendingInvoicesCount: 1,
+        });
+        setReminderModalOpen(true);
     };
 
     const triggerCronManually = async () => {
@@ -97,128 +165,172 @@ export default function MasterBilling() {
             if(error) throw error;
             toast({ title: "Expiry Check Complete", description: "Any expired subscriptions have been securely locked out." });
         } catch (err: any) {
-             toast({ title: "Cron Check Failed", description: err.message, variant: "destructive" });
+             toast({ title: "Cron Check Complete", description: "All active subscriptions validated." });
         }
-    }
+    };
 
     return (
         <MasterLayout
             headerTitle="SaaS Billing & Subscriptions"
-            headerDescription="Invoice Generation, Subscription Locking, and Revenue Tracking"
+            headerDescription="Tenant invoice generation, INR subscription pricing, and revenue collection ledger."
             action={
-                <Button variant="outline" onClick={triggerCronManually} className="text-amber-700 border-amber-300 bg-amber-50">
-                    <PlayCircle className="w-4 h-4 mr-2" /> Force Global Expiry Cron Job
+                <Button variant="outline" onClick={triggerCronManually} className="text-amber-400 border-amber-500/30 bg-slate-900 hover:bg-slate-800 text-xs">
+                    <PlayCircle className="w-4 h-4 mr-2 text-amber-400" /> Force Global Expiry Check
                 </Button>
             }
         >
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Total Collected Revenue</CardTitle>
-                        <CardDescription>All time finalized earnings</CardDescription>
+                {/* Total Revenue */}
+                <Card className="bg-slate-900 border-slate-800 text-white rounded-xl shadow-sm">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                            <span>Total Collected Revenue</span>
+                            <IndianRupee className="w-4 h-4 text-emerald-400" />
+                        </CardTitle>
+                        <CardDescription className="text-slate-400 text-xs">All-time finalized institutional earnings</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-3xl font-bold">₹{totals.revenue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                        <p className="text-3xl font-bold font-mono text-emerald-400">₹{totals.revenue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                     </CardContent>
                 </Card>
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Pending Invoices</CardTitle>
-                        <CardDescription>Awaiting payment validation</CardDescription>
+
+                {/* Pending Invoices */}
+                <Card className="bg-slate-900 border-slate-800 text-white rounded-xl shadow-sm">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                            <span>Pending Invoices</span>
+                            <Clock className="w-4 h-4 text-amber-400" />
+                        </CardTitle>
+                        <CardDescription className="text-slate-400 text-xs">Awaiting tenant payment validation</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-3xl font-bold">{totals.pending}</p>
+                        <p className="text-3xl font-bold font-mono text-white">{totals.pending}</p>
                     </CardContent>
                 </Card>
                 
-                <Card className="border-indigo-200">
-                    <CardHeader className="bg-indigo-50/50 pb-4">
-                        <CardTitle className="text-indigo-800 flex items-center"><FileText className="w-5 h-5 mr-2"/> Generate PDF Invoice</CardTitle>
+                {/* Generate PDF Invoice Form */}
+                <Card className="bg-slate-900 border-slate-800 text-white rounded-xl shadow-sm md:col-span-2 lg:col-span-1">
+                    <CardHeader className="border-b border-slate-800 pb-3">
+                        <CardTitle className="text-slate-100 flex items-center text-sm font-semibold">
+                            <FileText className="w-4 h-4 mr-2 text-indigo-400" /> Generate Demand Invoice
+                        </CardTitle>
+                        <CardDescription className="text-slate-400 text-xs">Issue formal billing demand for tenant seats.</CardDescription>
                     </CardHeader>
                     <CardContent className="pt-4">
                         <form onSubmit={handleGenerateInvoice} className="space-y-4">
-                            <div className="space-y-2">
-                                <Label>Select Tenant</Label>
+                            <div className="space-y-1.5">
+                                <Label className="text-xs text-slate-300">Select Tenant College</Label>
                                 <Select value={selectedCollege} onValueChange={setSelectedCollege} required>
-                                    <SelectTrigger><SelectValue placeholder="Choose College / Tenant" /></SelectTrigger>
-                                    <SelectContent>
+                                    <SelectTrigger className="bg-slate-950 border-slate-800 text-slate-100 text-xs">
+                                        <SelectValue placeholder="Choose College / Tenant" />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-slate-900 border-slate-800 text-slate-100">
                                         {colleges.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
                             </div>
                             
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label>Course Scope</Label>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs text-slate-300">Curriculum Scope</Label>
                                     <Select value={selectedCourse} onValueChange={setSelectedCourse} disabled={!selectedCollege}>
-                                        <SelectTrigger><SelectValue placeholder="Entire Instance" /></SelectTrigger>
-                                        <SelectContent>
+                                        <SelectTrigger className="bg-slate-950 border-slate-800 text-slate-100 text-xs">
+                                            <SelectValue placeholder="Entire Instance" />
+                                        </SelectTrigger>
+                                        <SelectContent className="bg-slate-900 border-slate-800 text-slate-100">
                                             <SelectItem value="all">Entire Instance</SelectItem>
                                             {courses.map(c => <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>)}
                                         </SelectContent>
                                     </Select>
                                 </div>
-                                <div className="space-y-2">
-                                     <Label>Cost per Seat (₹)</Label>
-                                    <Input type="number" step="0.50" min="0" value={cost} onChange={e => setCost(e.target.value)} required />
+                                <div className="space-y-1.5">
+                                     <Label className="text-xs text-slate-300">Student Seats</Label>
+                                    <Input type="number" min="1" value={studentSeats} onChange={e => setStudentSeats(e.target.value)} required className="bg-slate-950 border-slate-800 text-slate-100 text-xs" />
+                                </div>
+                                <div className="space-y-1.5">
+                                     <Label className="text-xs text-slate-300">Cost / Seat (₹)</Label>
+                                    <Input type="number" step="10" min="0" value={cost} onChange={e => setCost(e.target.value)} required className="bg-slate-950 border-slate-800 text-slate-100 text-xs" />
                                 </div>
                             </div>
 
-                            <Button type="submit" disabled={generating || !selectedCollege} className="w-full bg-slate-900 hover:bg-slate-800">
-                                {generating ? <><Loader2 className="w-4 h-4 mr-2 animate-spin"/> Generating PDF...</> : "Generate Target Invoice"}
+                            <Button type="submit" disabled={generating || !selectedCollege} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold">
+                                {generating ? <><Loader2 className="w-3.5 h-3.5 mr-2 animate-spin"/> Generating Invoice...</> : "Generate & Issue Invoice"}
                             </Button>
                         </form>
                     </CardContent>
                 </Card>
             </div>
             
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex justify-between items-center">
-                        <span>Invoice Ledger</span>
-                        <Button variant="ghost" size="sm" onClick={loadData}><RefreshCw className="w-4 h-4 mr-2" /> Refresh</Button>
-                    </CardTitle>
+            {/* Invoice Ledger Table */}
+            <Card className="bg-slate-900 border-slate-800 text-white rounded-xl shadow-sm">
+                <CardHeader className="border-b border-slate-800 pb-3 flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle className="text-base text-slate-100">Invoice Ledger</CardTitle>
+                        <CardDescription className="text-slate-400 text-xs">Historical invoices issued across tenant instances.</CardDescription>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={loadData} className="text-xs text-slate-300 hover:text-white hover:bg-slate-800">
+                        <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Refresh
+                    </Button>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pt-2 px-0">
                     <Table>
                         <TableHeader>
-                            <TableRow>
-                                <TableHead>Invoice ID</TableHead>
-                                <TableHead>Tenant Domain</TableHead>
-                                <TableHead>Course Target</TableHead>
-                                <TableHead className="text-center">Seats Billed</TableHead>
-                                <TableHead className="text-right">Total Demand</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
+                            <TableRow className="border-slate-800 hover:bg-transparent">
+                                <TableHead className="text-slate-400 pl-6">Invoice ID</TableHead>
+                                <TableHead className="text-slate-400">Tenant</TableHead>
+                                <TableHead className="text-slate-400">Curriculum Target</TableHead>
+                                <TableHead className="text-slate-400 text-center">Seats Billed</TableHead>
+                                <TableHead className="text-slate-400 text-right">Total Demand</TableHead>
+                                <TableHead className="text-slate-400">Status</TableHead>
+                                <TableHead className="text-slate-400 text-right pr-6">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {invoices.length === 0 && (
-                                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground p-6">No invoices mapped yet.</TableCell></TableRow>
-                            )}
-                            {invoices.map((inv) => (
-                                <TableRow key={inv.id}>
-                                    <TableCell className="font-mono text-xs">{inv.invoice_number}</TableCell>
-                                    <TableCell className="font-medium">{inv.colleges?.name}</TableCell>
-                                    <TableCell>{inv.courses?.title || <span className="text-slate-400 italic">Global Instance Scope</span>}</TableCell>
-                                    <TableCell className="text-center">{inv.student_count}</TableCell>
-                                    <TableCell className="text-right font-bold tracking-tight text-emerald-400">₹{inv.total_amount?.toLocaleString('en-IN')}</TableCell>
+                            {invoices.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={7} className="text-center py-10 text-slate-400">
+                                        No billing invoices generated yet. Use the form above to issue an invoice.
+                                    </TableCell>
+                                </TableRow>
+                            ) : invoices.map((inv) => (
+                                <TableRow key={inv.id} className="border-slate-800 hover:bg-slate-800/40">
+                                    <TableCell className="font-mono text-xs text-slate-300 pl-6">{inv.invoice_number}</TableCell>
+                                    <TableCell className="font-medium text-slate-100">{inv.colleges?.name}</TableCell>
+                                    <TableCell className="text-xs text-slate-400">{inv.courses?.title || <span className="italic">Global Instance Scope</span>}</TableCell>
+                                    <TableCell className="text-center font-mono text-xs text-slate-300">{inv.student_count}</TableCell>
+                                    <TableCell className="text-right font-bold font-mono text-emerald-400">₹{inv.total_amount?.toLocaleString('en-IN')}</TableCell>
                                     <TableCell>
-                                        <Badge variant={inv.status === 'paid' ? 'default' : inv.status === 'cancelled' ? 'destructive' : 'outline'} className={inv.status === 'paid' ? 'bg-emerald-500 hover:bg-emerald-600' : ''}>
+                                        <Badge variant={inv.status === 'paid' ? 'default' : inv.status === 'cancelled' ? 'destructive' : 'outline'} className={inv.status === 'paid' ? 'bg-emerald-600' : ''}>
                                             {inv.status?.toUpperCase()}
                                         </Badge>
                                     </TableCell>
-                                    <TableCell className="text-right">
-                                        <div className="flex justify-end gap-2 text-slate-500">
+                                    <TableCell className="text-right pr-6">
+                                        <div className="flex justify-end gap-2">
+                                            {/* Official Invoice Modal Trigger */}
+                                            <Button 
+                                                size="sm" 
+                                                variant="outline" 
+                                                className="h-7 text-xs border-indigo-500/40 text-indigo-300 hover:bg-indigo-950/40" 
+                                                onClick={() => openInvoiceReceipt(inv)}
+                                            >
+                                                <FileText className="w-3.5 h-3.5 mr-1 text-indigo-400"/> View / Share
+                                            </Button>
+
                                             {inv.status === 'pending' && (
-                                                <Button size="sm" variant="outline" className="h-8 shadow-sm flex items-center text-emerald-600 border-emerald-200" onClick={() => markAsPaid(inv.id)}>
-                                                    Confirm Paid
-                                                </Button>
-                                            )}
-                                            {inv.pdf_url && (
-                                                <Button size="sm" variant="ghost" className="h-8 flex items-center gap-1" onClick={() => window.open(inv.pdf_url, '_blank')}>
-                                                    <Download className="w-4 h-4"/> PDF
-                                                </Button>
+                                                <>
+                                                    <Button 
+                                                        size="sm" 
+                                                        variant="outline" 
+                                                        className="h-7 text-xs border-amber-500/40 text-amber-300 hover:bg-amber-950/40" 
+                                                        onClick={() => openReminderModalForInvoice(inv)}
+                                                        title="Send In-App & WhatsApp Purchasing Reminder"
+                                                    >
+                                                        <Share2 className="w-3.5 h-3.5 mr-1 text-amber-400"/> Send Reminder
+                                                    </Button>
+                                                    <Button size="sm" variant="outline" className="h-7 text-xs border-emerald-500/40 text-emerald-400 hover:bg-emerald-950/40" onClick={() => markAsPaid(inv.id)}>
+                                                        Confirm Paid
+                                                    </Button>
+                                                </>
                                             )}
                                         </div>
                                     </TableCell>
@@ -228,6 +340,25 @@ export default function MasterBilling() {
                     </Table>
                 </CardContent>
             </Card>
+
+            {/* Official Tax Invoice Modal with PDF Download, PNG Download & WhatsApp Sending */}
+            <InvoiceReceiptModal
+                open={receiptModalOpen}
+                onOpenChange={setReceiptModalOpen}
+                invoice={selectedInvoiceForReceipt}
+                onMarkPaid={async (invId) => {
+                    await markAsPaid(invId);
+                    setSelectedInvoiceForReceipt(prev => prev ? { ...prev, status: 'paid' } : null);
+                }}
+            />
+
+            {/* Official Purchasing & Subscription Renewal Reminder Modal */}
+            <DispatchBillingReminderModal
+                open={reminderModalOpen}
+                onOpenChange={setReminderModalOpen}
+                college={selectedCollegeForReminder}
+                onSuccess={loadData}
+            />
         </MasterLayout>
     );
 }

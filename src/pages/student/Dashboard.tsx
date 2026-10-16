@@ -317,8 +317,7 @@ export default function StudentDashboard() {
                         <CardContent className="pt-4 pb-4">
                             <div
                                 ref={carouselRef}
-                                className="flex gap-4 overflow-x-auto scrollbar-thin scrollbar-thumb-red-500/20 hover:scrollbar-thumb-red-500/40 pb-2 snap-x snap-mandatory scroll-smooth"
-                                style={{ scrollbarWidth: 'thin' }}
+                                className="flex gap-4 overflow-x-auto scrollbar-none touch-pan-x pb-2 snap-x snap-mandatory scroll-smooth"
                             >
                                 {carouselLiveClasses.map((lc) => {
                                     const start = new Date(lc.scheduled_at);
@@ -435,7 +434,7 @@ export default function StudentDashboard() {
                                         const isPending = course.status === 'pending';
 
                                         const CardContent = (
-                                            <div className="group flex flex-col sm:flex-row gap-4 p-4 rounded-xl border bg-card hover:bg-accent/5 transition-all hover:border-primary/50 cursor-pointer relative overflow-hidden">
+                                            <div className="group flex flex-col sm:flex-row gap-4 p-4 rounded-2xl border bg-card hover:bg-accent/5 transition-all hover:border-primary/50 cursor-pointer relative overflow-hidden shadow-2xs touch-press">
                                                 {isPending && (
                                                     <div className="absolute inset-0 bg-background/50 z-10 flex items-center justify-center backdrop-blur-[1px]">
                                                         <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20 font-semibold px-3 py-1 mt-6">

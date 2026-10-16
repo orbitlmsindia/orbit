@@ -48,6 +48,7 @@ export default function StudentCalendar() {
     const [events, setEvents] = useState<CalendarEventItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedCategory, setSelectedCategory] = useState<string>("all");
+    const [viewMode, setViewMode] = useState<"selected" | "upcoming">("selected");
 
     // Admission & Course Approval State
     const [userAdmissionStatus, setUserAdmissionStatus] = useState<"active" | "pending" | "suspended" | null>(null);
@@ -132,7 +133,7 @@ export default function StudentCalendar() {
             const { data: calEvents } = await supabase
                 .from('calendar_events')
                 .select('id, title, description, event_date, type, visibility, course_id')
-                .or(`visibility.eq.all,visibility.eq.students`);
+                .or(`visibility.eq.all,visibility.eq.students,visibility.eq.course`);
 
             if (calEvents && calEvents.length > 0) {
                 calEvents.forEach((ce: any) => {
@@ -567,23 +568,40 @@ export default function StudentCalendar() {
                     {/* Right Column: Events for Selected Date & Timeline */}
                     <div className="lg:col-span-7 space-y-4">
                         <Card className="border shadow-sm">
-                            <CardHeader className="pb-3 border-b flex flex-row items-center justify-between">
+                            <CardHeader className="pb-3 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                 <div>
                                     <CardTitle className="text-lg font-bold flex items-center gap-2">
                                         <Clock className="h-5 w-5 text-primary" />
-                                        {date ? format(date, "EEEE, MMMM d, yyyy") : "Upcoming Schedule"}
+                                        {viewMode === "upcoming"
+                                            ? "Upcoming Schedule (All Events)"
+                                            : (date ? format(date, "EEEE, MMMM d, yyyy") : "Upcoming Schedule")}
                                     </CardTitle>
                                     <CardDescription className="text-xs mt-0.5">
-                                        {date
-                                            ? `${selectedDateEvents.length} event${selectedDateEvents.length === 1 ? "" : "s"} scheduled for this date`
-                                            : "Select a date on the calendar to view scheduled lectures and deadlines"}
+                                        {viewMode === "upcoming"
+                                            ? `Showing ${categoryFilteredEvents.length} upcoming scheduled event${categoryFilteredEvents.length === 1 ? "" : "s"}`
+                                            : (date
+                                                ? `${selectedDateEvents.length} event${selectedDateEvents.length === 1 ? "" : "s"} scheduled for this date`
+                                                : "Select a date on the calendar to view scheduled lectures and deadlines")}
                                     </CardDescription>
                                 </div>
-                                {selectedDateEvents.length > 0 && (
-                                    <Badge variant="outline" className="text-xs font-semibold">
-                                        {selectedDateEvents.length} Active
-                                    </Badge>
-                                )}
+                                <div className="flex items-center gap-1 bg-muted p-1 rounded-lg">
+                                    <Button
+                                        variant={viewMode === "selected" ? "default" : "ghost"}
+                                        size="sm"
+                                        onClick={() => setViewMode("selected")}
+                                        className="text-xs h-7 px-2.5"
+                                    >
+                                        Date View
+                                    </Button>
+                                    <Button
+                                        variant={viewMode === "upcoming" ? "default" : "ghost"}
+                                        size="sm"
+                                        onClick={() => setViewMode("upcoming")}
+                                        className="text-xs h-7 px-2.5"
+                                    >
+                                        Upcoming ({categoryFilteredEvents.length})
+                                    </Button>
+                                </div>
                             </CardHeader>
 
                             <CardContent className="p-4 space-y-3 max-h-[550px] overflow-y-auto">
@@ -600,7 +618,7 @@ export default function StudentCalendar() {
                                             Calendar entries and lecture links will appear once your admission is verified by the admin.
                                         </p>
                                     </div>
-                                ) : (date ? selectedDateEvents : categoryFilteredEvents).length === 0 ? (
+                                ) : (viewMode === "upcoming" ? categoryFilteredEvents : selectedDateEvents).length === 0 ? (
                                     <div className="flex flex-col items-center justify-center py-14 text-center text-muted-foreground space-y-3">
                                         <div className="p-3 rounded-full bg-muted/60">
                                             <CalendarIcon className="h-7 w-7 text-muted-foreground" />
@@ -623,7 +641,7 @@ export default function StudentCalendar() {
                                     </div>
                                 ) : (
                                     <div className="space-y-3">
-                                        {(date ? selectedDateEvents : categoryFilteredEvents).map((event) => (
+                                        {(viewMode === "upcoming" ? categoryFilteredEvents : selectedDateEvents).map((event) => (
                                             <div
                                                 key={event.id}
                                                 className="group p-4 rounded-xl border bg-card hover:border-primary/40 hover:shadow-md transition-all duration-200 flex flex-col sm:flex-row sm:items-start justify-between gap-3"

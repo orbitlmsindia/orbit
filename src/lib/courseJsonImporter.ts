@@ -340,7 +340,7 @@ export interface ImportResult {
   errors: string[];
 }
 
-export async function importCourseFromJson(rawPayload: JsonCoursePayload): Promise<ImportResult> {
+export async function importCourseFromJson(rawPayload: JsonCoursePayload, overrideTeacherId?: string): Promise<ImportResult> {
   const payload = normalizeCourseJson(rawPayload);
   const result: ImportResult = {
     success: false,
@@ -360,6 +360,10 @@ export async function importCourseFromJson(rawPayload: JsonCoursePayload): Promi
       return result;
     }
 
+    const assignedTeacherId = (overrideTeacherId && overrideTeacherId !== "admin_unassigned" && overrideTeacherId !== "unassigned") 
+      ? overrideTeacherId 
+      : user.id;
+
     // 2. Create the course
     const { data: courseData, error: courseError } = await supabase
       .from("courses")
@@ -378,7 +382,7 @@ export async function importCourseFromJson(rawPayload: JsonCoursePayload): Promi
         original_price: payload.original_price || 0,
         organization_name: payload.organization_name || null,
         organization_logo_url: payload.organization_logo_url || null,
-        teacher_id: user.id,
+        teacher_id: assignedTeacherId,
       }])
       .select("id")
       .single();

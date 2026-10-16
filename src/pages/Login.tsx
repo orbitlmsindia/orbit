@@ -35,27 +35,41 @@ export default function Login() {
 
       if (data.session) {
         // Fetch user role and college_id
+        let role = "";
+        let college_id = null;
+        let status = "active";
+
         const { data: userData, error: userError } = await supabase
           .from("users")
           .select("role, status, college_id")
           .eq("id", data.session.user.id)
-          .single();
+          .maybeSingle();
 
-        if (userError || !userData) {
-          console.error("Error fetching user role:", userError);
-          // SECURITY FIX: Do not allow login if we can't verify the role/status
-          await supabase.auth.signOut();
-          setError("Account verification failed. Please contact support.");
-          return;
+        if (userData) {
+          role = (userData.role || "").toLowerCase();
+          college_id = userData.college_id;
+          status = userData.status || "active";
+        } else {
+          // Fallback to metadata
+          role = (
+            data.session.user.app_metadata?.user_role ||
+            data.session.user.user_metadata?.role ||
+            ""
+          ).toLowerCase();
+          college_id = data.session.user.app_metadata?.college_id || null;
         }
 
-        if (userData.status === 'pending') {
+        if (status === 'pending') {
           await supabase.auth.signOut();
           setError("Your account is pending approval. Please contact the administrator.");
           return;
         }
 
-        const { role, college_id } = userData;
+        if (status === 'revoked' || status === 'inactive' || status === 'deactivated') {
+          await supabase.auth.signOut();
+          setError("This account has been revoked or deactivated. Please contact the administrator.");
+          return;
+        }
 
         // Store Role and CollegeID in session storage
         sessionStorage.setItem('userRole', role);
@@ -63,10 +77,28 @@ export default function Login() {
           sessionStorage.setItem('collegeId', college_id);
         }
 
-        if (role === "admin" || role === "super_admin") {
+        // Check if tenant college has been turned OFF by Master Admin
+        if (role !== "super_admin" && role !== "master_admin" && college_id) {
+          const { data: col } = await supabase
+            .from("colleges")
+            .select("activation_status")
+            .eq("id", college_id)
+            .maybeSingle();
+
+          if (col && col.activation_status === false) {
+            navigate("/service-maintenance");
+            return;
+          }
+        }
+
+        if (role === "super_admin" || role === "master_admin") {
+          navigate("/master");
+        } else if (role === "admin") {
           navigate("/admin");
         } else if (role === "teacher") {
           navigate("/teacher");
+        } else if (role === "finance") {
+          navigate("/finance");
         } else if (role === "student") {
           navigate("/student");
         } else {

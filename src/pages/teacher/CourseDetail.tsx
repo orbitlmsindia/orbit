@@ -60,6 +60,7 @@ import { FileJson, Award, UserPlus } from "lucide-react";
 import { BulkLiveClassImporterModal } from "@/components/live/BulkLiveClassImporterModal";
 import { BulkStudentCreatorModal } from "@/components/teacher/BulkStudentCreatorModal";
 import { ExamPaperDesignerModal } from "@/components/reports/ExamPaperDesignerModal";
+import { AwardAuraPointsModal, AwardAuraStudent } from "@/components/gamification/AwardAuraPointsModal";
 
 export default function CourseDetail() {
     const { id } = useParams();
@@ -73,6 +74,8 @@ export default function CourseDetail() {
     const [sections, setSections] = useState<any[]>([]);
     const [enrollments, setEnrollments] = useState<any[]>([]);
     const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "curriculum");
+    const [auraModalOpen, setAuraModalOpen] = useState(false);
+    const [selectedAuraStudent, setSelectedAuraStudent] = useState<AwardAuraStudent | null>(null);
 
     useEffect(() => {
         const tabParam = searchParams.get("tab");
@@ -322,7 +325,7 @@ export default function CourseDetail() {
                 .from('enrollments')
                 .select(`
                     id, transaction_id, status, completed, enrolled_at,
-                    student:users!student_id(full_name, email, avatar_url)
+                    student:users!student_id(id, full_name, email, avatar_url, aura_points)
                 `)
                 .eq('course_id', id);
 
@@ -2612,7 +2615,24 @@ ${liveHTML}
                     <div className="space-y-4 mb-6">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <h2 className="text-xl font-bold">Student Enrollments & Verifications</h2>
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <Button variant="outline" onClick={() => {
+                                    const firstApproved = enrollments.find((e: any) => e.status === "approved");
+                                    if (firstApproved) {
+                                        setSelectedAuraStudent({
+                                            id: firstApproved.student?.id || firstApproved.student_id,
+                                            full_name: firstApproved.student?.full_name,
+                                            email: firstApproved.student?.email,
+                                            avatar_url: firstApproved.student?.avatar_url,
+                                            aura_points: firstApproved.student?.aura_points || 0
+                                        });
+                                        setAuraModalOpen(true);
+                                    } else {
+                                        toast({ title: "No Approved Students", description: "Approve student enrollments first to award Aura points." });
+                                    }
+                                }} className="gap-2 border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 font-bold">
+                                    <Sparkles className="h-4 w-4 text-amber-500" /> Award Course Aura ✨
+                                </Button>
                                 <Button variant="outline" onClick={() => setBulkStudentOpen(true)} className="gap-2 border-primary/30 text-primary hover:bg-primary/10 font-semibold">
                                     <UserPlus className="h-4 w-4" /> Bulk Create Student IDs
                                 </Button>
@@ -2811,15 +2831,20 @@ ${liveHTML}
                                             <div>
                                                 <p className="font-medium text-foreground">{enrollment.student?.full_name || "Unknown Student"}</p>
                                                 <p className="text-sm text-muted-foreground">{enrollment.student?.email}</p>
-                                                {enrollment.transaction_id && (
-                                                    <p className="text-xs font-mono bg-muted px-2 py-0.5 rounded inline-block mt-1 border">
-                                                        UPI / Txn ID: <span className="font-bold text-foreground">{enrollment.transaction_id}</span>
-                                                    </p>
-                                                )}
+                                                <div className="flex flex-wrap items-center gap-2 mt-1">
+                                                    {enrollment.transaction_id && (
+                                                        <p className="text-xs font-mono bg-muted px-2 py-0.5 rounded inline-block border">
+                                                            UPI / Txn ID: <span className="font-bold text-foreground">{enrollment.transaction_id}</span>
+                                                        </p>
+                                                    )}
+                                                    <Badge variant="outline" className="text-amber-500 border-amber-500/40 bg-amber-500/10 font-mono text-[11px] font-bold gap-1 py-0.5">
+                                                        <Sparkles className="h-3 w-3" /> {enrollment.student?.aura_points || 0} XP
+                                                    </Badge>
+                                                </div>
                                             </div>
                                         </div>
 
-                                        <div className="text-right flex items-center justify-end gap-3">
+                                        <div className="text-right flex items-center justify-end gap-2.5">
                                             {enrollment.status === 'pending' ? (
                                                 <>
                                                     <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20">Pending Verification</Badge>
@@ -2835,17 +2860,37 @@ ${liveHTML}
                                                     <Badge variant={enrollment.status === 'rejected' ? "destructive" : (enrollment.completed ? "success" : "default")} className={enrollment.status === 'rejected' ? "bg-red-500/10 text-red-600 border-red-500/20" : enrollment.completed ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" : "bg-blue-500/10 text-blue-600 border-blue-500/20"}>
                                                         {enrollment.status === 'rejected' ? "Declined" : (enrollment.completed ? "🎓 Completed (Credits Awarded)" : "Active (No Credits Yet)")}
                                                     </Badge>
+                                                    {enrollment.status !== 'rejected' && (
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            onClick={() => {
+                                                                setSelectedAuraStudent({
+                                                                    id: enrollment.student?.id || enrollment.student_id,
+                                                                    full_name: enrollment.student?.full_name,
+                                                                    email: enrollment.student?.email,
+                                                                    avatar_url: enrollment.student?.avatar_url,
+                                                                    aura_points: enrollment.student?.aura_points || 0
+                                                                });
+                                                                setAuraModalOpen(true);
+                                                            }}
+                                                            className="gap-1.5 border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 font-bold text-xs"
+                                                            title="Reward performance with Aura Points"
+                                                        >
+                                                            <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Award Aura ✨
+                                                        </Button>
+                                                    )}
                                                     {enrollment.status !== 'rejected' && !enrollment.completed && (
-                                                        <Button size="sm" onClick={() => handleMarkCompleted(enrollment.id, enrollment.student?.full_name || "Student")} className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">
-                                                            <Award className="h-4 w-4" /> Mark Completed & Award Credits
+                                                        <Button size="sm" onClick={() => handleMarkCompleted(enrollment.id, enrollment.student?.full_name || "Student")} className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs">
+                                                            <Award className="h-3.5 w-3.5" /> Complete Course
                                                         </Button>
                                                     )}
                                                     {enrollment.completed && (
-                                                        <Button size="sm" variant="outline" onClick={() => handleUnmarkCompleted(enrollment.id, enrollment.student?.full_name || "Student")} className="gap-1.5 text-amber-600 border-amber-500/30 hover:bg-amber-500/10 font-semibold">
-                                                            <XCircle className="h-4 w-4" /> Revoke Completion
+                                                        <Button size="sm" variant="outline" onClick={() => handleUnmarkCompleted(enrollment.id, enrollment.student?.full_name || "Student")} className="gap-1.5 text-amber-600 border-amber-500/30 hover:bg-amber-500/10 font-semibold text-xs">
+                                                            <XCircle className="h-3.5 w-3.5" /> Revoke
                                                         </Button>
                                                     )}
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive ml-2" onClick={() => handleDeleteEnrollment(enrollment.id)} title="Remove Student">
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive ml-1" onClick={() => handleDeleteEnrollment(enrollment.id)} title="Remove Student">
                                                         <Trash2 className="h-4 w-4" />
                                                     </Button>
                                                 </>
@@ -3148,6 +3193,15 @@ ${liveHTML}
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {/* ✨ Gamified Award Aura Points Modal */}
+            <AwardAuraPointsModal
+                open={auraModalOpen}
+                onOpenChange={setAuraModalOpen}
+                student={selectedAuraStudent}
+                course={course ? { id: course.id, title: course.title, domain: course.domain } : null}
+                onSuccess={fetchCourseDetails}
+            />
         </TeacherLayout>
     );
 }

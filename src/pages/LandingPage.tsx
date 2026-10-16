@@ -28,18 +28,28 @@ import {
   Sun,
   Moon,
   Loader2,
-  Send
+  Send,
+  Check,
+  Layers,
+  IndianRupee,
+  Clock,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useTheme } from "@/components/theme-provider";
 import { useToast } from "@/hooks/use-toast";
+import { SubscriptionPlan, DEFAULT_PLANS, PLATFORM_FEATURES } from "@/types/plans";
+import { BlogPost, DEFAULT_BLOGS } from "@/types/blog";
 
 export default function LandingPage() {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [landingBlogs, setLandingBlogs] = useState<BlogPost[]>([]);
   const [publishedCourses, setPublishedCourses] = useState<any[]>([]);
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+  const [billingInterval, setBillingInterval] = useState<"monthly" | "annual">("monthly");
+  const [plansLoading, setPlansLoading] = useState(true);
 
   // Contact Form State
   const [contactForm, setContactForm] = useState({
@@ -106,7 +116,164 @@ export default function LandingPage() {
 
   useEffect(() => {
     fetchFeaturedCourses();
+    fetchPlans();
+    fetchLandingBlogs();
+
+    const handlePlansUpdated = () => {
+      fetchPlans();
+    };
+
+    const handleBlogsUpdated = () => {
+      fetchLandingBlogs();
+    };
+
+    window.addEventListener("orbit_plans_updated", handlePlansUpdated);
+    window.addEventListener("orbit_blogs_updated", handleBlogsUpdated);
+    window.addEventListener("storage", handlePlansUpdated);
+    window.addEventListener("storage", handleBlogsUpdated);
+    return () => {
+      window.removeEventListener("orbit_plans_updated", handlePlansUpdated);
+      window.removeEventListener("orbit_blogs_updated", handleBlogsUpdated);
+      window.removeEventListener("storage", handlePlansUpdated);
+      window.removeEventListener("storage", handleBlogsUpdated);
+    };
   }, []);
+
+  const fetchLandingBlogs = async () => {
+    try {
+      let loaded: BlogPost[] = [];
+      try {
+        const { data: dbBlogs, error } = await supabase
+          .from("blogs")
+          .select("*")
+          .eq("is_published", true)
+          .order("created_at", { ascending: false });
+
+        if (!error && dbBlogs && dbBlogs.length > 0) {
+          loaded = dbBlogs.map((b: any) => ({
+            id: b.id,
+            slug: b.slug,
+            title: b.title,
+            excerpt: b.excerpt || "",
+            content: b.content || "",
+            coverImage: b.cover_image,
+            category: b.category,
+            tags: b.tags || [],
+            author: {
+              name: b.author_name,
+              role: b.author_role,
+              avatar: b.author_avatar,
+            },
+            readingTime: b.reading_time,
+            publishedAt: b.created_at,
+            updatedAt: b.updated_at,
+            isPublished: true,
+            isFeatured: !!b.is_featured,
+            seo: {
+              metaTitle: b.meta_title || b.title,
+              metaDescription: b.meta_description || b.excerpt || "",
+              focusKeywords: b.focus_keywords || [],
+            },
+          }));
+        }
+      } catch (e) {
+        // Fallback
+      }
+
+      // Check localStorage
+      const stored = localStorage.getItem("orbit_master_blogs");
+      let localBlogs: BlogPost[] = [];
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          localBlogs = parsed.filter((b: BlogPost) => b.isPublished !== false);
+        } catch {}
+      }
+
+      if (loaded.length > 0 && localBlogs.length > 0) {
+        const map = new Map<string, BlogPost>();
+        loaded.forEach((b) => map.set(b.slug, b));
+        localBlogs.forEach((b) => map.set(b.slug, b));
+        loaded = Array.from(map.values()).filter((b) => b.isPublished !== false);
+      } else if (loaded.length === 0) {
+        loaded = localBlogs.length > 0 ? localBlogs : DEFAULT_BLOGS.filter((b) => b.isPublished);
+      }
+
+      setLandingBlogs(loaded);
+    } catch (err) {
+      console.warn("Could not load landing blogs:", err);
+      setLandingBlogs(DEFAULT_BLOGS.filter((b) => b.isPublished));
+    }
+  };
+
+  const fetchPlans = async () => {
+    setPlansLoading(true);
+    try {
+      let loadedPlans: SubscriptionPlan[] = [];
+      try {
+        const { data: dbPlans, error: dbErr } = await supabase
+          .from("subscription_plans")
+          .select("*")
+          .eq("is_active", true)
+          .order("price_monthly", { ascending: true });
+
+        if (!dbErr && dbPlans && dbPlans.length > 0) {
+          loadedPlans = dbPlans.map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            description: p.description || "",
+            tier: p.tier || "pro",
+            priceMonthlyINR: Number(p.price_monthly) || 0,
+            priceAnnualINR: Number(p.price_annual) || 0,
+            maxStudents: Number(p.max_students) || 1000,
+            durationDays: Number(p.duration_days) || 30,
+            features: Array.isArray(p.enabled_features) ? p.enabled_features : [],
+            isActive: p.is_active !== false,
+          }));
+        }
+      } catch (e) {
+        // Table not ready yet, will fallback
+      }
+
+      // Check local storage for plans managed by Master Admin
+      const stored = localStorage.getItem("orbit_master_subscription_plans");
+      let localPlans: SubscriptionPlan[] = [];
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          localPlans = parsed.filter((p: SubscriptionPlan) => p.isActive !== false);
+        } catch {}
+      }
+
+      // Merge Supabase plans and local master admin plans
+      if (loadedPlans.length > 0 && localPlans.length > 0) {
+        const mergedMap = new Map<string, SubscriptionPlan>();
+        loadedPlans.forEach((p) => mergedMap.set(p.id, p));
+        localPlans.forEach((p) => mergedMap.set(p.id, p));
+        loadedPlans = Array.from(mergedMap.values()).filter((p) => p.isActive !== false);
+      } else if (loadedPlans.length === 0) {
+        loadedPlans = localPlans.length > 0 ? localPlans : DEFAULT_PLANS.filter((p) => p.isActive !== false);
+      }
+
+      // Sort by monthly price ascending
+      loadedPlans.sort((a, b) => a.priceMonthlyINR - b.priceMonthlyINR);
+      setPlans(loadedPlans);
+    } catch (err) {
+      console.warn("Could not load landing plans:", err);
+      setPlans(DEFAULT_PLANS.filter((p) => p.isActive !== false));
+    } finally {
+      setPlansLoading(false);
+    }
+  };
+
+  const handleSelectPlan = (plan: SubscriptionPlan) => {
+    const intervalText = billingInterval === "annual" ? "Annual License" : "Monthly Subscription";
+    setContactForm((prev) => ({
+      ...prev,
+      message: `Hello Orbit LMS Team,\n\nWe would like to activate the "${plan.name}" (${plan.maxStudents.toLocaleString("en-IN")} Student Seats, ${intervalText}) for our institution. Please provide onboarding and payment details.`,
+    }));
+    scrollToSection("contact");
+  };
 
   const fetchFeaturedCourses = async () => {
     try {
@@ -116,19 +283,34 @@ export default function LandingPage() {
       const savedFeaturedSettings = localStorage.getItem("orbit_featured_settings");
       const featuredConfig = savedFeaturedSettings ? JSON.parse(savedFeaturedSettings) : { mode: "most_enrolled" };
 
+      // Fetch active courses safely without failing on complex joins
       const { data: rawCourses } = await supabase
         .from("courses")
         .select(`
           id, title, description, thumbnail_url, price, original_price, currency,
           organization_name, organization_logo_url, credit_points, is_published,
-          is_featured, created_at,
-          enrollments(count)
+          is_featured, created_at
         `)
         .eq("is_published", true);
 
+      // Fetch enrollment count per course
+      let enrollmentCountMap: Record<string, number> = {};
+      try {
+        const { data: enrs } = await supabase.from('enrollments').select('course_id');
+        if (enrs) {
+          enrs.forEach((e: any) => {
+            if (e.course_id) {
+              enrollmentCountMap[e.course_id] = (enrollmentCountMap[e.course_id] || 0) + 1;
+            }
+          });
+        }
+      } catch (e) {
+        console.warn('Could not load course enrollment counts:', e);
+      }
+
       if (rawCourses && rawCourses.length > 0) {
         let formatted = rawCourses.map((c: any) => {
-          const studentCount = c.enrollments?.[0]?.count || 0;
+          const studentCount = enrollmentCountMap[c.id] || 0;
           return {
             id: c.id,
             title: c.title,
@@ -270,6 +452,9 @@ export default function LandingPage() {
             <button onClick={() => scrollToSection("about")} className="text-xs font-semibold hover:text-primary transition-colors">About Us</button>
             <button onClick={() => scrollToSection("features")} className="text-xs font-semibold hover:text-primary transition-colors">Features</button>
             <button onClick={() => scrollToSection("courses")} className="text-xs font-semibold hover:text-primary transition-colors">Courses</button>
+            <button onClick={() => scrollToSection("pricing")} className="text-xs font-semibold hover:text-primary transition-colors">Plans & Pricing</button>
+            <button onClick={() => navigate("/blog")} className="text-xs font-semibold hover:text-primary transition-colors">Blog & Research</button>
+            <button onClick={() => navigate("/careers")} className="text-xs font-semibold hover:text-primary transition-colors">Careers</button>
             <button onClick={() => scrollToSection("contact")} className="text-xs font-semibold hover:text-primary transition-colors">Contact</button>
           </div>
 
@@ -321,20 +506,73 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* Mobile Dropdown Menu */}
+        {/* Mobile App Style Sliding Dropdown Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden border-b bg-background px-4 pt-3 pb-5 space-y-3 animate-in slide-in-from-top-2">
-            <button onClick={() => scrollToSection("home")} className="block w-full text-left py-2 text-sm font-semibold">Home</button>
-            <button onClick={() => { setMobileMenuOpen(false); navigate("/experience"); }} className="block w-full text-left py-2 text-sm font-bold text-primary flex items-center gap-1.5">
-              <Sparkles className="h-4 w-4 text-amber-500 fill-amber-500/20" /> Experience Orbit
+          <div className="md:hidden border-b border-border/50 bg-background/95 backdrop-blur-2xl px-4 pt-3 pb-6 space-y-2 animate-in slide-in-from-top-3 shadow-2xl">
+            <button
+              onClick={() => { setMobileMenuOpen(false); scrollToSection("home"); }}
+              className="w-full text-left py-2.5 px-3 rounded-xl hover:bg-muted/50 text-sm font-semibold flex items-center gap-2.5 touch-press transition-colors"
+            >
+              <Rocket className="h-4 w-4 text-primary" /> Home
             </button>
-            <button onClick={() => scrollToSection("about")} className="block w-full text-left py-2 text-sm font-semibold">About Us</button>
-            <button onClick={() => scrollToSection("features")} className="block w-full text-left py-2 text-sm font-semibold">Features</button>
-            <button onClick={() => scrollToSection("courses")} className="block w-full text-left py-2 text-sm font-semibold">Courses</button>
-            <button onClick={() => scrollToSection("contact")} className="block w-full text-left py-2 text-sm font-semibold">Contact</button>
-            <div className="pt-2 grid grid-cols-2 gap-2">
-              <Button variant="outline" size="sm" onClick={() => navigate("/login")}>Sign In</Button>
-              <Button size="sm" onClick={() => navigate("/register")}>Get Started</Button>
+            <button
+              onClick={() => { setMobileMenuOpen(false); navigate("/experience"); }}
+              className="w-full text-left py-2.5 px-3 rounded-xl bg-primary/10 border border-primary/25 text-sm font-bold text-primary flex items-center gap-2.5 touch-press shadow-2xs"
+            >
+              <Sparkles className="h-4 w-4 text-amber-500 fill-amber-500/20" /> Experience Orbit Interactive
+            </button>
+            <button
+              onClick={() => { setMobileMenuOpen(false); scrollToSection("features"); }}
+              className="w-full text-left py-2.5 px-3 rounded-xl hover:bg-muted/50 text-sm font-semibold flex items-center gap-2.5 touch-press transition-colors"
+            >
+              <Layers className="h-4 w-4 text-primary" /> Features
+            </button>
+            <button
+              onClick={() => { setMobileMenuOpen(false); scrollToSection("courses"); }}
+              className="w-full text-left py-2.5 px-3 rounded-xl hover:bg-muted/50 text-sm font-semibold flex items-center gap-2.5 touch-press transition-colors"
+            >
+              <BookOpen className="h-4 w-4 text-primary" /> Courses & Programs
+            </button>
+            <button
+              onClick={() => { setMobileMenuOpen(false); scrollToSection("pricing"); }}
+              className="w-full text-left py-2.5 px-3 rounded-xl hover:bg-muted/50 text-sm font-semibold flex items-center gap-2.5 touch-press transition-colors"
+            >
+              <Award className="h-4 w-4 text-primary" /> Plans & Pricing
+            </button>
+            <button
+              onClick={() => { setMobileMenuOpen(false); navigate("/blog"); }}
+              className="w-full text-left py-2.5 px-3 rounded-xl hover:bg-muted/50 text-sm font-semibold flex items-center gap-2.5 touch-press transition-colors"
+            >
+              <MessageCircle className="h-4 w-4 text-primary" /> Blog & Research
+            </button>
+            <button
+              onClick={() => { setMobileMenuOpen(false); navigate("/careers"); }}
+              className="w-full text-left py-2.5 px-3 rounded-xl hover:bg-muted/50 text-sm font-semibold flex items-center gap-2.5 touch-press transition-colors"
+            >
+              <Users className="h-4 w-4 text-primary" /> Careers
+            </button>
+            <button
+              onClick={() => { setMobileMenuOpen(false); scrollToSection("contact"); }}
+              className="w-full text-left py-2.5 px-3 rounded-xl hover:bg-muted/50 text-sm font-semibold flex items-center gap-2.5 touch-press transition-colors"
+            >
+              <Mail className="h-4 w-4 text-primary" /> Contact
+            </button>
+            <div className="pt-3 grid grid-cols-2 gap-2.5 border-t border-border/40">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-11 rounded-xl font-bold touch-press"
+                onClick={() => { setMobileMenuOpen(false); navigate("/login"); }}
+              >
+                Sign In
+              </Button>
+              <Button
+                size="sm"
+                className="h-11 rounded-xl font-bold bg-primary text-primary-foreground shadow-md touch-press"
+                onClick={() => { setMobileMenuOpen(false); navigate("/register"); }}
+              >
+                Get Started 🚀
+              </Button>
             </div>
           </div>
         )}
@@ -528,6 +766,307 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Institutional Plans & Pricing Section */}
+      <section id="pricing" className="py-20 px-4 bg-muted/20 border-t relative overflow-hidden">
+        {/* Subtle background glow */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="container mx-auto max-w-7xl relative z-10 space-y-12">
+          {/* Header */}
+          <div className="text-center space-y-4 max-w-3xl mx-auto">
+            <Badge variant="outline" className="text-xs uppercase tracking-widest text-primary border-primary/30 gap-1.5 px-3 py-1">
+              <Layers className="h-3.5 w-3.5" /> Institutional SaaS Plans
+            </Badge>
+            <h2 className="text-3xl sm:text-5xl font-extrabold font-display tracking-tight text-foreground">
+              Transparent Pricing Engineered for Scale
+            </h2>
+            <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
+              Empower your campus with anti-piracy video streaming, verified credit certificates, gamified aura points, and automated grading. Fully managed centrally by Orbit Master Admin.
+            </p>
+
+            {/* Monthly / Annual Interval Toggle */}
+            <div className="pt-2 flex items-center justify-center">
+              <div className="p-1 rounded-full bg-muted/80 border border-border flex items-center gap-1 shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => setBillingInterval("monthly")}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
+                    billingInterval === "monthly"
+                      ? "bg-primary text-primary-foreground shadow-md"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Monthly Billing
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBillingInterval("annual")}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    billingInterval === "annual"
+                      ? "bg-primary text-primary-foreground shadow-md"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <span>Annual License</span>
+                  <span className="text-[10px] bg-amber-500 text-black px-1.5 py-0.2 rounded-full font-extrabold">
+                    SAVE 15%
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Plans Grid */}
+          {plansLoading ? (
+            <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">
+              <Loader2 className="h-6 w-6 animate-spin mr-2 text-primary" />
+              Loading institutional plans...
+            </div>
+          ) : plans.length === 0 ? (
+            <div className="text-center py-16 px-4 border border-dashed rounded-2xl bg-card/40 max-w-lg mx-auto space-y-3">
+              <Layers className="h-10 w-10 text-primary/60 mx-auto" />
+              <h3 className="font-bold text-lg text-foreground">Custom Institutional Plans in Preparation</h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                All SaaS subscription plans and modular feature checklists are created and provisioned directly by the Orbit Master Admin. Reach out to configure student seats and modules for your campus.
+              </p>
+              <Button size="sm" onClick={() => scrollToSection("contact")} className="font-bold text-xs mt-2">
+                Inquire With Master Admin
+              </Button>
+            </div>
+          ) : (
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 items-stretch">
+              {plans.map((plan, index) => {
+                const isPopular = plan.isPopular || plan.tier === "pro";
+                const displayPrice =
+                  billingInterval === "annual"
+                    ? plan.priceAnnualINR
+                    : plan.priceMonthlyINR;
+
+                return (
+                  <motion.div
+                    key={plan.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.4, delay: index * 0.1 }}
+                    className={`rounded-2xl flex flex-col justify-between border bg-card text-card-foreground shadow-lg transition-all duration-200 hover:shadow-2xl relative overflow-hidden ${
+                      isPopular
+                        ? "border-primary ring-2 ring-primary/20"
+                        : "border-border hover:border-primary/40"
+                    }`}
+                  >
+                    {isPopular && (
+                      <div className="absolute top-0 right-0 bg-gradient-to-l from-primary to-accent text-[10px] uppercase font-bold text-primary-foreground px-3 py-1 rounded-bl-xl tracking-wider">
+                        Most Popular
+                      </div>
+                    )}
+
+                    <div className="p-6 space-y-5">
+                      {/* Tier Badge & Plan Name */}
+                      <div className="space-y-2">
+                        <Badge
+                          variant="outline"
+                          className="capitalize text-[10px] font-mono border-primary/30 text-primary bg-primary/5"
+                        >
+                          {plan.tier} Tier
+                        </Badge>
+                        <h3 className="text-xl font-bold font-display text-foreground">{plan.name}</h3>
+                        <p className="text-xs text-muted-foreground line-clamp-2 min-h-[32px]">
+                          {plan.description}
+                        </p>
+                      </div>
+
+                      {/* Pricing Tag */}
+                      <div className="pt-2 pb-3 border-b border-border/60">
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-3xl font-extrabold font-mono text-foreground">
+                            ₹{displayPrice.toLocaleString("en-IN")}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {billingInterval === "annual" ? "/ year" : "/ month"}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1.5 font-medium">
+                          <Users className="h-3.5 w-3.5 text-primary" />
+                          <span>Up to {plan.maxStudents.toLocaleString("en-IN")} Active Students</span>
+                        </div>
+                      </div>
+
+                      {/* Feature Checklist List */}
+                      <div className="space-y-2.5 pt-1">
+                        <div className="text-xs font-semibold text-foreground flex items-center justify-between">
+                          <span>Included Modules</span>
+                          <span className="text-[11px] font-mono text-primary font-bold">
+                            {plan.features.length}/{PLATFORM_FEATURES.length}
+                          </span>
+                        </div>
+
+                        <ul className="space-y-2 text-xs">
+                          {PLATFORM_FEATURES.map((feat) => {
+                            const isIncluded = plan.features.includes(feat.id);
+                            return (
+                              <li
+                                key={feat.id}
+                                className={`flex items-start gap-2 ${
+                                  isIncluded ? "text-foreground" : "text-muted-foreground/40 line-through"
+                                }`}
+                              >
+                                {isIncluded ? (
+                                  <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
+                                ) : (
+                                  <span className="h-4 w-4 rounded-full border border-muted-foreground/30 flex items-center justify-center shrink-0 mt-0.5 text-[9px] text-muted-foreground/40">
+                                    ✕
+                                  </span>
+                                )}
+                                <span className="leading-tight">{feat.name}</span>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    </div>
+
+                    <div className="p-6 pt-0 border-t border-border/40 mt-4">
+                      <Button
+                        onClick={() => handleSelectPlan(plan)}
+                        className={`w-full font-bold text-xs shadow-md gap-1.5 cursor-pointer ${
+                          isPopular
+                            ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                            : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                        }`}
+                      >
+                        Inquire This Plan <ArrowRight className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Custom Enterprise Banner */}
+          <div className="p-6 sm:p-8 rounded-2xl bg-gradient-to-r from-primary/10 via-accent/10 to-transparent border border-primary/20 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-sm">
+            <div className="space-y-1.5 text-center sm:text-left">
+              <div className="flex items-center justify-center sm:justify-start gap-2">
+                <Sparkles className="h-5 w-5 text-amber-500" />
+                <h4 className="font-bold text-lg text-foreground">Need a Custom University or Multi-Campus SLA?</h4>
+              </div>
+              <p className="text-xs sm:text-sm text-muted-foreground max-w-2xl">
+                The Orbit Master Admin provides custom cloud cluster hosting, dedicated AI processing pipelines, white-label institution domains, and priority 24/7 dedicated account support.
+              </p>
+            </div>
+            <Button
+              onClick={() => scrollToSection("contact")}
+              className="bg-primary text-primary-foreground font-bold text-xs shrink-0 px-6 py-2.5 shadow-md"
+            >
+              Contact Master Admin
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* SEO Blogs & Academic Insights Section */}
+      <section id="blog" className="py-20 px-4 bg-background border-t relative overflow-hidden">
+        <div className="container mx-auto max-w-7xl space-y-12">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+            <div className="space-y-3 max-w-2xl">
+              <Badge variant="outline" className="text-xs uppercase tracking-widest text-primary border-primary/30 gap-1.5 px-3 py-1">
+                <BookOpen className="h-3.5 w-3.5" /> EdTech Research & Compliance
+              </Badge>
+              <h2 className="text-3xl sm:text-5xl font-extrabold font-display tracking-tight text-foreground">
+                Latest Insights, NEP 2020 & AI in Higher Ed
+              </h2>
+              <p className="text-sm sm:text-base text-muted-foreground">
+                Authoritative guides published directly by Orbit LMS Master Admin for university chancellors, academic deans, and faculty members.
+              </p>
+            </div>
+            <Button
+              onClick={() => navigate("/blog")}
+              variant="outline"
+              className="gap-1.5 text-xs font-bold border-primary/30 text-primary hover:bg-primary/10 self-start sm:self-auto cursor-pointer"
+            >
+              Explore All Articles <ArrowRight className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-3">
+            {landingBlogs.slice(0, 3).map((blog) => (
+              <motion.article
+                key={blog.id}
+                whileHover={{ y: -6 }}
+                transition={{ duration: 0.3 }}
+                className="group rounded-2xl border bg-card text-card-foreground overflow-hidden shadow-md hover:shadow-xl transition-all flex flex-col justify-between"
+              >
+                <div
+                  onClick={() => navigate(`/blog/${blog.slug}`)}
+                  className="h-48 overflow-hidden relative bg-muted cursor-pointer"
+                >
+                  <img
+                    src={blog.coverImage}
+                    alt={blog.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                  <div className="absolute top-3 left-3">
+                    <Badge className="bg-black/60 backdrop-blur-md text-white border border-white/20 text-[10px]">
+                      {blog.category}
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                  <div className="space-y-2">
+                    <div className="text-[11px] text-muted-foreground flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" /> {blog.readingTime}
+                      </span>
+                      <span>
+                        {new Date(blog.publishedAt).toLocaleDateString("en-IN", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </span>
+                    </div>
+
+                    <h3
+                      onClick={() => navigate(`/blog/${blog.slug}`)}
+                      className="font-bold text-base text-foreground group-hover:text-primary transition-colors line-clamp-2 cursor-pointer leading-snug"
+                    >
+                      {blog.title}
+                    </h3>
+
+                    <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                      {blog.excerpt}
+                    </p>
+                  </div>
+
+                  <div className="pt-3 border-t border-border flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <img
+                        src={blog.author.avatar}
+                        alt={blog.author.name}
+                        className="w-6 h-6 rounded-full object-cover border"
+                      />
+                      <span className="text-[11px] font-semibold text-foreground truncate max-w-[120px]">
+                        {blog.author.name}
+                      </span>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => navigate(`/blog/${blog.slug}`)}
+                      className="text-xs font-bold text-primary p-0 h-auto hover:bg-transparent flex items-center gap-1 group-hover:translate-x-1 transition-transform cursor-pointer"
+                    >
+                      Read Guide <ArrowRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              </motion.article>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Contact Section */}
       <section id="contact" className="py-16 sm:py-20 px-4 bg-muted/30 border-t">
         <div className="container mx-auto max-w-5xl">
@@ -645,8 +1184,22 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="py-6 border-t bg-card text-muted-foreground text-xs">
-        <div className="container mx-auto px-4 text-center">
+      <footer className="py-8 border-t bg-card text-muted-foreground text-xs space-y-3">
+        <div className="container mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <div className="h-6 w-6 rounded-md bg-gradient-to-tr from-primary to-accent flex items-center justify-center text-primary-foreground font-black text-xs">
+              O
+            </div>
+            <span className="font-display font-bold text-sm text-foreground">Orbit LMS India</span>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-5 text-xs font-medium">
+            <button onClick={() => scrollToSection("home")} className="hover:text-foreground">Home</button>
+            <button onClick={() => scrollToSection("features")} className="hover:text-foreground">Features</button>
+            <button onClick={() => scrollToSection("pricing")} className="hover:text-foreground">Plans & Pricing</button>
+            <button onClick={() => navigate("/blog")} className="text-primary hover:underline font-bold">SEO Blogs & Research</button>
+            <button onClick={() => navigate("/careers")} className="hover:text-foreground">Careers</button>
+            <button onClick={() => scrollToSection("contact")} className="hover:text-foreground">Enterprise Support</button>
+          </div>
           <p>© {new Date().getFullYear()} Orbit LMS India. All rights reserved.</p>
         </div>
       </footer>

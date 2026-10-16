@@ -32,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Plus,
   MoreHorizontal,
@@ -45,18 +46,24 @@ import {
   Star,
   Sparkles,
   Award,
-  Check
+  Check,
+  Ticket,
+  FileCode,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
+import { AdminCourseJsonModal } from "@/components/admin/AdminCourseJsonModal";
+import { AdminCouponManager } from "@/components/admin/AdminCouponManager";
 
 export default function CourseManagement() {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<"courses" | "coupons">("courses");
   const [courses, setCourses] = useState<any[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [addCourseModalOpen, setAddCourseModalOpen] = useState(false);
+  const [jsonCourseModalOpen, setJsonCourseModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   // Featured Settings State
   const [featuredConfig, setFeaturedConfig] = useState<{ mode: "most_enrolled" | "manual" }>(() => {
@@ -360,233 +367,273 @@ export default function CourseManagement() {
           </CardContent>
         </Card>
 
-        {/* Header */}
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl lg:text-3xl font-display font-bold text-foreground">
-              Course Management
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Create and assign courses.
-            </p>
-          </div>
-          <div className="flex bg-muted p-1 rounded-lg gap-2">
-            <Button variant="outline" size="sm" onClick={fetchData} className="border-0 bg-transparent">
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            </Button>
-            <Dialog open={addCourseModalOpen} onOpenChange={setAddCourseModalOpen}>
-              <DialogTrigger asChild>
-                <Button className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  Add Course
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-lg">
-                <DialogHeader>
-                  <DialogTitle>Create New Course</DialogTitle>
-                  <DialogDescription>
-                    Fill in the details. You can add modules and content in the next step.
-                  </DialogDescription>
-                </DialogHeader>
+        {/* Tabs for Courses & Curricula vs Coupons & Discounts */}
+        <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)} className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-3">
+            <TabsList className="bg-muted p-1">
+              <TabsTrigger value="courses" className="flex items-center gap-2 text-xs font-semibold">
+                <BookOpen className="h-4 w-4" />
+                All Courses ({courses.length})
+              </TabsTrigger>
+              <TabsTrigger value="coupons" className="flex items-center gap-2 text-xs font-semibold">
+                <Ticket className="h-4 w-4 text-purple-600" />
+                Coupons & Discounts
+              </TabsTrigger>
+            </TabsList>
 
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label>Course Title</Label>
-                    <Input
-                      value={newCourse.title}
-                      onChange={(e) => setNewCourse({ ...newCourse, title: e.target.value })}
-                      placeholder="e.g. Advanced Mathematics"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Description</Label>
-                    <Textarea
-                      value={newCourse.description}
-                      onChange={(e) => setNewCourse({ ...newCourse, description: e.target.value })}
-                      placeholder="Short description..."
-                    />
-                  </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fetchData}
+                className="border border-border"
+                title="Refresh List"
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              </Button>
 
-                  <div className="space-y-2">
-                    <Label>Assign Teacher (Optional)</Label>
-                    <Select
-                      value={newCourse.teacherId}
-                      onValueChange={(val) => setNewCourse({ ...newCourse, teacherId: val })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select teacher" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="unassigned">Unassigned</SelectItem>
-                        {teachers.map((t) => (
-                          <SelectItem key={t.id} value={t.id}>
-                            {t.full_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex items-center gap-2 pt-2">
-                    <Switch
-                      checked={newCourse.visibility}
-                      onCheckedChange={(c) => setNewCourse({ ...newCourse, visibility: c })}
-                    />
-                    <Label>Visible to students (Published)</Label>
-                  </div>
-                </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setJsonCourseModalOpen(true)}
+                className="gap-1.5 text-xs font-semibold border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10"
+              >
+                <FileCode className="h-4 w-4" />
+                Import Course via JSON
+              </Button>
 
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setAddCourseModalOpen(false)}>
-                    Cancel
+              <Dialog open={addCourseModalOpen} onOpenChange={setAddCourseModalOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="gap-1.5 text-xs font-semibold bg-primary text-primary-foreground">
+                    <Plus className="h-4 w-4" />
+                    Add Course
                   </Button>
-                  <Button onClick={handleCreateCourse}>Create & Build</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </div>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Create New Course</DialogTitle>
+                    <DialogDescription>
+                      Fill in the details. You can add modules and content in the next step.
+                    </DialogDescription>
+                  </DialogHeader>
 
-        {/* View Toggle */}
-        <div className="flex justify-end gap-2">
-          <Button
-            variant={viewMode === "grid" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setViewMode("grid")}
-          >
-            <LayoutGrid className="h-4 w-4" />
-          </Button>
-          <Button
-            variant={viewMode === "table" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setViewMode("table")}
-          >
-            <List className="h-4 w-4" />
-          </Button>
-        </div>
-
-        {/* Content */}
-        {viewMode === "grid" ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {courses.map((course) => (
-              <Card key={course.id} className="group hover:shadow-lg transition-all duration-200">
-                <CardContent className="p-0">
-                  <Link to={`/admin/courses/${course.id}/edit`} className="block">
-                    <div className="relative h-36 bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-                      <BookOpen className="h-12 w-12 text-primary/50" />
-                      <div className="absolute top-3 left-3 flex items-center gap-1 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/20 text-[10px] font-bold text-white">
-                        <Users className="h-3 w-3 text-primary" /> {course.students} Enrolled
-                      </div>
-                      <div className="absolute top-3 right-3 flex items-center gap-2">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleToggleFeatured(course.id, course.is_featured);
-                          }}
-                          className={`h-7 w-7 rounded-full ${course.is_featured ? "bg-amber-500 text-slate-950 hover:bg-amber-600" : "bg-black/40 text-slate-400 hover:text-amber-400"}`}
-                          title={course.is_featured ? "Starred as Featured" : "Star as Featured"}
-                        >
-                          <Star className={`h-4 w-4 ${course.is_featured ? "fill-slate-950" : ""}`} />
-                        </Button>
-                        <Badge variant={course.status === "published" ? "default" : "secondary"}>
-                          {course.status}
-                        </Badge>
-                      </div>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label>Course Title</Label>
+                      <Input
+                        value={newCourse.title}
+                        onChange={(e) => setNewCourse({ ...newCourse, title: e.target.value })}
+                        placeholder="e.g. Advanced Mathematics"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Description</Label>
+                      <Textarea
+                        value={newCourse.description}
+                        onChange={(e) => setNewCourse({ ...newCourse, description: e.target.value })}
+                        placeholder="Short description..."
+                      />
                     </div>
 
-                    <div className="p-4 space-y-3">
-                      {course.is_deletion_requested && (
-                        <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs space-y-2">
-                          <div className="font-bold text-amber-600 dark:text-amber-400">⚠️ Teacher Requested Deletion</div>
-                          <div className="flex gap-2">
-                            <Button size="sm" className="h-7 text-xs bg-red-600 hover:bg-red-700 text-white font-bold" onClick={(e) => { e.preventDefault(); handleApproveDeleteRequest(course.id, course.title); }}>
-                              Approve & Delete 🗑️
+                    <div className="space-y-2">
+                      <Label>Assign Teacher (Optional)</Label>
+                      <Select
+                        value={newCourse.teacherId}
+                        onValueChange={(val) => setNewCourse({ ...newCourse, teacherId: val })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select teacher" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="unassigned">Unassigned</SelectItem>
+                          {teachers.map((t) => (
+                            <SelectItem key={t.id} value={t.id}>
+                              {t.full_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center gap-2 pt-2">
+                      <Switch
+                        checked={newCourse.visibility}
+                        onCheckedChange={(c) => setNewCourse({ ...newCourse, visibility: c })}
+                      />
+                      <Label>Visible to students (Published)</Label>
+                    </div>
+                  </div>
+
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setAddCourseModalOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleCreateCourse}>Create & Build</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </div>
+
+          {/* TAB 1: COURSES & CURRICULA */}
+          <TabsContent value="courses" className="space-y-4">
+            {/* View Toggle */}
+            <div className="flex justify-end gap-2">
+              <Button
+                variant={viewMode === "grid" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("grid")}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === "table" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("table")}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Content */}
+            {viewMode === "grid" ? (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {courses.map((course) => (
+                  <Card key={course.id} className="group hover:shadow-lg transition-all duration-200">
+                    <CardContent className="p-0">
+                      <Link to={`/admin/courses/${course.id}/edit`} className="block">
+                        <div className="relative h-36 bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                          <BookOpen className="h-12 w-12 text-primary/50" />
+                          <div className="absolute top-3 left-3 flex items-center gap-1 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/20 text-[10px] font-bold text-white">
+                            <Users className="h-3 w-3 text-primary" /> {course.students} Enrolled
+                          </div>
+                          <div className="absolute top-3 right-3 flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleToggleFeatured(course.id, course.is_featured);
+                              }}
+                              className={`h-7 w-7 rounded-full ${course.is_featured ? "bg-amber-500 text-slate-950 hover:bg-amber-600" : "bg-black/40 text-slate-400 hover:text-amber-400"}`}
+                              title={course.is_featured ? "Starred as Featured" : "Star as Featured"}
+                            >
+                              <Star className={`h-4 w-4 ${course.is_featured ? "fill-slate-950" : ""}`} />
                             </Button>
-                            <Button size="sm" variant="outline" className="h-7 text-xs border-amber-500/40 text-amber-600 dark:text-amber-400" onClick={(e) => { e.preventDefault(); handleRejectDeleteRequest(course.id); }}>
-                              Reject
-                            </Button>
+                            <Badge variant={course.status === "published" ? "default" : "secondary"}>
+                              {course.status}
+                            </Badge>
                           </div>
                         </div>
-                      )}
 
-                      <div>
-                        <h3 className="font-semibold group-hover:text-primary transition-colors line-clamp-1">
-                          {course.title}
-                        </h3>
-                        <p className="text-sm text-muted-foreground">{course.description || "No description"}</p>
-                      </div>
+                        <div className="p-4 space-y-3">
+                          {course.is_deletion_requested && (
+                            <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs space-y-2">
+                              <div className="font-bold text-amber-600 dark:text-amber-400">⚠️ Teacher Requested Deletion</div>
+                              <div className="flex gap-2">
+                                <Button size="sm" className="h-7 text-xs bg-red-600 hover:bg-red-700 text-white font-bold" onClick={(e) => { e.preventDefault(); handleApproveDeleteRequest(course.id, course.title); }}>
+                                  Approve & Delete 🗑️
+                                </Button>
+                                <Button size="sm" variant="outline" className="h-7 text-xs border-amber-500/40 text-amber-600 dark:text-amber-400" onClick={(e) => { e.preventDefault(); handleRejectDeleteRequest(course.id); }}>
+                                  Reject
+                                </Button>
+                              </div>
+                            </div>
+                          )}
 
-                      <div className="text-xs text-muted-foreground pb-2">
-                        Instructor: <span className="text-foreground">{course.instructor}</span>
-                      </div>
-                    </div>
-                  </Link>
+                          <div>
+                            <h3 className="font-semibold group-hover:text-primary transition-colors line-clamp-1">
+                              {course.title}
+                            </h3>
+                            <p className="text-sm text-muted-foreground">{course.description || "No description"}</p>
+                          </div>
 
-                  <div className="flex items-center justify-between pt-2 border-t border-border">
-                    <Link to={`/admin/courses/${course.id}/edit`}>
-                      <Button variant="outline" size="sm" className="gap-2">
-                        <Pencil className="h-4 w-4" /> Edit Content
-                      </Button>
-                    </Link>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem className="gap-2" asChild>
-                          <Link to={`/admin/courses/${course.id}/edit?tab=students`}>
-                            <Users className="h-4 w-4" /> View Enrolled Students
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        {course.is_deletion_requested && (
-                          <>
-                            <DropdownMenuItem className="gap-2 text-red-600 font-bold" onClick={() => handleApproveDeleteRequest(course.id, course.title)}>
-                              <Trash2 className="h-4 w-4" /> Approve Deletion Request
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="gap-2 text-amber-600" onClick={() => handleRejectDeleteRequest(course.id)}>
-                              Reject Deletion Request
+                          <div className="text-xs text-muted-foreground pb-2">
+                            Instructor: <span className="text-foreground">{course.instructor}</span>
+                          </div>
+                        </div>
+                      </Link>
+
+                      <div className="flex items-center justify-between pt-2 border-t border-border">
+                        <Link to={`/admin/courses/${course.id}/edit`}>
+                          <Button variant="outline" size="sm" className="gap-2">
+                            <Pencil className="h-4 w-4" /> Edit Content
+                          </Button>
+                        </Link>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem className="gap-2" asChild>
+                              <Link to={`/admin/courses/${course.id}/edit?tab=students`}>
+                                <Users className="h-4 w-4" /> View Enrolled Students
+                              </Link>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                          </>
-                        )}
-                        {course.status === 'published' ? (
-                          <DropdownMenuItem className="gap-2" onClick={() => handleUnpublishCourse(course.id)}>
-                            <BookOpen className="h-4 w-4" /> Unpublish
-                          </DropdownMenuItem>
-                        ) : (
-                          <DropdownMenuItem className="gap-2 text-primary" onClick={() => handlePublishCourse(course.id)}>
-                            <BookOpen className="h-4 w-4" /> Publish Course
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="gap-2 text-destructive font-semibold" onClick={() => handleDeleteCourse(course.id, course.title)}>
-                          <Trash2 className="h-4 w-4" /> Delete Directly (Admin)
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                            {course.is_deletion_requested && (
+                              <>
+                                <DropdownMenuItem className="gap-2 text-red-600 font-bold" onClick={() => handleApproveDeleteRequest(course.id, course.title)}>
+                                  <Trash2 className="h-4 w-4" /> Approve Deletion Request
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="gap-2 text-amber-600" onClick={() => handleRejectDeleteRequest(course.id)}>
+                                  Reject Deletion Request
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                              </>
+                            )}
+                            {course.status === 'published' ? (
+                              <DropdownMenuItem className="gap-2" onClick={() => handleUnpublishCourse(course.id)}>
+                                <BookOpen className="h-4 w-4" /> Unpublish
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem className="gap-2 text-primary" onClick={() => handlePublishCourse(course.id)}>
+                                <BookOpen className="h-4 w-4" /> Publish Course
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="gap-2 text-destructive font-semibold" onClick={() => handleDeleteCourse(course.id, course.title)}>
+                              <Trash2 className="h-4 w-4" /> Delete Directly (Admin)
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+                {courses.length === 0 && !loading && (
+                  <div className="col-span-full text-center py-10 text-muted-foreground">
+                    No courses found. Click "Add Course" or "Import Course via JSON" to create one.
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-            {courses.length === 0 && !loading && (
-              <div className="col-span-full text-center py-10 text-muted-foreground">
-                No courses found. Click "Add Course" to create one.
+                )}
               </div>
+            ) : (
+              <DataTable
+                data={courses}
+                columns={tableColumns}
+                searchPlaceholder="Search courses..."
+              />
             )}
-          </div>
-        ) : (
-          <DataTable
-            data={courses}
-            columns={tableColumns}
-            searchPlaceholder="Search courses..."
-          />
-        )}
+          </TabsContent>
+
+          {/* TAB 2: COUPONS & DISCOUNTS */}
+          <TabsContent value="coupons" className="space-y-4">
+            <AdminCouponManager
+              courses={courses.map((c) => ({ id: c.id, title: c.title }))}
+            />
+          </TabsContent>
+        </Tabs>
+
+        {/* Course JSON Importer Modal */}
+        <AdminCourseJsonModal
+          open={jsonCourseModalOpen}
+          onOpenChange={setJsonCourseModalOpen}
+          teachers={teachers}
+          onSuccess={fetchData}
+        />
       </div>
     </AdminLayout>
   );

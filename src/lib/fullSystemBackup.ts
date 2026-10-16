@@ -28,9 +28,13 @@ export interface BackupSnapshot {
 }
 
 const ALL_TABLES = [
+    "subscription_plans",
+    "colleges",
     "users",
+    "departments",
+    "master_roles",
+    "master_staff",
     "courses",
-    "enrollments",
     "course_sections",
     "section_contents",
     "section_progress",
@@ -39,11 +43,19 @@ const ALL_TABLES = [
     "submissions",
     "quiz_attempts",
     "quiz_answers",
-    "attendance",
+    "enrollments",
     "live_classes",
     "coupons",
     "coupon_usage",
-    "daily_quotes"
+    "aura_awards",
+    "invoices",
+    "attendance",
+    "daily_quotes",
+    "notifications",
+    "blogs",
+    "job_openings",
+    "job_applications",
+    "contact_messages"
 ];
 
 // Helper to safely fetch table data or empty array if table doesn't exist
@@ -243,47 +255,53 @@ export async function restoreFullSystemBackup(
 
         // Step 2: Restore Tables in Strict Relational Dependency Order
 
-        // 1. Users
+        // 1. Foundation: Subscription Plans & Colleges
+        if (tables.subscription_plans) await upsertTableData("subscription_plans", tables.subscription_plans);
+        if (tables.colleges) await upsertTableData("colleges", tables.colleges);
+
+        // 2. Identity & Institutional Staff
         if (tables.users) await upsertTableData("users", tables.users);
+        if (tables.departments) await upsertTableData("departments", tables.departments);
+        if (tables.master_roles) await upsertTableData("master_roles", tables.master_roles);
+        if (tables.master_staff) await upsertTableData("master_staff", tables.master_staff);
 
-        // 2. Courses
+        // 3. Courses & Curriculum Structure
         if (tables.courses) await upsertTableData("courses", tables.courses);
-
-        // 3. Course Sections
         if (tables.course_sections) await upsertTableData("course_sections", tables.course_sections);
-
-        // 4. Section Contents
         if (tables.section_contents) await upsertTableData("section_contents", tables.section_contents);
-
-        // 5. Section Progress
         if (tables.section_progress) await upsertTableData("section_progress", tables.section_progress);
 
-        // 6. Assignments
+        // 4. Assignments & Question Banks
         if (tables.assignments) await upsertTableData("assignments", tables.assignments);
-
-        // 7. Assignment Questions
         if (tables.assignment_questions) await upsertTableData("assignment_questions", tables.assignment_questions);
 
-        // 8. Submissions
+        // 5. Submissions, Quiz Attempts & Answers
         if (tables.submissions) await upsertTableData("submissions", tables.submissions);
-
-        // 9. Quiz Attempts & Answers
         if (tables.quiz_attempts) await upsertTableData("quiz_attempts", tables.quiz_attempts);
         if (tables.quiz_answers) await upsertTableData("quiz_answers", tables.quiz_answers);
 
-        // 10. Enrollments
+        // 6. Enrollments & Live Sessions
         if (tables.enrollments) await upsertTableData("enrollments", tables.enrollments);
-
-        // 11. Live Classes
         if (tables.live_classes) await upsertTableData("live_classes", tables.live_classes);
 
-        // 12. Coupons & Usage
+        // 7. Commercial & Billing: Coupons, Usage, Invoices
         if (tables.coupons) await upsertTableData("coupons", tables.coupons);
         if (tables.coupon_usage) await upsertTableData("coupon_usage", tables.coupon_usage);
+        if (tables.invoices) await upsertTableData("invoices", tables.invoices);
 
-        // 13. Attendance & Daily Quotes
+        // 8. Gamification & Aura Rewards
+        if (tables.aura_awards) await upsertTableData("aura_awards", tables.aura_awards);
+
+        // 9. Operational: Attendance, Daily Quotes, Notifications
         if (tables.attendance) await upsertTableData("attendance", tables.attendance);
         if (tables.daily_quotes) await upsertTableData("daily_quotes", tables.daily_quotes);
+        if (tables.notifications) await upsertTableData("notifications", tables.notifications);
+
+        // 10. Public Portals: Blogs, Careers, Inquiries
+        if (tables.blogs) await upsertTableData("blogs", tables.blogs);
+        if (tables.job_openings) await upsertTableData("job_openings", tables.job_openings);
+        if (tables.job_applications) await upsertTableData("job_applications", tables.job_applications);
+        if (tables.contact_messages) await upsertTableData("contact_messages", tables.contact_messages);
 
         log.push("All tables and system settings restored successfully!");
         onProgress?.("Restoration Complete!");

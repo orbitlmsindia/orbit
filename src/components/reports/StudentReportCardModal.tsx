@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Printer, Download, Award, Sparkles, FileText, CheckCircle2, Building2, ShieldCheck } from "lucide-react";
+import { Printer, Download, Award, Sparkles, FileText, CheckCircle2, Building2, ShieldCheck, Clock } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 interface StudentReportCardModalProps {
@@ -63,45 +63,79 @@ export function StudentReportCardModal({ open, onOpenChange, student }: StudentR
       setLoading(true);
       const { data: enrs } = await supabase
         .from("enrollments")
-        .select("id, status, enrolled_at, course:courses(id, title, credit_points)")
+        .select("id, course_id, status, enrolled_at, course:courses(id, title, credit_points)")
         .eq("student_id", studentId);
 
+      // Fetch student submissions with assignment course relation
       const { data: subs } = await supabase
         .from("submissions")
-        .select("id, grade, status, assignment:assignments(title)")
+        .select("id, grade, status, assignment:assignments(course_id, title, points)")
         .eq("student_id", studentId);
+
+      // Optional: fetch quiz attempts if available
+      let quizAttempts: any[] = [];
+      try {
+        const { data: qz } = await supabase
+          .from("quiz_attempts")
+          .select("id, course_id, score, total_score")
+          .eq("student_id", studentId);
+        if (qz) quizAttempts = qz;
+      } catch (e) {
+        // quiz_attempts table optional
+      }
 
       const formatted = (enrs || []).map((e) => {
         const c = Array.isArray(e.course) ? e.course[0] : e.course;
-        const courseSubs = (subs || []);
-        const totalMarks = courseSubs.length ? Math.round(courseSubs.reduce((acc, s) => acc + (s.grade || 85), 0) / courseSubs.length) : 88;
+        const targetCourseId = e.course_id || c?.id;
+
+        // Find submissions specifically belonging to this course
+        const courseSubs = (subs || []).filter((s: any) => {
+          const assign = Array.isArray(s.assignment) ? s.assignment[0] : s.assignment;
+          return assign?.course_id === targetCourseId;
+        });
+
+        // Graded items
+        const gradedSubs = courseSubs.filter((s: any) => s.grade !== null && s.grade !== undefined);
+        const courseQuizzes = quizAttempts.filter((q: any) => q.course_id === targetCourseId && q.score !== null);
+
+        let marks: number | null = null;
+        if (gradedSubs.length > 0) {
+          const totalEarned = gradedSubs.reduce((acc: number, s: any) => acc + Number(s.grade || 0), 0);
+          marks = Math.min(100, Math.round(totalEarned / gradedSubs.length));
+        } else if (courseQuizzes.length > 0) {
+          const totalEarned = courseQuizzes.reduce((acc: number, q: any) => {
+            const max = q.total_score || 100;
+            return acc + (Number(q.score || 0) / max) * 100;
+          }, 0);
+          marks = Math.min(100, Math.round(totalEarned / courseQuizzes.length));
+        }
 
         return {
           id: e.id,
           courseTitle: c?.title || "Enrolled Course",
           credits: c?.credit_points || 3,
           enrolledAt: new Date(e.enrolled_at || Date.now()).toLocaleDateString(),
-          status: e.status === "approved" ? "Completed / Active" : e.status,
-          marks: totalMarks,
-          auraEarned: (c?.credit_points || 3) * 5 + 10
+          status: marks !== null ? "Evaluated / Graded" : (e.status === "approved" ? "Active / In Progress" : e.status),
+          marks: marks,
+          auraEarned: (c?.credit_points || 3) * 5 + (marks ? Math.round(marks / 10) : 5)
         };
       });
 
       if (formatted.length === 0 && student) {
         formatted.push({
           id: "default-1",
-          courseTitle: student.course || "General Academic Course",
+          courseTitle: student.course || "General Enrolled Course",
           credits: student.credits || 3,
           enrolledAt: new Date().toLocaleDateString(),
-          status: "Completed / Active",
-          marks: 92,
-          auraEarned: student.aura || 15
+          status: "In Progress",
+          marks: null,
+          auraEarned: student.aura || 0
         });
       }
 
       setStudentEnrollments(formatted);
     } catch (err) {
-      console.error(err);
+      console.error("Error fetching report card details:", err);
     } finally {
       setLoading(false);
     }
@@ -115,9 +149,15 @@ export function StudentReportCardModal({ open, onOpenChange, student }: StudentR
 
   const totalEarnedCredits = studentEnrollments.reduce((sum, item) => sum + item.credits, 0);
   const totalEarnedAura = student.aura || studentEnrollments.reduce((sum, item) => sum + item.auraEarned, 0);
-  const avgMarks = studentEnrollments.length ? Math.round(studentEnrollments.reduce((sum, item) => sum + item.marks, 0) / studentEnrollments.length) : 90;
 
-  const getGradeBadge = (marks: number) => {
+  // Calculate actual dynamic average only across evaluated courses
+  const gradedCourses = studentEnrollments.filter((item) => item.marks !== null && item.marks !== undefined);
+  const avgMarks = gradedCourses.length > 0
+    ? Math.round(gradedCourses.reduce((sum, item) => sum + item.marks, 0) / gradedCourses.length)
+    : null;
+
+  const getGradeBadge = (marks: number | null) => {
+    if (marks === null) return { label: "Assessment in Progress", color: "bg-amber-500/10 text-amber-600 border-amber-500/30" };
     if (marks >= 90) return { label: "Grade A+ (Outstanding)", color: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30" };
     if (marks >= 75) return { label: "Grade A (Excellent)", color: "bg-blue-500/10 text-blue-600 border-blue-500/30" };
     if (marks >= 60) return { label: "Grade B (Good)", color: "bg-amber-500/10 text-amber-600 border-amber-500/30" };
@@ -184,14 +224,24 @@ export function StudentReportCardModal({ open, onOpenChange, student }: StudentR
             <div className="space-y-1">
               <span className="text-[10px] font-semibold uppercase tracking-wider text-primary">Overall Academic Standing</span>
               <div className="flex items-center gap-2">
-                <span className="text-2xl font-extrabold font-mono text-foreground">{avgMarks}% Score</span>
+                {avgMarks !== null ? (
+                  <span className="text-2xl font-extrabold font-mono text-foreground">{avgMarks}% Score</span>
+                ) : (
+                  <span className="text-xl font-bold font-display text-muted-foreground flex items-center gap-1.5">
+                    <Clock className="h-4 w-4 text-amber-500" />
+                    Pending Evaluation
+                  </span>
+                )}
                 <Badge variant="outline" className={`font-semibold text-xs ${grade.color}`}>
                   {grade.label}
                 </Badge>
               </div>
             </div>
             <div className="w-full sm:w-48 bg-muted rounded-full h-3 overflow-hidden border">
-              <div className="bg-primary h-full transition-all" style={{ width: `${avgMarks}%` }} />
+              <div
+                className={`h-full transition-all ${avgMarks !== null ? "bg-primary" : "bg-amber-500/50"}`}
+                style={{ width: `${avgMarks !== null ? avgMarks : 25}%` }}
+              />
             </div>
           </div>
 
@@ -218,9 +268,24 @@ export function StudentReportCardModal({ open, onOpenChange, student }: StudentR
                       <td className="p-3 font-sans font-semibold text-foreground">{item.courseTitle}</td>
                       <td className="p-3 font-bold text-primary">🎓 {item.credits}</td>
                       <td className="p-3 font-bold text-amber-500">✨ {item.auraEarned}</td>
-                      <td className="p-3 font-bold text-foreground">{item.marks}%</td>
+                      <td className="p-3 font-bold text-foreground">
+                        {item.marks !== null ? (
+                          <span>{item.marks}%</span>
+                        ) : (
+                          <span className="text-muted-foreground font-sans text-xs italic font-normal">
+                            Assessment Pending
+                          </span>
+                        )}
+                      </td>
                       <td className="p-3 text-right">
-                        <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] ${
+                            item.marks !== null
+                              ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+                              : "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                          }`}
+                        >
                           {item.status}
                         </Badge>
                       </td>

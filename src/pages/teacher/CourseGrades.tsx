@@ -6,16 +6,22 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Download, Upload, FileUp, Save, ChevronLeft } from "lucide-react";
+import { Loader2, Download, Upload, FileUp, Save, ChevronLeft, Sparkles } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { TeacherGradebookExporter } from "@/components/analytics/TeacherGradebookExporter";
+import { AwardAuraPointsModal, AwardAuraStudent } from "@/components/gamification/AwardAuraPointsModal";
 
 export default function CourseGrades() {
     const { id } = useParams(); // Course ID
     const { toast } = useToast();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [courseTitle, setCourseTitle] = useState("Course Gradebook");
+
+    // Gamification state
+    const [selectedAuraStudent, setSelectedAuraStudent] = useState<AwardAuraStudent | null>(null);
+    const [auraModalOpen, setAuraModalOpen] = useState(false);
 
     // Data
     const [students, setStudents] = useState<any[]>([]);
@@ -28,12 +34,16 @@ export default function CourseGrades() {
         try {
             setLoading(true);
 
+            // Fetch course title
+            const { data: courseData } = await supabase.from('courses').select('title').eq('id', id).maybeSingle();
+            if (courseData?.title) setCourseTitle(courseData.title);
+
             // 1. Fetch enrolled students
             const { data: enrollments, error: enrollError } = await supabase
                 .from('enrollments')
                 .select(`
                     *,
-                    student:users!student_id(id, full_name, email, avatar_url)
+                    student:users!student_id(id, full_name, email, avatar_url, aura_points)
                 `)
                 .eq('course_id', id);
 
@@ -274,6 +284,7 @@ export default function CourseGrades() {
                                 <TableHead>Quiz Avg (40%)</TableHead>
                                 <TableHead>Manual Score (60%)</TableHead>
                                 <TableHead>Total (100%)</TableHead>
+                                <TableHead className="text-right">Gamified Aura</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -306,11 +317,25 @@ export default function CourseGrades() {
                                             {student.finalScore.toFixed(1)}%
                                         </Badge>
                                     </TableCell>
+                                    <TableCell className="text-right">
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => {
+                                                setSelectedAuraStudent(student.student);
+                                                setAuraModalOpen(true);
+                                            }}
+                                            className="gap-1.5 text-amber-500 hover:text-amber-600 border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10 font-semibold"
+                                        >
+                                            <Sparkles className="h-3.5 w-3.5" />
+                                            Award Aura
+                                        </Button>
+                                    </TableCell>
                                 </TableRow>
                             ))}
                             {students.length === 0 && (
                                 <TableRow>
-                                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                                         No students enrolled in this course.
                                     </TableCell>
                                 </TableRow>
@@ -324,6 +349,17 @@ export default function CourseGrades() {
             <div className="pt-6">
                 <TeacherGradebookExporter courseId={id} />
             </div>
+
+            {/* Gamified Aura Points Award Modal */}
+            <AwardAuraPointsModal
+                open={auraModalOpen}
+                onOpenChange={setAuraModalOpen}
+                student={selectedAuraStudent}
+                course={{ id: id || '', title: courseTitle }}
+                onSuccess={() => {
+                    fetchGrades();
+                }}
+            />
         </TeacherLayout>
     );
 }
