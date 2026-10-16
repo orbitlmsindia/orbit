@@ -220,7 +220,7 @@ Here is how modern enterprise institutions protect their educational assets usin
 
 ## 1. Anatomy of Video Piracy in Higher Ed
 
-Traditional LMS deployments typically embed standard HTML5 `<video>` tags or unlisted YouTube links:
+Traditional LMS deployments typically embed standard HTML5 \`<video>\` tags or unlisted YouTube links:
 - **Direct Link Extraction**: Network inspect tools reveal underlying video URLs in seconds.
 - **Unauthorized Screen Scraping**: Screen recorders capture lessons without any tracing mechanism.
 - **Account Sharing**: One purchased enrollment is shared across dozens of off-campus users.
@@ -235,7 +235,7 @@ Orbit LMS implements a multi-layered defense matrix directly inside its custom *
 While playing any video lesson, a semi-transparent, moving watermark continuously displays the logged-in student's **Full Name, Roll Number, IP Address, and Timestamp**. The watermark dynamically changes coordinates across the canvas every 4 seconds, neutralizing screen recorders by permanently embedding forensic proof of the leaker's identity.
 
 ### B. Encrypted HLS Chunk Streaming
-Video content is sliced into encrypted 3-second `.ts` fragments signed with ephemeral tokens. Direct file downloads are impossible because individual chunks cannot be reassembled without the master auth session.
+Video content is sliced into encrypted 3-second \`.ts\` fragments signed with ephemeral tokens. Direct file downloads are impossible because individual chunks cannot be reassembled without the master auth session.
 
 ### C. Developer Tools & Screen Capture Deterrence
 Orbit LMS monitors screen capture shortcuts (PrintScreen, Snipping Tool, OBS Studio hooks) and automatically blanks the video viewport upon trigger detection.

@@ -47,6 +47,7 @@ export default function MasterDashboard() {
     colleges: 0,
     totalUsers: 0,
     studentsCount: 0,
+    activeLearnersCount: 0,
     teachersCount: 0,
     courses: 0,
     activeSubscriptions: 0,
@@ -78,6 +79,7 @@ export default function MasterDashboard() {
         { count: collCount, data: colls },
         { count: usersCount },
         { count: sCount },
+        { count: activeLearnersCount },
         { count: tCount },
         { count: coursesCount },
         { data: invoiceData },
@@ -94,6 +96,7 @@ export default function MasterDashboard() {
           .order("created_at", { ascending: false }),
         supabase.from("users").select("id", { count: "exact", head: true }),
         supabase.from("users").select("id", { count: "exact", head: true }).eq("role", "student"),
+        supabase.from("users").select("id", { count: "exact", head: true }).eq("role", "student").or("status.eq.active,status.is.null"),
         supabase.from("users").select("id", { count: "exact", head: true }).in("role", ["teacher", "admin"]),
         supabase.from("courses").select("id", { count: "exact", head: true }),
         supabase.from("invoices").select("total_amount, status"),
@@ -135,6 +138,7 @@ export default function MasterDashboard() {
         colleges: collCount || (colls?.length || 0),
         totalUsers: usersCount || 0,
         studentsCount: sCount || 0,
+        activeLearnersCount: activeLearnersCount || 0,
         teachersCount: tCount || 0,
         courses: coursesCount || 0,
         activeSubscriptions: activeSubs,
@@ -318,7 +322,7 @@ _Orbit LMS Enterprise Multi-Tenant Cloud Platform_`;
             <CardContent>
               <div className="text-2xl font-bold font-mono">{stats.totalUsers}</div>
               <p className="text-xs text-slate-400 mt-1 truncate">
-                {stats.studentsCount} Students • {stats.teachersCount} Staff
+                <span className="text-teal-400 font-semibold">{stats.activeLearnersCount} Active</span> ({stats.studentsCount} Students) • {stats.teachersCount} Staff
               </p>
             </CardContent>
           </Card>

@@ -47,6 +47,8 @@ export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [landingBlogs, setLandingBlogs] = useState<BlogPost[]>([]);
   const [publishedCourses, setPublishedCourses] = useState<any[]>([]);
+  const [activeLearnersCount, setActiveLearnersCount] = useState<number>(13);
+  const [certifiedCoursesCount, setCertifiedCoursesCount] = useState<number>(12);
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [billingInterval, setBillingInterval] = useState<"monthly" | "annual">("monthly");
   const [plansLoading, setPlansLoading] = useState(true);
@@ -283,15 +285,39 @@ export default function LandingPage() {
       const savedFeaturedSettings = localStorage.getItem("orbit_featured_settings");
       const featuredConfig = savedFeaturedSettings ? JSON.parse(savedFeaturedSettings) : { mode: "most_enrolled" };
 
-      // Fetch active courses safely without failing on complex joins
-      const { data: rawCourses } = await supabase
+      // 1. Fetch live active learners count from users table
+      try {
+        const { count: learnersCount } = await supabase
+          .from("users")
+          .select("id", { count: "exact", head: true })
+          .eq("role", "student")
+          .or("status.eq.active,status.is.null");
+
+        if (typeof learnersCount === "number" && learnersCount > 0) {
+          setActiveLearnersCount(learnersCount);
+        } else {
+          setActiveLearnersCount(13);
+        }
+      } catch (err) {
+        console.warn("Could not fetch active learners count:", err);
+        setActiveLearnersCount(13);
+      }
+
+      // 2. Fetch active courses safely without failing on complex joins
+      let totalPublishedCourses = 12;
+      const { data: rawCourses, count: courseCount } = await supabase
         .from("courses")
         .select(`
           id, title, description, thumbnail_url, price, original_price, currency,
           organization_name, organization_logo_url, credit_points, is_published,
           is_featured, created_at
-        `)
+        `, { count: "exact" })
         .eq("is_published", true);
+
+      if (typeof courseCount === "number" && courseCount > 0) {
+        totalPublishedCourses = courseCount;
+      }
+      setCertifiedCoursesCount(totalPublishedCourses);
 
       // Fetch enrollment count per course
       let enrollmentCountMap: Record<string, number> = {};
@@ -634,11 +660,15 @@ export default function LandingPage() {
               
               <div className="grid grid-cols-2 gap-4 pt-4">
                 <div className="p-4 bg-card rounded-xl border shadow-xs space-y-1">
-                  <div className="font-extrabold text-2xl sm:text-3xl text-primary font-mono">10,000+</div>
+                  <div className="font-extrabold text-2xl sm:text-3xl text-primary font-mono">
+                    {activeLearnersCount || 13}
+                  </div>
                   <div className="text-xs text-muted-foreground">Active Learners</div>
                 </div>
                 <div className="p-4 bg-card rounded-xl border shadow-xs space-y-1">
-                  <div className="font-extrabold text-2xl sm:text-3xl text-amber-500 font-mono">500+</div>
+                  <div className="font-extrabold text-2xl sm:text-3xl text-amber-500 font-mono">
+                    {certifiedCoursesCount || 12}
+                  </div>
                   <div className="text-xs text-muted-foreground">Certified Courses</div>
                 </div>
               </div>

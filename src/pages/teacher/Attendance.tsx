@@ -29,6 +29,7 @@ export default function Attendance() {
     const [uploading, setUploading] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [calendarOpen, setCalendarOpen] = useState(false);
+    const [hasExistingRecords, setHasExistingRecords] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -38,6 +39,7 @@ export default function Attendance() {
     useEffect(() => {
         const fetchAttendance = async () => {
             if (!date || !courseId || baseStudents.length === 0) {
+                setHasExistingRecords(false);
                 if (baseStudents.length > 0) {
                     setStudents(baseStudents.map(s => ({ ...s, status: 'present' })));
                 }
@@ -55,6 +57,7 @@ export default function Attendance() {
                 if (error) throw error;
 
                 if (data && data.length > 0) {
+                    setHasExistingRecords(true);
                     const statusMap = new Map();
                     data.forEach((p: any) => statusMap.set(p.student_id, p.status));
 
@@ -63,9 +66,11 @@ export default function Attendance() {
                         status: statusMap.get(s.id) || 'present'
                     })));
                 } else {
+                    setHasExistingRecords(false);
                     setStudents(baseStudents.map(s => ({ ...s, status: 'present' })));
                 }
             } catch (error: any) {
+                setHasExistingRecords(false);
                 console.error("Error fetching attendance:", error);
             } finally {
                 setLoading(false);
@@ -166,6 +171,7 @@ export default function Attendance() {
 
             if (error) throw error;
 
+            setHasExistingRecords(true);
             toast({ title: "Success", description: "Attendance saved successfully." });
         } catch (error: any) {
             console.error(error);
@@ -496,22 +502,30 @@ export default function Attendance() {
             </Card>
 
             <div className="grid gap-4 md:grid-cols-3 animate-fade-in delay-100">
-                <Card className="bg-success/10 border-success/20">
+                <Card className={hasExistingRecords ? "bg-success/10 border-success/20" : "bg-muted/20 border-border/50"}>
                     <CardContent className="pt-6 flex flex-col items-center justify-center">
-                        <span className="text-4xl font-bold text-success font-display">{presentPercentage}%</span>
-                        <span className="text-success-foreground/80 font-medium">Present</span>
+                        <span className={`text-4xl font-bold font-display ${hasExistingRecords ? 'text-success' : 'text-muted-foreground'}`}>
+                            {hasExistingRecords ? `${presentPercentage}%` : "—"}
+                        </span>
+                        <span className="text-muted-foreground font-medium text-sm mt-1">
+                            {hasExistingRecords ? "Present" : "Not Recorded Yet"}
+                        </span>
                     </CardContent>
                 </Card>
-                <Card className="bg-destructive/10 border-destructive/20">
+                <Card className={hasExistingRecords ? "bg-destructive/10 border-destructive/20" : "bg-muted/20 border-border/50"}>
                     <CardContent className="pt-6 flex flex-col items-center justify-center">
-                        <span className="text-4xl font-bold text-destructive font-display">{100 - presentPercentage}%</span>
-                        <span className="text-destructive-foreground/80 font-medium">Absent</span>
+                        <span className={`text-4xl font-bold font-display ${hasExistingRecords ? 'text-destructive' : 'text-muted-foreground'}`}>
+                            {hasExistingRecords ? `${100 - presentPercentage}%` : "—"}
+                        </span>
+                        <span className="text-muted-foreground font-medium text-sm mt-1">
+                            {hasExistingRecords ? "Absent" : "Pending Submission"}
+                        </span>
                     </CardContent>
                 </Card>
                 <Card className="bg-muted/30">
                     <CardContent className="pt-6 flex flex-col items-center justify-center">
-                        <span className="text-4xl font-bold font-display">{students.length}</span>
-                        <span className="text-muted-foreground font-medium">Total Students</span>
+                        <span className="text-4xl font-bold font-display text-foreground">{students.length}</span>
+                        <span className="text-muted-foreground font-medium text-sm mt-1">Total Enrolled Students</span>
                     </CardContent>
                 </Card>
             </div>

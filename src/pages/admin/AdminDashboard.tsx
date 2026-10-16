@@ -64,8 +64,10 @@ export default function AdminDashboard() {
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [stats, setStats] = useState({
     students: 0,
+    activeStudents: 0,
     teachers: 0,
     activeCourses: 0,
+    certificatePrograms: 0,
     avgAttendance: 0,
   });
   const [attendanceData, setAttendanceData] = useState<any[]>([]);
@@ -158,6 +160,12 @@ export default function AdminDashboard() {
         .select("*", { count: "exact", head: true })
         .eq("role", "student");
 
+      const { count: activeStudentCount } = await supabase
+        .from("users")
+        .select("*", { count: "exact", head: true })
+        .eq("role", "student")
+        .or("status.eq.active,status.is.null");
+
       const { count: teacherCount } = await supabase
         .from("users")
         .select("*", { count: "exact", head: true })
@@ -168,6 +176,10 @@ export default function AdminDashboard() {
         .select("*", { count: "exact", head: true })
         .eq("is_published", true);
 
+      const { count: certificateProgramsCount } = await supabase
+        .from("certificate_programs")
+        .select("*", { count: "exact", head: true });
+
       // Attendance Stats
       const { data: attendanceRecords } = await supabase
         .from("attendance")
@@ -177,9 +189,10 @@ export default function AdminDashboard() {
       let weeklyData: any[] = [];
 
       if (attendanceRecords && attendanceRecords.length > 0) {
-        // Avg Attendance
+        // Avg Attendance calculated from actual records
         const presentCount = attendanceRecords.filter(r => r.status === 'present').length;
-        avgAtt = Math.round((presentCount / attendanceRecords.length) * 100);
+        const lateCount = attendanceRecords.filter(r => r.status === 'late').length;
+        avgAtt = Math.round(((presentCount + lateCount * 0.5) / attendanceRecords.length) * 100);
 
         // Weekly Attendance Chart (Last 7 days)
         const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -195,7 +208,7 @@ export default function AdminDashboard() {
           return {
             day: days[date.getDay()],
             present: dayRecords.filter(r => r.status === 'present').length,
-            absent: dayRecords.filter(r => r.status === 'absent').length,
+            absent: dayRecords.filter(r => r.status === 'absent' || r.status === 'late').length,
           };
         });
       } else {
@@ -212,8 +225,10 @@ export default function AdminDashboard() {
 
       setStats({
         students: studentCount || 0,
+        activeStudents: activeStudentCount || 0,
         teachers: teacherCount || 0,
         activeCourses: courseCount || 0,
+        certificatePrograms: certificateProgramsCount || 0,
         avgAttendance: avgAtt,
       });
 
@@ -551,9 +566,10 @@ export default function AdminDashboard() {
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <StatCard
-            title="Total Students"
-            value={stats.students.toString()}
+            title="Active Learners"
+            value={stats.activeStudents.toString()}
             icon={<Users className="h-5 w-5" />}
+            description={`${stats.students} registered students`}
           />
           <StatCard
             title="Total Teachers"
@@ -562,15 +578,17 @@ export default function AdminDashboard() {
             variant="accent"
           />
           <StatCard
-            title="Active Courses"
+            title="Certificate Courses"
             value={stats.activeCourses.toString()}
             icon={<BookOpen className="h-5 w-5" />}
+            description={`${stats.certificatePrograms} specialization programs`}
             variant="primary"
           />
           <StatCard
             title="Avg. Attendance"
             value={`${stats.avgAttendance}%`}
             icon={<TrendingUp className="h-5 w-5" />}
+            description={stats.avgAttendance > 0 ? "Verified from class logs" : "No attendance recorded yet"}
             variant="warning"
           />
         </div>

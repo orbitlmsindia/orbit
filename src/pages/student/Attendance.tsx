@@ -111,10 +111,10 @@ export default function StudentAttendance() {
     const lateSessions = filteredRecords.filter(r => r.status === 'late').length;
     const absentSessions = filteredRecords.filter(r => r.status === 'absent').length;
 
-    // Attendance rate considers present (100%) and late (counted at 50% or full present)
+    // Attendance rate considers present (100%) and late (counted at 50% attendance)
     const attendancePercentage = totalSessions > 0
-        ? Math.round(((presentSessions + lateSessions * 0.75) / totalSessions) * 100)
-        : 100;
+        ? Math.round(((presentSessions + lateSessions * 0.5) / totalSessions) * 100)
+        : 0;
 
     const getStatusBadge = (status: string) => {
         switch (status) {
@@ -191,15 +191,23 @@ export default function StudentAttendance() {
                                 <CardHeader className="pb-2">
                                     <CardDescription className="text-xs font-semibold uppercase">Overall Attendance</CardDescription>
                                     <CardTitle className={`text-2xl font-bold font-mono ${
-                                        attendancePercentage >= 75 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
+                                        totalSessions === 0
+                                            ? 'text-muted-foreground'
+                                            : attendancePercentage >= 75
+                                                ? 'text-emerald-600 dark:text-emerald-400'
+                                                : 'text-amber-600 dark:text-amber-400'
                                     }`}>
-                                        {totalSessions > 0 ? `${attendancePercentage}%` : "100%"}
+                                        {totalSessions > 0 ? `${attendancePercentage}%` : "0%"}
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent>
-                                    <Progress value={totalSessions > 0 ? attendancePercentage : 100} className="h-2" />
+                                    <Progress value={totalSessions > 0 ? attendancePercentage : 0} className="h-2" />
                                     <span className="text-[11px] text-muted-foreground mt-2 block">
-                                        {attendancePercentage >= 75 ? "Satisfies 75% minimum" : "Warning: Below 75% requirement"}
+                                        {totalSessions === 0
+                                            ? "No attendance records recorded yet"
+                                            : attendancePercentage >= 75
+                                                ? "Satisfies 75% minimum threshold"
+                                                : "Warning: Below 75% requirement"}
                                     </span>
                                 </CardContent>
                             </Card>
