@@ -47,6 +47,13 @@ export default function TeacherMnemonics() {
     const [courses, setCourses] = useState<{ id: string; title: string }[]>([]);
     const [mnemonics, setMnemonics] = useState<TeacherMnemonicItem[]>([]);
 
+    // Smart Generator Modal State
+    const [generatorOpen, setGeneratorOpen] = useState(false);
+    const [genTopic, setGenTopic] = useState("");
+    const [genSubject, setGenSubject] = useState("");
+    const [genWords, setGenWords] = useState("");
+    const [generating, setGenerating] = useState(false);
+
     useEffect(() => {
         async function fetchCourses() {
             try {
@@ -147,6 +154,89 @@ export default function TeacherMnemonics() {
             title: "Mnemonic Published! 💡",
             description: `Students enrolled in "${resolvedCourseName}" can now use this memory hook.`
         });
+    };
+
+    const handleGenerateMnemonic = () => {
+        if (!genTopic.trim()) {
+            toast({
+                title: "Topic Required",
+                description: "Please enter a topic title to craft a mnemonic.",
+                variant: "destructive"
+            });
+            return;
+        }
+
+        setGenerating(true);
+
+        setTimeout(() => {
+            const rawWords = genWords.split(",").map(w => w.trim()).filter(Boolean);
+            let finalAcronym = "";
+            let finalBreakdown: { letter: string; word: string; meaning: string }[] = [];
+
+            if (rawWords.length > 0) {
+                finalAcronym = rawWords.map(w => w.charAt(0).toUpperCase()).join("");
+                finalBreakdown = rawWords.map(w => ({
+                    letter: w.charAt(0).toUpperCase(),
+                    word: w,
+                    meaning: `Core principle representing ${w} in ${genTopic}.`
+                }));
+            } else {
+                finalAcronym = genTopic.replace(/[^a-zA-Z]/g, "").slice(0, 4).toUpperCase() || "ORBT";
+                finalBreakdown = finalAcronym.split("").map((char, i) => ({
+                    letter: char,
+                    word: `Factor ${i + 1} (${char})`,
+                    meaning: `Foundational dimension of ${genTopic}.`
+                }));
+            }
+
+            const selectedCourse = courses.find(c => c.id === selectedCourseId);
+            const resolvedCourseName = selectedCourse ? selectedCourse.title : (genSubject.trim() || customCourseName.trim() || "Core Curriculum");
+            const resolvedCourseId = selectedCourse ? selectedCourse.id : null;
+
+            const newMne: TeacherMnemonicItem = {
+                id: `tm-gen-${Date.now()}`,
+                courseId: resolvedCourseId,
+                title: genTopic,
+                acronym: finalAcronym,
+                phrase: `"${finalAcronym.split("").map(c => c + "-factor").join(" ")}"`,
+                course: resolvedCourseName,
+                termsCount: finalAcronym.length,
+                verified: true
+            };
+
+            setMnemonics([newMne, ...mnemonics]);
+
+            try {
+                const stored = localStorage.getItem("orbit_mnemonics");
+                const existing = stored ? JSON.parse(stored) : [];
+                const studentMnemonic = {
+                    id: newMne.id,
+                    courseId: resolvedCourseId,
+                    course: resolvedCourseName,
+                    title: genTopic,
+                    acronym: finalAcronym,
+                    phrase: newMne.phrase,
+                    subject: resolvedCourseName,
+                    category: "AI Crafted Memory Aid",
+                    explanation: `High-yield memory acronym designed to encode ${genTopic} permanently into recall.`,
+                    breakdown: finalBreakdown,
+                    examTip: `Remember ${finalAcronym} when analyzing ${genTopic}.`
+                };
+                localStorage.setItem("orbit_mnemonics", JSON.stringify([studentMnemonic, ...(Array.isArray(existing) ? existing : [])]));
+            } catch (err) {
+                console.warn("Could not save to localStorage:", err);
+            }
+
+            setGenerating(false);
+            setGeneratorOpen(false);
+            setGenTopic("");
+            setGenWords("");
+
+            toast({
+                title: "Mnemonic Generated & Published! ✨",
+                description: `Created acronym "${finalAcronym}" for ${genTopic}.`
+            });
+        }, 500);
     };
 
     const handleExportMnemonics = async () => {
@@ -297,6 +387,71 @@ export default function TeacherMnemonics() {
                                 <DialogFooter>
                                     <Button variant="ghost" size="sm" onClick={() => setCreateOpen(false)}>Cancel</Button>
                                     <Button size="sm" onClick={handleCreateMnemonic}>Publish Mnemonic</Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+
+                        {/* Smart AI Mnemonic Generator Dialog for Faculty & Admins */}
+                        <Dialog open={generatorOpen} onOpenChange={setGeneratorOpen}>
+                            <DialogTrigger asChild>
+                                <Button size="sm" className="gap-1.5 text-xs font-semibold h-9 shadow-sm bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700">
+                                    <Sparkles className="h-4 w-4" /> Generate Mnemonic
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-md">
+                                <DialogHeader>
+                                    <DialogTitle className="flex items-center gap-2 text-base">
+                                        <Sparkles className="h-4 w-4 text-amber-500" /> Smart Mnemonic Generator
+                                    </DialogTitle>
+                                </DialogHeader>
+                                <div className="space-y-3 py-2 text-xs">
+                                    <div>
+                                        <label className="font-semibold text-foreground">Concept or Topic Title</label>
+                                        <Input
+                                            placeholder="e.g. Raft Consensus States, OSI Layers"
+                                            value={genTopic}
+                                            onChange={e => setGenTopic(e.target.value)}
+                                            className="mt-1"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="font-semibold text-foreground">Target Course</label>
+                                        {courses.length > 0 ? (
+                                            <select
+                                                value={selectedCourseId}
+                                                onChange={e => setSelectedCourseId(e.target.value)}
+                                                className="w-full h-8 text-xs rounded-md border border-input bg-background px-3 py-1 text-foreground font-medium focus:ring-1 focus:ring-amber-500 outline-none"
+                                            >
+                                                <option value="">-- General / Core Curriculum --</option>
+                                                {courses.map(c => (
+                                                    <option key={c.id} value={c.id}>{c.title}</option>
+                                                ))}
+                                            </select>
+                                        ) : (
+                                            <Input
+                                                placeholder="e.g. Distributed Systems"
+                                                value={genSubject}
+                                                onChange={e => setGenSubject(e.target.value)}
+                                                className="text-xs h-8"
+                                            />
+                                        )}
+                                    </div>
+                                    <div>
+                                        <label className="font-semibold text-foreground">Terms to Memorize (Comma Separated)</label>
+                                        <Textarea
+                                            placeholder="e.g. Follower, Candidate, Leader"
+                                            value={genWords}
+                                            onChange={e => setGenWords(e.target.value)}
+                                            className="mt-1 text-xs"
+                                            rows={3}
+                                        />
+                                    </div>
+                                </div>
+                                <DialogFooter>
+                                    <Button variant="ghost" size="sm" onClick={() => setGeneratorOpen(false)}>Cancel</Button>
+                                    <Button size="sm" onClick={handleGenerateMnemonic} disabled={generating}>
+                                        {generating ? "Crafting Memory Hook..." : "Generate Mnemonic ✨"}
+                                    </Button>
                                 </DialogFooter>
                             </DialogContent>
                         </Dialog>

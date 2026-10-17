@@ -175,6 +175,21 @@ export default function StudentMnemonics() {
     const [testMode, setTestMode] = useState(false);
     const [revealedLetters, setRevealedLetters] = useState<Record<number, boolean>>({});
 
+    const [userRole, setUserRole] = useState<string>(() => {
+        return (sessionStorage.getItem("userRole") || "student").toLowerCase();
+    });
+
+    const isMasterStaff = typeof window !== "undefined" && sessionStorage.getItem('isMasterStaff') === 'true';
+    const canManageMnemonics = isMasterStaff || [
+        "teacher",
+        "faculty",
+        "instructor",
+        "admin",
+        "super_admin",
+        "master_admin",
+        "master_staff"
+    ].includes(userRole);
+
     // Sync selectedCourseId if courseIdParam changes
     useEffect(() => {
         if (courseIdParam) {
@@ -192,6 +207,25 @@ export default function StudentMnemonics() {
                 let currentCourseTitle = "";
                 let userEnrolledIds: string[] = [];
                 let userEnrolledCoursesList: { id: string; title: string }[] = [];
+
+                // Resolve current user session & role
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user && isMounted) {
+                    let role = (
+                        user.app_metadata?.user_role ||
+                        user.user_metadata?.role ||
+                        sessionStorage.getItem("userRole") ||
+                        "student"
+                    ).toLowerCase();
+
+                    try {
+                        const { data: dbUser } = await supabase.from('users').select('role').eq('id', user.id).maybeSingle();
+                        if (dbUser?.role) role = dbUser.role.toLowerCase();
+                    } catch (e) {
+                        // ignore
+                    }
+                    setUserRole(role);
+                }
 
                 // 1. If courseIdParam is present, fetch course metadata
                 if (courseIdParam) {
@@ -593,57 +627,59 @@ Exam Tip: ${m.examTip}
                             {filterBookmarked ? "Showing Bookmarks" : "Saved Bookmarks"}
                         </Button>
 
-                        {/* Mnemonic Generator Dialog */}
-                        <Dialog open={generatorOpen} onOpenChange={setGeneratorOpen}>
-                            <DialogTrigger asChild>
-                                <Button size="sm" className="gap-1.5 text-xs font-semibold h-9 shadow-sm bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700">
-                                    <Sparkles className="h-4 w-4" /> Generate Mnemonic
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent className="sm:max-w-md">
-                                <DialogHeader>
-                                    <DialogTitle className="flex items-center gap-2 text-base">
-                                        <Sparkles className="h-4 w-4 text-amber-500" /> Smart Mnemonic Generator
-                                    </DialogTitle>
-                                </DialogHeader>
-                                <div className="space-y-3 py-2 text-xs">
-                                    <div>
-                                        <label className="font-semibold text-foreground">Concept or Topic Title</label>
-                                        <Input
-                                            placeholder="e.g. SDLC Phases, Machine Learning Pipeline"
-                                            value={genTopic}
-                                            onChange={e => setGenTopic(e.target.value)}
-                                            className="mt-1"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="font-semibold text-foreground">Subject / Course</label>
-                                        <Input
-                                            placeholder="e.g. Software Engineering, AI & Robotics"
-                                            value={genSubject}
-                                            onChange={e => setGenSubject(e.target.value)}
-                                            className="mt-1"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="font-semibold text-foreground">Terms to Memorize (Comma Separated)</label>
-                                        <Textarea
-                                            placeholder="e.g. Planning, Analysis, Design, Implementation, Testing, Maintenance"
-                                            value={genWords}
-                                            onChange={e => setGenWords(e.target.value)}
-                                            className="mt-1 text-xs"
-                                            rows={3}
-                                        />
-                                    </div>
-                                </div>
-                                <DialogFooter>
-                                    <Button variant="ghost" size="sm" onClick={() => setGeneratorOpen(false)}>Cancel</Button>
-                                    <Button size="sm" onClick={handleGenerateMnemonic} disabled={generating}>
-                                        {generating ? "Crafting Memory Hook..." : "Generate Mnemonic ✨"}
+                        {/* Mnemonic Generator Dialog - Visible only to Teacher, Admin, and Master Admin */}
+                        {canManageMnemonics && (
+                            <Dialog open={generatorOpen} onOpenChange={setGeneratorOpen}>
+                                <DialogTrigger asChild>
+                                    <Button size="sm" className="gap-1.5 text-xs font-semibold h-9 shadow-sm bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700">
+                                        <Sparkles className="h-4 w-4" /> Generate Mnemonic
                                     </Button>
-                                </DialogFooter>
-                            </DialogContent>
-                        </Dialog>
+                                </DialogTrigger>
+                                <DialogContent className="sm:max-w-md">
+                                    <DialogHeader>
+                                        <DialogTitle className="flex items-center gap-2 text-base">
+                                            <Sparkles className="h-4 w-4 text-amber-500" /> Smart Mnemonic Generator
+                                        </DialogTitle>
+                                    </DialogHeader>
+                                    <div className="space-y-3 py-2 text-xs">
+                                        <div>
+                                            <label className="font-semibold text-foreground">Concept or Topic Title</label>
+                                            <Input
+                                                placeholder="e.g. SDLC Phases, Machine Learning Pipeline"
+                                                value={genTopic}
+                                                onChange={e => setGenTopic(e.target.value)}
+                                                className="mt-1"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="font-semibold text-foreground">Subject / Course</label>
+                                            <Input
+                                                placeholder="e.g. Software Engineering, AI & Robotics"
+                                                value={genSubject}
+                                                onChange={e => setGenSubject(e.target.value)}
+                                                className="mt-1"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="font-semibold text-foreground">Terms to Memorize (Comma Separated)</label>
+                                            <Textarea
+                                                placeholder="e.g. Planning, Analysis, Design, Implementation, Testing, Maintenance"
+                                                value={genWords}
+                                                onChange={e => setGenWords(e.target.value)}
+                                                className="mt-1 text-xs"
+                                                rows={3}
+                                            />
+                                        </div>
+                                    </div>
+                                    <DialogFooter>
+                                        <Button variant="ghost" size="sm" onClick={() => setGeneratorOpen(false)}>Cancel</Button>
+                                        <Button size="sm" onClick={handleGenerateMnemonic} disabled={generating}>
+                                            {generating ? "Crafting Memory Hook..." : "Generate Mnemonic ✨"}
+                                        </Button>
+                                    </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
+                        )}
                     </div>
                 </div>
 
@@ -765,8 +801,12 @@ Exam Tip: ${m.examTip}
                                 </h3>
                                 <p className="text-xs text-muted-foreground max-w-sm mb-4 leading-relaxed">
                                     {courseIdParam
-                                        ? "This course curriculum does not currently include published mnemonics. You can generate a custom cognitive hook or return to course study modules."
-                                        : "Select a mnemonic from the left catalog or generate a brand new memory acronym hook."}
+                                        ? (canManageMnemonics
+                                            ? "This course curriculum does not currently include published mnemonics. You can generate a custom cognitive hook or return to course study modules."
+                                            : "This course curriculum does not currently include published mnemonics. Please return to the course player to continue your lessons.")
+                                        : (canManageMnemonics
+                                            ? "Select a mnemonic from the left catalog or generate a brand new memory acronym hook."
+                                            : "Select a mnemonic from the left catalog to start your active recall study session.")}
                                 </p>
                                 <div className="flex items-center justify-center gap-2 flex-wrap">
                                     {courseIdParam && (
@@ -776,14 +816,16 @@ Exam Tip: ${m.examTip}
                                             </Button>
                                         </Link>
                                     )}
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => setGeneratorOpen(true)}
-                                        className="gap-1.5 text-xs font-semibold border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
-                                    >
-                                        <Sparkles className="h-3.5 w-3.5" /> Generate Mnemonic
-                                    </Button>
+                                    {canManageMnemonics && (
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => setGeneratorOpen(true)}
+                                            className="gap-1.5 text-xs font-semibold border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+                                        >
+                                            <Sparkles className="h-3.5 w-3.5" /> Generate Mnemonic
+                                        </Button>
+                                    )}
                                 </div>
                             </Card>
                         ) : (
