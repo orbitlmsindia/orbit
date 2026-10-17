@@ -160,7 +160,7 @@ export default function CertificatePrograms() {
                 <Plus className="h-4 w-4" /> Create Specialization Certificate
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-xl">
+            <DialogContent className="w-[95vw] sm:max-w-xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
               <DialogHeader>
                 <DialogTitle>Create Certificate Specialization Program</DialogTitle>
                 <DialogDescription>Select multiple courses to group under a master certificate program with cumulative credits.</DialogDescription>

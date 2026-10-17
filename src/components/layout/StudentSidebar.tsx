@@ -11,7 +11,9 @@ import {
     HelpCircle,
     LogOut,
     Trophy,
-    CheckSquare
+    CheckSquare,
+    Layers,
+    Lightbulb
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -45,13 +47,14 @@ interface StudentNavItem {
 
 const studentNavItems: StudentNavItem[] = [
     { title: "Dashboard", url: "/student", icon: Home },
-    { title: "My Courses", url: "/student/courses", icon: BookOpen },
+    { title: "My Courses", url: "/student/courses", icon: BookOpen, featureId: "course_management" },
+    { title: "Flashcards", url: "/student/flashcards", icon: Layers },
+    { title: "Mnemonics", url: "/student/mnemonics", icon: Lightbulb },
     { title: "Leaderboard", url: "/student/leaderboard", icon: Trophy, featureId: "leaderboard" },
     { title: "Assignments", url: "/student/assignments", icon: Clock, featureId: "assignments" },
     { title: "Grades & Results", url: "/student/grades", icon: Award, featureId: "certificates" },
-    { title: "Calendar", url: "/student/calendar", icon: Calendar },
-    { title: "My Attendance", url: "/student/attendance", icon: CheckSquare, featureId: "attendance_tracker" },
-    { title: "Notifications", url: "/student/notifications", icon: Bell },
+    { title: "My Attendance", url: "/student/attendance", icon: CheckSquare },
+    { title: "Announcements", url: "/student/notifications", icon: Bell },
 ];
 
 const supportItems: StudentNavItem[] = [
@@ -83,7 +86,7 @@ export function StudentSidebar() {
                 .from('users')
                 .select('full_name, avatar_url')
                 .eq('id', user.id)
-                .single();
+                .maybeSingle();
 
             setUser({
                 name: profile?.full_name || user.user_metadata?.full_name || "Student",

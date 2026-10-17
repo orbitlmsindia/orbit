@@ -24,11 +24,14 @@ import {
   UserX,
   Phone,
   Sparkles,
-  ExternalLink
+  ExternalLink,
+  FileText
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { StudentAttendanceDossierModal, StudentDossierData } from "@/components/attendance/StudentAttendanceDossierModal";
+import { ExamAttendanceSlipModal, ExamSlipData } from "@/components/attendance/ExamAttendanceSlipModal";
 
 export default function MasterAccounts() {
   const { toast } = useToast();
@@ -49,6 +52,14 @@ export default function MasterAccounts() {
   const [modalOpen, setModalOpen] = useState(false);
   const [userEnrollments, setUserEnrollments] = useState<any[]>([]);
   const [loadingEnrollments, setLoadingEnrollments] = useState(false);
+
+  // Attendance Dossier Export Modal
+  const [dossierModalOpen, setDossierModalOpen] = useState(false);
+  const [selectedDossierData, setSelectedDossierData] = useState<StudentDossierData | null>(null);
+
+  // Examination Hall Ticket & Admit Slip
+  const [examSlipModalOpen, setExamSlipModalOpen] = useState(false);
+  const [selectedExamSlipData, setSelectedExamSlipData] = useState<ExamSlipData | null>(null);
 
   const fetchAccountsData = async () => {
     setLoading(true);
@@ -202,7 +213,7 @@ export default function MasterAccounts() {
       if (user.role === "student") {
         const { data: enrs } = await supabase
           .from("enrollments")
-          .select("id, status, progress, course:courses(title, price, credit_points)")
+          .select("id, status, progress, course_id, course:courses(id, title, price, credit_points, organization_name)")
           .eq("student_id", user.id);
         setUserEnrollments(enrs || []);
       } else {
@@ -247,20 +258,20 @@ export default function MasterAccounts() {
       headerTitle="Global Accounts & Institutional Registry"
       headerDescription="Comprehensive directory of all student, faculty, and administrative accounts created across every tenant college, institute, or university."
       action={
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
           <Button
             variant="outline"
             size="sm"
             onClick={fetchAccountsData}
             disabled={loading}
-            className="border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs"
+            className="w-full sm:w-auto border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs"
           >
             <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} /> Refresh Registry
           </Button>
           <Button
             size="sm"
             onClick={handleDownloadCSV}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm gap-1.5"
+            className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm gap-1.5"
           >
             <Download className="h-3.5 w-3.5" /> Download Accounts ({filteredUsers.length})
           </Button>
@@ -392,7 +403,7 @@ export default function MasterAccounts() {
 
         {/* Accounts Table */}
         <Card className="bg-slate-900 border-slate-800 text-white rounded-xl shadow-sm overflow-hidden">
-          <CardHeader className="border-b border-slate-800 pb-3 flex flex-row items-center justify-between">
+          <CardHeader className="border-b border-slate-800 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <CardTitle className="text-base text-slate-100 flex items-center gap-2">
                 <Users className="h-4 w-4 text-emerald-400" />
@@ -406,13 +417,14 @@ export default function MasterAccounts() {
               variant="outline"
               size="sm"
               onClick={handleDownloadCSV}
-              className="border-slate-700 bg-slate-950 hover:bg-slate-800 text-slate-200 text-xs h-8 gap-1.5"
+              className="border-slate-700 bg-slate-950 hover:bg-slate-800 text-slate-200 text-xs h-8 gap-1.5 self-start sm:self-auto"
             >
               <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-400" /> Export CSV
             </Button>
           </CardHeader>
           <CardContent className="pt-0 px-0">
-            <div className="overflow-x-auto">
+            {/* Desktop Table */}
+            <div className="overflow-x-auto hidden md:block">
               <Table>
                 <TableHeader className="bg-slate-950/80">
                   <TableRow className="border-slate-800 hover:bg-transparent">
@@ -554,13 +566,113 @@ export default function MasterAccounts() {
                 </TableBody>
               </Table>
             </div>
+
+            {/* Mobile Account Cards View */}
+            <div className="grid grid-cols-1 gap-3 md:hidden p-4">
+              {loading ? (
+                <div className="text-center py-8 text-slate-400 text-sm">Loading multi-tenant accounts...</div>
+              ) : filteredUsers.length === 0 ? (
+                <div className="text-center py-8 text-slate-400 text-sm">No accounts found matching filters.</div>
+              ) : (
+                filteredUsers.map((u) => {
+                  const collegeName = getCollegeName(u.college_id);
+                  const isMaster = u.role === "super_admin";
+                  const isAdmin = u.role === "admin";
+                  const isTeacher = u.role === "teacher";
+                  const isFinance = u.role === "finance";
+
+                  return (
+                    <div key={u.id} className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-sm text-slate-200 shrink-0">
+                            {(u.full_name || u.email || "U").charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-white text-sm">{u.full_name || "Unnamed Account"}</h4>
+                            <p className="text-xs text-slate-400 font-mono flex items-center gap-1 mt-0.5">
+                              <Mail className="h-3 w-3 text-slate-500" />
+                              {u.email}
+                            </p>
+                          </div>
+                        </div>
+                        <Badge
+                          variant={u.status === "inactive" ? "destructive" : "default"}
+                          className={`text-[10px] shrink-0 ${
+                            u.status === "inactive" ? "bg-rose-600 text-white" : "bg-emerald-600 text-white"
+                          }`}
+                        >
+                          {(u.status || "active").toUpperCase()}
+                        </Badge>
+                      </div>
+
+                      <div className="p-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80 space-y-1.5 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-400 flex items-center gap-1">
+                            <Building2 className="h-3.5 w-3.5 text-slate-500" /> Campus:
+                          </span>
+                          <span className="font-medium text-slate-200 truncate max-w-[200px]">{collegeName}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-400">Department:</span>
+                          <span className="text-slate-300">{u.department || "General Curriculum"}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1 border-t border-slate-800/80">
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            variant="outline"
+                            className={`text-[10px] font-mono capitalize ${
+                              isMaster
+                                ? "border-amber-500/50 text-amber-400 bg-amber-950/20"
+                                : isAdmin
+                                ? "border-indigo-500/50 text-indigo-400 bg-indigo-950/20"
+                                : isTeacher
+                                ? "border-purple-500/50 text-purple-400 bg-purple-950/20"
+                                : isFinance
+                                ? "border-emerald-500/50 text-emerald-400 bg-emerald-950/20"
+                                : "border-sky-500/50 text-sky-400 bg-sky-950/20"
+                            }`}
+                          >
+                            {u.role || "student"}
+                          </Badge>
+                          <span className="text-xs font-mono font-semibold text-emerald-400">
+                            {u.aura_points || 0} XP
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleOpenUserDetail(u)}
+                            className="h-7 text-xs border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 gap-1 px-2.5"
+                          >
+                            <Eye className="h-3 w-3 text-sky-400" /> Deep Dive
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleImpersonateUser(u)}
+                            className="h-7 text-xs text-slate-400 hover:text-white hover:bg-slate-800 px-2"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Account Deep Dive Inspection Dialog */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-slate-900 border-slate-800 text-white w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base text-slate-100">
               <Eye className="h-5 w-5 text-sky-400" />
@@ -622,18 +734,21 @@ export default function MasterAccounts() {
                           {selectedUser.role === "student" ? "Progress" : "Credit Value"}
                         </TableHead>
                         <TableHead className="text-right text-slate-400 text-xs">Status</TableHead>
+                        {selectedUser.role === "student" && (
+                          <TableHead className="text-right text-slate-400 text-xs">Attendance Dossier</TableHead>
+                        )}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {loadingEnrollments ? (
                         <TableRow>
-                          <TableCell colSpan={3} className="text-center py-6 text-slate-400 text-xs">
+                          <TableCell colSpan={selectedUser.role === "student" ? 4 : 3} className="text-center py-6 text-slate-400 text-xs">
                             Loading curriculum records...
                           </TableCell>
                         </TableRow>
                       ) : userEnrollments.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={3} className="text-center py-6 text-slate-400 text-xs">
+                          <TableCell colSpan={selectedUser.role === "student" ? 4 : 3} className="text-center py-6 text-slate-400 text-xs">
                             No courses mapped to this account yet.
                           </TableCell>
                         </TableRow>
@@ -651,6 +766,53 @@ export default function MasterAccounts() {
                                 {(item.status || (item.is_published ? "Published" : "Active")).toUpperCase()}
                               </Badge>
                             </TableCell>
+                            {selectedUser.role === "student" && (
+                              <TableCell className="text-right text-xs">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setSelectedDossierData({
+                                        studentId: selectedUser.id,
+                                        studentName: selectedUser.full_name || selectedUser.email || "Student",
+                                        studentEmail: selectedUser.email,
+                                        rollNumber: selectedUser.id ? `ORB-${selectedUser.id.substring(0, 8).toUpperCase()}` : undefined,
+                                        courseId: item.course_id || item.course?.id,
+                                        courseTitle: item.course?.title || "Curriculum Unit",
+                                        collegeName: getCollegeName(selectedUser.college_id),
+                                        parentName: `Parent / Guardian of ${selectedUser.full_name || 'Student'}`
+                                      });
+                                      setDossierModalOpen(true);
+                                    }}
+                                    className="h-7 text-xs border-primary/40 text-primary hover:bg-primary/20 gap-1 font-semibold"
+                                    title="Export Official Student & Parent Attendance Dossier"
+                                  >
+                                    <FileText className="h-3 w-3" /> Dossier 📋
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setSelectedExamSlipData({
+                                        studentId: selectedUser.id,
+                                        studentName: selectedUser.full_name || selectedUser.email || "Student",
+                                        studentEmail: selectedUser.email,
+                                        rollNumber: selectedUser.id ? `ORB-${selectedUser.id.substring(0, 8).toUpperCase()}` : undefined,
+                                        courseId: item.course_id || item.course?.id,
+                                        courseTitle: item.course?.title || "Curriculum Unit",
+                                        collegeName: getCollegeName(selectedUser.college_id)
+                                      });
+                                      setExamSlipModalOpen(true);
+                                    }}
+                                    className="h-7 text-xs border-indigo-500/40 text-indigo-300 hover:bg-indigo-950/30 gap-1 font-semibold"
+                                    title="Issue Examination Admit Slip & Attendance Clearance"
+                                  >
+                                    <span>Admit Slip 🎫</span>
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            )}
                           </TableRow>
                         ))
                       )}
@@ -679,6 +841,22 @@ export default function MasterAccounts() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* 📋 Official Student & Parent Attendance Dossier Export Modal (Master Admin) */}
+      <StudentAttendanceDossierModal
+        open={dossierModalOpen}
+        onOpenChange={setDossierModalOpen}
+        dossierData={selectedDossierData}
+        userRole="master"
+      />
+
+      {/* 🎫 Official Examination Hall Ticket & Attendance Clearance Slip Modal */}
+      <ExamAttendanceSlipModal
+        open={examSlipModalOpen}
+        onOpenChange={setExamSlipModalOpen}
+        slipData={selectedExamSlipData}
+        userRole="master"
+      />
     </MasterLayout>
   );
 }

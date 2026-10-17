@@ -43,24 +43,32 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-
 import { useNotifications } from "@/contexts/NotificationContext";
+import { useCollegeFeatures } from "@/hooks/useCollegeFeatures";
+import { Lock } from "lucide-react";
 
-const mainNavItems = [
+interface AdminNavItem {
+  title: string;
+  url: string;
+  icon: any;
+  featureId?: string;
+}
+
+const mainNavItems: AdminNavItem[] = [
   { title: "Dashboard", url: "/admin", icon: Home },
-  { title: "Subscriptions & Invoices", url: "/admin/billing", icon: Receipt },
-  { title: "Get In Touch", url: "/admin/inquiries", icon: Mail },
-  { title: "User Management", url: "/admin/users", icon: Users },
-  { title: "Course Management", url: "/admin/courses", icon: BookOpen },
-  { title: "Calendar", url: "/admin/calendar", icon: Calendar },
-  { title: "Leaderboard", url: "/admin/leaderboard", icon: Trophy },
-  { title: "Monitoring", url: "/admin/monitoring", icon: BarChart3 },
+  { title: "Subscriptions & Invoices", url: "/admin/billing", icon: Receipt, featureId: "coupon_engine" },
+  { title: "Get In Touch", url: "/admin/inquiries", icon: Mail, featureId: "inquiries" },
+  { title: "User Management", url: "/admin/users", icon: Users, featureId: "user_management" },
+  { title: "Course Management", url: "/admin/courses", icon: BookOpen, featureId: "course_management" },
+  { title: "Calendar", url: "/admin/calendar", icon: Calendar, featureId: "calendar" },
+  { title: "Leaderboard", url: "/admin/leaderboard", icon: Trophy, featureId: "leaderboard" },
+  { title: "Monitoring", url: "/admin/monitoring", icon: BarChart3, featureId: "advanced_analytics" },
   { title: "Notifications", url: "/admin/notifications", icon: Bell },
 ];
 
-const supportItems = [
-  { title: "Settings", url: "/admin/settings", icon: Settings },
-  { title: "Help Center", url: "/admin/help-center", icon: HelpCircle },
+const supportItems: AdminNavItem[] = [
+  { title: "Settings", url: "/admin/settings", icon: Settings, featureId: "custom_branding" },
+  { title: "Help Center", url: "/admin/help-center", icon: HelpCircle, featureId: "ticket_raising" },
 ];
 
 export function AdminSidebar() {
@@ -68,6 +76,7 @@ export function AdminSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { unreadCount } = useNotifications();
+  const { isFeatureEnabled } = useCollegeFeatures();
   const currentPath = location.pathname;
   const collapsed = state === "collapsed";
 
@@ -107,9 +116,10 @@ export function AdminSidebar() {
     return currentPath.startsWith(path);
   };
 
-  const NavItem = ({ item }: { item: typeof mainNavItems[0] & { badge?: number } }) => {
+  const NavItem = ({ item }: { item: AdminNavItem & { badge?: number } }) => {
     // Inject badge if it's the notification item
     const badgeCount = item.title === "Notifications" ? unreadCount : undefined;
+    const isLocked = item.featureId ? !isFeatureEnabled(item.featureId) : false;
 
     return (
       <SidebarMenuItem>
@@ -120,13 +130,20 @@ export function AdminSidebar() {
             onClick={() => {
               if (isMobile) setOpenMobile(false);
             }}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all hover:bg-sidebar-accent group"
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all hover:bg-sidebar-accent group ${
+              isLocked ? "opacity-75" : ""
+            }`}
             activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
           >
             <item.icon className="h-5 w-5 shrink-0" />
             {!collapsed && (
               <>
                 <span className="flex-1">{item.title}</span>
+                {isLocked && (
+                  <span className="flex items-center gap-1 text-[10px] text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 font-medium">
+                    <Lock className="h-2.5 w-2.5" /> Plan
+                  </span>
+                )}
                 {badgeCount !== undefined && badgeCount > 0 && (
                   <Badge variant="destructive" className="h-5 min-w-5 text-[10px]">
                     {badgeCount > 99 ? '99+' : badgeCount}

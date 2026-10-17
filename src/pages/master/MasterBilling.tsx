@@ -263,81 +263,142 @@ export default function MasterBilling() {
             
             {/* Invoice Ledger Table */}
             <Card className="bg-slate-900 border-slate-800 text-white rounded-xl shadow-sm">
-                <CardHeader className="border-b border-slate-800 pb-3 flex flex-row items-center justify-between">
+                <CardHeader className="border-b border-slate-800 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                         <CardTitle className="text-base text-slate-100">Invoice Ledger</CardTitle>
                         <CardDescription className="text-slate-400 text-xs">Historical invoices issued across tenant instances.</CardDescription>
                     </div>
-                    <Button variant="ghost" size="sm" onClick={loadData} className="text-xs text-slate-300 hover:text-white hover:bg-slate-800">
+                    <Button variant="ghost" size="sm" onClick={loadData} className="text-xs text-slate-300 hover:text-white hover:bg-slate-800 self-start sm:self-auto">
                         <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Refresh
                     </Button>
                 </CardHeader>
                 <CardContent className="pt-2 px-0">
-                    <Table>
-                        <TableHeader>
-                            <TableRow className="border-slate-800 hover:bg-transparent">
-                                <TableHead className="text-slate-400 pl-6">Invoice ID</TableHead>
-                                <TableHead className="text-slate-400">Tenant</TableHead>
-                                <TableHead className="text-slate-400">Curriculum Target</TableHead>
-                                <TableHead className="text-slate-400 text-center">Seats Billed</TableHead>
-                                <TableHead className="text-slate-400 text-right">Total Demand</TableHead>
-                                <TableHead className="text-slate-400">Status</TableHead>
-                                <TableHead className="text-slate-400 text-right pr-6">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {invoices.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={7} className="text-center py-10 text-slate-400">
-                                        No billing invoices generated yet. Use the form above to issue an invoice.
-                                    </TableCell>
+                    {/* Desktop Table View */}
+                    <div className="overflow-x-auto hidden md:block">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="border-slate-800 hover:bg-transparent">
+                                    <TableHead className="text-slate-400 pl-6">Invoice ID</TableHead>
+                                    <TableHead className="text-slate-400">Tenant</TableHead>
+                                    <TableHead className="text-slate-400">Curriculum Target</TableHead>
+                                    <TableHead className="text-slate-400 text-center">Seats Billed</TableHead>
+                                    <TableHead className="text-slate-400 text-right">Total Demand</TableHead>
+                                    <TableHead className="text-slate-400">Status</TableHead>
+                                    <TableHead className="text-slate-400 text-right pr-6">Actions</TableHead>
                                 </TableRow>
-                            ) : invoices.map((inv) => (
-                                <TableRow key={inv.id} className="border-slate-800 hover:bg-slate-800/40">
-                                    <TableCell className="font-mono text-xs text-slate-300 pl-6">{inv.invoice_number}</TableCell>
-                                    <TableCell className="font-medium text-slate-100">{inv.colleges?.name}</TableCell>
-                                    <TableCell className="text-xs text-slate-400">{inv.courses?.title || <span className="italic">Global Instance Scope</span>}</TableCell>
-                                    <TableCell className="text-center font-mono text-xs text-slate-300">{inv.student_count}</TableCell>
-                                    <TableCell className="text-right font-bold font-mono text-emerald-400">₹{inv.total_amount?.toLocaleString('en-IN')}</TableCell>
-                                    <TableCell>
-                                        <Badge variant={inv.status === 'paid' ? 'default' : inv.status === 'cancelled' ? 'destructive' : 'outline'} className={inv.status === 'paid' ? 'bg-emerald-600' : ''}>
-                                            {inv.status?.toUpperCase()}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell className="text-right pr-6">
-                                        <div className="flex justify-end gap-2">
-                                            {/* Official Invoice Modal Trigger */}
+                            </TableHeader>
+                            <TableBody>
+                                {invoices.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={7} className="text-center py-10 text-slate-400">
+                                            No billing invoices generated yet. Use the form above to issue an invoice.
+                                        </TableCell>
+                                    </TableRow>
+                                ) : invoices.map((inv) => (
+                                    <TableRow key={inv.id} className="border-slate-800 hover:bg-slate-800/40">
+                                        <TableCell className="font-mono text-xs text-slate-300 pl-6">{inv.invoice_number}</TableCell>
+                                        <TableCell className="font-medium text-slate-100">{inv.colleges?.name}</TableCell>
+                                        <TableCell className="text-xs text-slate-400">{inv.courses?.title || <span className="italic">Global Instance Scope</span>}</TableCell>
+                                        <TableCell className="text-center font-mono text-xs text-slate-300">{inv.student_count}</TableCell>
+                                        <TableCell className="text-right font-bold font-mono text-emerald-400">₹{inv.total_amount?.toLocaleString('en-IN')}</TableCell>
+                                        <TableCell>
+                                            <Badge variant={inv.status === 'paid' ? 'default' : inv.status === 'cancelled' ? 'destructive' : 'outline'} className={inv.status === 'paid' ? 'bg-emerald-600' : ''}>
+                                                {inv.status?.toUpperCase()}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-right pr-6">
+                                            <div className="flex justify-end gap-2">
+                                                {/* Official Invoice Modal Trigger */}
+                                                <Button 
+                                                    size="sm" 
+                                                    variant="outline" 
+                                                    className="h-7 text-xs border-indigo-500/40 text-indigo-300 hover:bg-indigo-950/40" 
+                                                    onClick={() => openInvoiceReceipt(inv)}
+                                                >
+                                                    <FileText className="w-3.5 h-3.5 mr-1 text-indigo-400"/> View / Share
+                                                </Button>
+
+                                                {inv.status === 'pending' && (
+                                                    <>
+                                                        <Button 
+                                                            size="sm" 
+                                                            variant="outline" 
+                                                            className="h-7 text-xs border-amber-500/40 text-amber-300 hover:bg-amber-950/40" 
+                                                            onClick={() => openReminderModalForInvoice(inv)}
+                                                            title="Send In-App & WhatsApp Purchasing Reminder"
+                                                        >
+                                                            <Share2 className="w-3.5 h-3.5 mr-1 text-amber-400"/> Send Reminder
+                                                        </Button>
+                                                        <Button size="sm" variant="outline" className="h-7 text-xs border-emerald-500/40 text-emerald-400 hover:bg-emerald-950/40" onClick={() => markAsPaid(inv.id)}>
+                                                            Confirm Paid
+                                                        </Button>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+
+                    {/* Mobile Invoice Cards View */}
+                    <div className="grid grid-cols-1 gap-3 md:hidden p-4">
+                        {invoices.length === 0 ? (
+                            <div className="text-center py-8 text-slate-400 text-sm">No billing invoices found.</div>
+                        ) : invoices.map((inv) => (
+                            <div key={inv.id} className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-3">
+                                <div className="flex items-start justify-between gap-2">
+                                    <div>
+                                        <div className="font-mono text-xs text-indigo-400 font-semibold">{inv.invoice_number}</div>
+                                        <h4 className="font-bold text-white text-base mt-0.5">{inv.colleges?.name}</h4>
+                                        <p className="text-xs text-slate-400 mt-0.5">{inv.courses?.title || "Global Instance Scope"}</p>
+                                    </div>
+                                    <Badge variant={inv.status === 'paid' ? 'default' : inv.status === 'cancelled' ? 'destructive' : 'outline'} className={inv.status === 'paid' ? 'bg-emerald-600' : ''}>
+                                        {inv.status?.toUpperCase()}
+                                    </Badge>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2 text-xs font-mono bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80">
+                                    <div>
+                                        <span className="text-[10px] text-slate-400 block font-sans">Seats:</span>
+                                        <span className="font-semibold text-white">{inv.student_count} Seats</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-[10px] text-slate-400 block font-sans">Total Demand:</span>
+                                        <span className="font-bold text-emerald-400 text-sm">₹{inv.total_amount?.toLocaleString('en-IN')}</span>
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-wrap items-center justify-end gap-2 pt-1 border-t border-slate-800/80">
+                                    <Button 
+                                        size="sm" 
+                                        variant="outline" 
+                                        className="h-8 text-xs border-indigo-500/40 text-indigo-300 hover:bg-indigo-950/40" 
+                                        onClick={() => openInvoiceReceipt(inv)}
+                                    >
+                                        <FileText className="w-3.5 h-3.5 mr-1 text-indigo-400"/> View / Share
+                                    </Button>
+
+                                    {inv.status === 'pending' && (
+                                        <>
                                             <Button 
                                                 size="sm" 
                                                 variant="outline" 
-                                                className="h-7 text-xs border-indigo-500/40 text-indigo-300 hover:bg-indigo-950/40" 
-                                                onClick={() => openInvoiceReceipt(inv)}
+                                                className="h-8 text-xs border-amber-500/40 text-amber-300 hover:bg-amber-950/40" 
+                                                onClick={() => openReminderModalForInvoice(inv)}
                                             >
-                                                <FileText className="w-3.5 h-3.5 mr-1 text-indigo-400"/> View / Share
+                                                <Share2 className="w-3.5 h-3.5 mr-1 text-amber-400"/> Reminder
                                             </Button>
-
-                                            {inv.status === 'pending' && (
-                                                <>
-                                                    <Button 
-                                                        size="sm" 
-                                                        variant="outline" 
-                                                        className="h-7 text-xs border-amber-500/40 text-amber-300 hover:bg-amber-950/40" 
-                                                        onClick={() => openReminderModalForInvoice(inv)}
-                                                        title="Send In-App & WhatsApp Purchasing Reminder"
-                                                    >
-                                                        <Share2 className="w-3.5 h-3.5 mr-1 text-amber-400"/> Send Reminder
-                                                    </Button>
-                                                    <Button size="sm" variant="outline" className="h-7 text-xs border-emerald-500/40 text-emerald-400 hover:bg-emerald-950/40" onClick={() => markAsPaid(inv.id)}>
-                                                        Confirm Paid
-                                                    </Button>
-                                                </>
-                                            )}
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
+                                            <Button size="sm" variant="outline" className="h-8 text-xs border-emerald-500/40 text-emerald-400 hover:bg-emerald-950/40" onClick={() => markAsPaid(inv.id)}>
+                                                Confirm Paid
+                                            </Button>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 </CardContent>
             </Card>
 

@@ -47,6 +47,10 @@ import StudentSettings from "./pages/student/Settings";
 import StudentHelpCenter from "./pages/student/HelpCenter";
 import StudentNotifications from "./pages/student/Notifications";
 import StudentAttendance from "./pages/student/Attendance";
+import StudentFlashcards from "./pages/student/Flashcards";
+import StudentMnemonics from "./pages/student/Mnemonics";
+import TeacherFlashcards from "./pages/teacher/Flashcards";
+import TeacherMnemonics from "./pages/teacher/Mnemonics";
 import NotFound from "./pages/NotFound";
 import Profile from "./pages/Profile";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -78,6 +82,7 @@ import FinanceInvoices from "./pages/finance/FinanceInvoices";
 
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { NotificationProvider } from "@/contexts/NotificationContext";
+import { GatedFeatureRoute } from "./components/common/FeatureGate";
 
 const queryClient = new QueryClient();
 
@@ -92,6 +97,7 @@ const App = () => (
             <Route path="/" element={<LandingPage />} />
             <Route path="/experience" element={<ExperienceOrbit />} />
             <Route path="/explore" element={<ExperienceOrbit />} />
+            <Route path="/presentation" element={<ExperienceOrbit />} />
             <Route path="/register" element={<Register />} />
             <Route path="/blog" element={<BlogList />} />
             <Route path="/blog/:slug" element={<BlogPostDetail />} />
@@ -104,52 +110,59 @@ const App = () => (
             <Route path="/setup" element={<Setup />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="/profile/:id" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="/student/profile/:id" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
 
             {/* Admin Routes */}
             <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
-            <Route path="/admin/billing" element={<ProtectedRoute><AdminBilling /></ProtectedRoute>} />
-            <Route path="/admin/inquiries" element={<ProtectedRoute><AdminInquiries /></ProtectedRoute>} />
-            <Route path="/admin/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
-            <Route path="/admin/courses" element={<ProtectedRoute><CourseManagement /></ProtectedRoute>} />
-            <Route path="/admin/courses/:id/edit" element={<ProtectedRoute><AdminCourseDetail /></ProtectedRoute>} />
-            <Route path="/admin/monitoring" element={<ProtectedRoute><Monitoring /></ProtectedRoute>} />
-            <Route path="/admin/leaderboard" element={<ProtectedRoute><Leaderboard userRole="admin" /></ProtectedRoute>} />
+            <Route path="/admin/billing" element={<ProtectedRoute><GatedFeatureRoute featureId="coupon_engine"><AdminBilling /></GatedFeatureRoute></ProtectedRoute>} />
+            <Route path="/admin/inquiries" element={<ProtectedRoute><GatedFeatureRoute featureId="inquiries"><AdminInquiries /></GatedFeatureRoute></ProtectedRoute>} />
+            <Route path="/admin/users" element={<ProtectedRoute><GatedFeatureRoute featureId="user_management"><UserManagement /></GatedFeatureRoute></ProtectedRoute>} />
+            <Route path="/admin/courses" element={<ProtectedRoute><GatedFeatureRoute featureId="course_management"><CourseManagement /></GatedFeatureRoute></ProtectedRoute>} />
+            <Route path="/admin/courses/:id/edit" element={<ProtectedRoute><GatedFeatureRoute featureId="course_management"><AdminCourseDetail /></GatedFeatureRoute></ProtectedRoute>} />
+            <Route path="/admin/monitoring" element={<ProtectedRoute><GatedFeatureRoute featureId="advanced_analytics"><Monitoring /></GatedFeatureRoute></ProtectedRoute>} />
+            <Route path="/admin/leaderboard" element={<ProtectedRoute><GatedFeatureRoute featureId="leaderboard"><Leaderboard userRole="admin" /></GatedFeatureRoute></ProtectedRoute>} />
             <Route path="/admin/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
-            <Route path="/admin/calendar" element={<ProtectedRoute><AdminCalendar /></ProtectedRoute>} />
+            <Route path="/admin/calendar" element={<ProtectedRoute><GatedFeatureRoute featureId="calendar"><AdminCalendar /></GatedFeatureRoute></ProtectedRoute>} />
             <Route path="/admin/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-            <Route path="/admin/help-center" element={<ProtectedRoute><HelpCenter /></ProtectedRoute>} />
+            <Route path="/admin/help-center" element={<ProtectedRoute><GatedFeatureRoute featureId="ticket_raising"><HelpCenter /></GatedFeatureRoute></ProtectedRoute>} />
 
             {/* Teacher Routes */}
             <Route path="/teacher" element={<ProtectedRoute><TeacherDashboard /></ProtectedRoute>} />
-            <Route path="/teacher/courses" element={<ProtectedRoute><TeacherCourses /></ProtectedRoute>} />
-            <Route path="/teacher/certificate-programs" element={<ProtectedRoute><CertificatePrograms /></ProtectedRoute>} />
-            <Route path="/teacher/leaderboard" element={<ProtectedRoute><Leaderboard userRole="teacher" /></ProtectedRoute>} />
-            <Route path="/teacher/courses/json-builder" element={<ProtectedRoute><JsonCourseBuilder /></ProtectedRoute>} />
-            <Route path="/teacher/courses/:id" element={<ProtectedRoute><CourseDetail /></ProtectedRoute>} />
-            <Route path="/teacher/assignments" element={<ProtectedRoute><AssignmentCreate /></ProtectedRoute>} />
-            <Route path="/teacher/reviews" element={<ProtectedRoute><AssignmentReview /></ProtectedRoute>} />
-            <Route path="/teacher/attendance" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
-            <Route path="/teacher/courses/:courseId/quiz/:quizId" element={<ProtectedRoute><QuizEditor /></ProtectedRoute>} />
-            <Route path="/teacher/courses/:id/grades" element={<ProtectedRoute><CourseGrades /></ProtectedRoute>} />
+            <Route path="/teacher/courses" element={<ProtectedRoute><GatedFeatureRoute featureId="course_management"><TeacherCourses /></GatedFeatureRoute></ProtectedRoute>} />
+            <Route path="/teacher/certificate-programs" element={<ProtectedRoute><GatedFeatureRoute featureId="certificates"><CertificatePrograms /></GatedFeatureRoute></ProtectedRoute>} />
+            <Route path="/teacher/leaderboard" element={<ProtectedRoute><GatedFeatureRoute featureId="leaderboard"><Leaderboard userRole="teacher" /></GatedFeatureRoute></ProtectedRoute>} />
+            <Route path="/teacher/courses/json-builder" element={<ProtectedRoute><GatedFeatureRoute featureId="ai_json_builder"><JsonCourseBuilder /></GatedFeatureRoute></ProtectedRoute>} />
+            <Route path="/teacher/courses/:id" element={<ProtectedRoute><GatedFeatureRoute featureId="course_management"><CourseDetail /></GatedFeatureRoute></ProtectedRoute>} />
+            <Route path="/teacher/assignments" element={<ProtectedRoute><GatedFeatureRoute featureId="assignments"><AssignmentCreate /></GatedFeatureRoute></ProtectedRoute>} />
+            <Route path="/teacher/reviews" element={<ProtectedRoute><GatedFeatureRoute featureId="assignments"><AssignmentReview /></GatedFeatureRoute></ProtectedRoute>} />
+            <Route path="/teacher/attendance" element={<ProtectedRoute><GatedFeatureRoute featureId="attendance_tracker"><Attendance /></GatedFeatureRoute></ProtectedRoute>} />
+            <Route path="/teacher/courses/:courseId/quiz/:quizId" element={<ProtectedRoute><GatedFeatureRoute featureId="quizzes"><QuizEditor /></GatedFeatureRoute></ProtectedRoute>} />
+            <Route path="/teacher/courses/:id/grades" element={<ProtectedRoute><GatedFeatureRoute featureId="certificates"><CourseGrades /></GatedFeatureRoute></ProtectedRoute>} />
             <Route path="/teacher/notifications" element={<ProtectedRoute><TeacherNotifications /></ProtectedRoute>} />
             <Route path="/teacher/settings" element={<ProtectedRoute><TeacherSettings /></ProtectedRoute>} />
-            <Route path="/teacher/help-center" element={<ProtectedRoute><TeacherHelpCenter /></ProtectedRoute>} />
-            <Route path="/teacher/calendar" element={<ProtectedRoute><TeacherCalendar /></ProtectedRoute>} />
+            <Route path="/teacher/help-center" element={<ProtectedRoute><GatedFeatureRoute featureId="ticket_raising"><TeacherHelpCenter /></GatedFeatureRoute></ProtectedRoute>} />
+            <Route path="/teacher/calendar" element={<ProtectedRoute><GatedFeatureRoute featureId="calendar"><TeacherCalendar /></GatedFeatureRoute></ProtectedRoute>} />
+            <Route path="/teacher/flashcards" element={<ProtectedRoute><TeacherFlashcards /></ProtectedRoute>} />
+            <Route path="/teacher/mnemonics" element={<ProtectedRoute><TeacherMnemonics /></ProtectedRoute>} />
 
             {/* Student Routes */}
             <Route path="/student" element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />
-            <Route path="/student/courses" element={<ProtectedRoute><StudentCourses /></ProtectedRoute>} />
-            <Route path="/student/leaderboard" element={<ProtectedRoute><Leaderboard userRole="student" /></ProtectedRoute>} />
+            <Route path="/student/courses" element={<ProtectedRoute><GatedFeatureRoute featureId="course_management"><StudentCourses /></GatedFeatureRoute></ProtectedRoute>} />
+            <Route path="/student/flashcards" element={<ProtectedRoute><StudentFlashcards /></ProtectedRoute>} />
+            <Route path="/student/mnemonics" element={<ProtectedRoute><StudentMnemonics /></ProtectedRoute>} />
+            <Route path="/student/leaderboard" element={<ProtectedRoute><GatedFeatureRoute featureId="leaderboard"><Leaderboard userRole="student" /></GatedFeatureRoute></ProtectedRoute>} />
             <Route path="/student/courses/:id/learn" element={<ProtectedRoute><CoursePlayer /></ProtectedRoute>} />
-            <Route path="/student/assignments" element={<ProtectedRoute><StudentAssignments /></ProtectedRoute>} />
-            <Route path="/student/assignments/:id" element={<ProtectedRoute><AssignmentSubmit /></ProtectedRoute>} />
-            <Route path="/student/quiz/:id" element={<ProtectedRoute><QuizPlayer /></ProtectedRoute>} />
-            <Route path="/student/grades" element={<ProtectedRoute><StudentGrades /></ProtectedRoute>} />
-            <Route path="/student/calendar" element={<ProtectedRoute><StudentCalendar /></ProtectedRoute>} />
+            <Route path="/student/assignments" element={<ProtectedRoute><GatedFeatureRoute featureId="assignments"><StudentAssignments /></GatedFeatureRoute></ProtectedRoute>} />
+            <Route path="/student/assignments/:id" element={<ProtectedRoute><GatedFeatureRoute featureId="assignments"><AssignmentSubmit /></GatedFeatureRoute></ProtectedRoute>} />
+            <Route path="/student/quiz/:id" element={<ProtectedRoute><GatedFeatureRoute featureId="quizzes"><QuizPlayer /></GatedFeatureRoute></ProtectedRoute>} />
+            <Route path="/student/grades" element={<ProtectedRoute><GatedFeatureRoute featureId="certificates"><StudentGrades /></GatedFeatureRoute></ProtectedRoute>} />
+            <Route path="/student/calendar" element={<ProtectedRoute><GatedFeatureRoute featureId="calendar"><StudentCalendar /></GatedFeatureRoute></ProtectedRoute>} />
             <Route path="/student/attendance" element={<ProtectedRoute><StudentAttendance /></ProtectedRoute>} />
             <Route path="/student/settings" element={<ProtectedRoute><StudentSettings /></ProtectedRoute>} />
-            <Route path="/student/help-center" element={<ProtectedRoute><StudentHelpCenter /></ProtectedRoute>} />
+            <Route path="/student/help-center" element={<ProtectedRoute><GatedFeatureRoute featureId="ticket_raising"><StudentHelpCenter /></GatedFeatureRoute></ProtectedRoute>} />
             <Route path="/student/notifications" element={<ProtectedRoute><StudentNotifications /></ProtectedRoute>} />
+            <Route path="/student/announcements" element={<ProtectedRoute><StudentNotifications /></ProtectedRoute>} />
 
             {/* Finance Department Routes */}
             <Route path="/finance" element={<ProtectedRoute><FinanceDashboard /></ProtectedRoute>} />

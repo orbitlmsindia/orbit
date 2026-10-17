@@ -13,7 +13,9 @@ import {
   LogOut,
   Sparkles,
   Award,
-  Trophy
+  Trophy,
+  Layers,
+  Lightbulb
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -35,33 +37,42 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useCollegeFeatures } from "@/hooks/useCollegeFeatures";
+import { Lock } from "lucide-react";
 
-const teacherNavItems = [
+interface TeacherNavItem {
+  title: string;
+  url: string;
+  icon: any;
+  featureId?: string;
+}
+
+const teacherNavItems: TeacherNavItem[] = [
   { title: "Dashboard", url: "/teacher", icon: Home },
-  { title: "Courses", url: "/teacher/courses", icon: BookOpen },
-  { title: "Programs", url: "/teacher/certificate-programs", icon: Award },
-  { title: "Leaderboard", url: "/teacher/leaderboard", icon: Trophy },
-  { title: "JSON Builder", url: "/teacher/courses/json-builder", icon: Sparkles },
-  { title: "Assignments", url: "/teacher/assignments", icon: FileText },
-  { title: "Review", url: "/teacher/reviews", icon: CheckSquare },
-  { title: "Attendance", url: "/teacher/attendance", icon: UserCheck },
+  { title: "Courses", url: "/teacher/courses", icon: BookOpen, featureId: "course_management" },
+  { title: "Programs", url: "/teacher/certificate-programs", icon: Award, featureId: "certificates" },
+  { title: "Leaderboard", url: "/teacher/leaderboard", icon: Trophy, featureId: "leaderboard" },
+  { title: "JSON Builder", url: "/teacher/courses/json-builder", icon: Sparkles, featureId: "ai_json_builder" },
+  { title: "Assignments", url: "/teacher/assignments", icon: FileText, featureId: "assignments" },
+  { title: "Review", url: "/teacher/reviews", icon: CheckSquare, featureId: "assignments" },
+  { title: "Attendance", url: "/teacher/attendance", icon: UserCheck, featureId: "attendance_tracker" },
+  { title: "Flashcards", url: "/teacher/flashcards", icon: Layers },
+  { title: "Mnemonics", url: "/teacher/mnemonics", icon: Lightbulb },
   { title: "Notifications", url: "/teacher/notifications", icon: Bell },
-  { title: "Calendar", url: "/teacher/calendar", icon: Calendar },
+  { title: "Calendar", url: "/teacher/calendar", icon: Calendar, featureId: "calendar" },
 ];
 
-const supportItems = [
+const supportItems: TeacherNavItem[] = [
   { title: "Settings", url: "/teacher/settings", icon: Settings },
-  { title: "Help Center", url: "/teacher/help", icon: HelpCircle },
+  { title: "Help Center", url: "/teacher/help-center", icon: HelpCircle, featureId: "ticket_raising" },
 ];
-
-
-
 
 export function TeacherSidebar() {
   const { state, isMobile, setOpenMobile } = useSidebar();
   const location = useLocation();
   const navigate = useNavigate();
   const { unreadCount } = useNotifications();
+  const { isFeatureEnabled } = useCollegeFeatures();
   const currentPath = location.pathname;
   const collapsed = state === "collapsed";
 
@@ -101,8 +112,9 @@ export function TeacherSidebar() {
     return currentPath.startsWith(path);
   };
 
-  const NavItem = ({ item }: { item: typeof teacherNavItems[0] & { badge?: number } }) => {
+  const NavItem = ({ item }: { item: TeacherNavItem & { badge?: number } }) => {
     const badgeCount = item.title === "Notifications" ? unreadCount : undefined;
+    const isLocked = item.featureId ? !isFeatureEnabled(item.featureId) : false;
 
     return (
       <SidebarMenuItem>
@@ -113,13 +125,20 @@ export function TeacherSidebar() {
             onClick={() => {
               if (isMobile) setOpenMobile(false);
             }}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all hover:bg-sidebar-accent group"
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all hover:bg-sidebar-accent group ${
+              isLocked ? "opacity-75" : ""
+            }`}
             activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
           >
             <item.icon className="h-5 w-5 shrink-0" />
             {!collapsed && (
               <>
                 <span className="flex-1">{item.title}</span>
+                {isLocked && (
+                  <span className="flex items-center gap-1 text-[10px] text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 font-medium">
+                    <Lock className="h-2.5 w-2.5" /> Plan
+                  </span>
+                )}
                 {badgeCount !== undefined && badgeCount > 0 && (
                   <Badge variant="destructive" className="h-5 min-w-5 text-[10px]">
                     {badgeCount > 99 ? '99+' : badgeCount}

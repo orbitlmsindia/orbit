@@ -37,8 +37,9 @@ import {
 import { supabase } from "@/lib/supabase";
 import { useTheme } from "@/components/theme-provider";
 import { useToast } from "@/hooks/use-toast";
-import { SubscriptionPlan, DEFAULT_PLANS, PLATFORM_FEATURES } from "@/types/plans";
+import { SubscriptionPlan, DEFAULT_PLANS } from "@/types/plans";
 import { BlogPost, DEFAULT_BLOGS } from "@/types/blog";
+import { getRegisteredFeatures } from "@/services/featuresService";
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -50,6 +51,7 @@ export default function LandingPage() {
   const [activeLearnersCount, setActiveLearnersCount] = useState<number>(13);
   const [certifiedCoursesCount, setCertifiedCoursesCount] = useState<number>(12);
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+  const [platformFeatures, setPlatformFeatures] = useState(() => getRegisteredFeatures());
   const [billingInterval, setBillingInterval] = useState<"monthly" | "annual">("monthly");
   const [plansLoading, setPlansLoading] = useState(true);
 
@@ -927,12 +929,12 @@ export default function LandingPage() {
                         <div className="text-xs font-semibold text-foreground flex items-center justify-between">
                           <span>Included Modules</span>
                           <span className="text-[11px] font-mono text-primary font-bold">
-                            {plan.features.length}/{PLATFORM_FEATURES.length}
+                            {plan.features.length}/{platformFeatures.length}
                           </span>
                         </div>
 
                         <ul className="space-y-2 text-xs">
-                          {PLATFORM_FEATURES.map((feat) => {
+                          {platformFeatures.map((feat) => {
                             const isIncluded = plan.features.includes(feat.id);
                             return (
                               <li

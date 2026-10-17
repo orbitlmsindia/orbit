@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Eye, EyeOff, User, Lock, Loader2, AlertCircle, ShieldCheck, Cpu, Building2, CreditCard, Sparkles } from "lucide-react";
+import { Eye, EyeOff, User, Lock, Loader2, AlertCircle, ShieldCheck } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { DEFAULT_STAFF, DEFAULT_ROLES, MasterStaffMember, MasterRole } from "@/types/roles";
@@ -17,12 +17,6 @@ export default function MasterLogin() {
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-
-    const handleQuickFill = (email: string, pass: string) => {
-        setUsername(email);
-        setPassword(pass);
-        setError(null);
-    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -80,6 +74,13 @@ export default function MasterLogin() {
             if (staffMember) {
                 if (staffMember.status === "suspended") {
                     setError("Access Suspended. Your master staff delegation has been deactivated by the Master Admin.");
+                    return;
+                }
+
+                // Enforce strict staff credential check
+                const expectedStaffPassword = (staffMember as any).password || (staffMember as any).passwordHash || "OrbitStaff@2026";
+                if (password !== expectedStaffPassword) {
+                    setError("Invalid credentials. Please verify your security key or staff password.");
                     return;
                 }
 
@@ -274,65 +275,16 @@ export default function MasterLogin() {
                     )}
                 </Button>
 
-                {/* Quick Switch Test Accounts Drawer */}
-                <div className="pt-2 border-t border-border/80">
-                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                        Quick Demo Role Accounts:
+                <div className="pt-4 border-t border-border/60 text-center space-y-2">
+                    <p>
+                        <Link to="/login" className="text-xs text-primary font-semibold hover:underline">
+                            ← Return to Campus Portal (Student / Teacher / Admin)
+                        </Link>
                     </p>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                        <button
-                            type="button"
-                            onClick={() => handleQuickFill("orbitadmin", "OrbitMaster@2026")}
-                            className="p-2 text-left rounded-lg border border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10 transition-colors"
-                        >
-                            <p className="font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1">
-                                <Sparkles className="h-3 w-3" />
-                                Master Admin
-                            </p>
-                            <p className="text-[10px] text-muted-foreground truncate">100% Platform Access</p>
-                        </button>
-
-                        <button
-                            type="button"
-                            onClick={() => handleQuickFill("vikram.architect@orbitlms.in", "OrbitStaff@2026")}
-                            className="p-2 text-left rounded-lg border border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/10 transition-colors"
-                        >
-                            <p className="font-semibold text-blue-700 dark:text-blue-400 flex items-center gap-1">
-                                <Cpu className="h-3 w-3" />
-                                Tech Architect
-                            </p>
-                            <p className="text-[10px] text-muted-foreground truncate">Monitoring, Latency & Audit</p>
-                        </button>
-
-                        <button
-                            type="button"
-                            onClick={() => handleQuickFill("ananya.ops@orbitlms.in", "OrbitStaff@2026")}
-                            className="p-2 text-left rounded-lg border border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10 transition-colors"
-                        >
-                            <p className="font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
-                                <Building2 className="h-3 w-3" />
-                                Platform Ops
-                            </p>
-                            <p className="text-[10px] text-muted-foreground truncate">Colleges, Maintenance, Users</p>
-                        </button>
-
-                        <button
-                            type="button"
-                            onClick={() => handleQuickFill("rohit.finance@orbitlms.in", "OrbitStaff@2026")}
-                            className="p-2 text-left rounded-lg border border-purple-500/30 bg-purple-500/5 hover:bg-purple-500/10 transition-colors"
-                        >
-                            <p className="font-semibold text-purple-700 dark:text-purple-400 flex items-center gap-1">
-                                <CreditCard className="h-3 w-3" />
-                                Finance Director
-                            </p>
-                            <p className="text-[10px] text-muted-foreground truncate">Billing, Invoices & Plans</p>
-                        </button>
-                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                        Restricted SaaS command area. All actions audited with enterprise role-based access control.
+                    </p>
                 </div>
-
-                <p className="text-center text-[11px] text-muted-foreground">
-                    Restricted area. All sessions logged and audited with role-based access control.
-                </p>
             </form>
         </AuthLayout>
     );

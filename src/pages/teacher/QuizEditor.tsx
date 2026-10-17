@@ -9,9 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Trash2, Plus, Save, ChevronLeft, Loader2, FileCode, Upload, Sparkles } from "lucide-react";
+import { Trash2, Plus, Save, ChevronLeft, Loader2, FileCode, Upload, Sparkles, Download, Copy } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
+import { downloadJsonFile, copyJsonToClipboard } from "@/lib/courseJsonImporter";
 
 export default function QuizEditor() {
     const { courseId, quizId } = useParams();
@@ -237,6 +238,45 @@ export default function QuizEditor() {
         }
     };
 
+    const handleExportQuizJson = async () => {
+        try {
+            if (!questions || questions.length === 0) {
+                toast({ variant: "destructive", title: "No Questions", description: "Please add questions before exporting." });
+                return;
+            }
+            const payload = {
+                title: quiz?.title || "Quiz",
+                type: "quiz",
+                total_points: questions.reduce((sum, q) => sum + (Number(q.points) || 10), 0),
+                questions_count: questions.length,
+                questions: questions.map(q => {
+                    const qType = q.type || 'mcq';
+                    return {
+                        question_text: q.question_text || '',
+                        type: qType,
+                        points: Number(q.points) || 10,
+                        options: (qType === 'mcq' || qType === 'boolean') ? (q.options || (qType === 'boolean' ? ["True", "False"] : ["Option 1", "Option 2"])) : undefined,
+                        correct_answer: q.correct_answer || undefined,
+                    };
+                }),
+            };
+            const safeTitle = (quiz?.title || 'quiz').toLowerCase().replace(/[^a-z0-9]+/g, '_');
+            const filename = `${safeTitle}_orbit_quiz.json`;
+            downloadJsonFile(payload, filename);
+            await copyJsonToClipboard(payload);
+            toast({
+                title: "Quiz JSON Exported! 📤",
+                description: `Downloaded "${filename}" and copied full question payload to clipboard.`,
+            });
+        } catch (err: any) {
+            toast({
+                variant: "destructive",
+                title: "Export Failed",
+                description: err.message || "Failed to export quiz JSON.",
+            });
+        }
+    };
+
     if (loading) {
         return (
             <TeacherLayout>
@@ -260,6 +300,14 @@ export default function QuizEditor() {
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        onClick={handleExportQuizJson}
+                        className="gap-2 border-border font-semibold"
+                        title="Download quiz and questions as JSON file"
+                    >
+                        <Download className="h-4 w-4" /> Export Quiz JSON 📤
+                    </Button>
                     <Button
                         variant="outline"
                         onClick={() => setImportModalOpen(true)}
@@ -403,7 +451,7 @@ export default function QuizEditor() {
 
             {/* Import Questions from JSON Question Paper Dialog */}
             <Dialog open={importModalOpen} onOpenChange={setImportModalOpen}>
-                <DialogContent className="sm:max-w-2xl">
+                <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <FileCode className="h-5 w-5 text-primary" />
@@ -415,39 +463,88 @@ export default function QuizEditor() {
                     </DialogHeader>
 
                     <div className="space-y-4 py-2">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
                             <Label className="text-xs font-semibold text-muted-foreground">JSON Question Array or Paper Payload:</Label>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                    setJsonPaperText(JSON.stringify([
-                                        {
-                                            question_text: "What is the primary architectural benefit of Row-Level Security (RLS)?",
-                                            type: "mcq",
-                                            points: 10,
-                                            options: ["Kernel-level isolation", "Database-enforced tenant security", "Higher network throughput", "Client-side encryption"],
-                                            correct_answer: "Database-enforced tenant security"
-                                        },
-                                        {
-                                            question_text: "PostgreSQL functions configured with SECURITY DEFINER run with the privileges of the defining role.",
-                                            type: "boolean",
-                                            points: 5,
-                                            options: ["True", "False"],
-                                            correct_answer: "True"
-                                        },
-                                        {
-                                            question_text: "Explain the difference between horizontal and vertical database sharding in distributed systems.",
-                                            type: "short",
-                                            points: 15,
-                                            correct_answer: "Horizontal sharding splits rows across multiple database instances, while vertical sharding splits columns or tables across specialized nodes."
-                                        }
-                                    ], null, 2));
-                                }}
-                                className="text-xs text-primary gap-1"
-                            >
-                                <Sparkles className="h-3 w-3" /> Load Sample Questions
-                            </Button>
+                            <div className="flex items-center gap-1.5">
+                                <label className="cursor-pointer">
+                                    <input
+                                        type="file"
+                                        accept=".json"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (!file) return;
+                                            const reader = new FileReader();
+                                            reader.onload = (ev) => {
+                                                setJsonPaperText(ev.target?.result as string);
+                                                toast({ title: "File Loaded 📂", description: file.name });
+                                            };
+                                            reader.readAsText(file);
+                                        }}
+                                    />
+                                    <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1 pointer-events-none">
+                                        <Upload className="h-3 w-3" /> Upload .json
+                                    </Button>
+                                </label>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                        const sample = [
+                                            {
+                                                question_text: "What is the primary architectural benefit of Row-Level Security (RLS)?",
+                                                type: "mcq",
+                                                points: 10,
+                                                options: ["Kernel-level isolation", "Database-enforced tenant security", "Higher network throughput", "Client-side encryption"],
+                                                correct_answer: "Database-enforced tenant security"
+                                            },
+                                            {
+                                                question_text: "PostgreSQL functions configured with SECURITY DEFINER run with the privileges of the defining role.",
+                                                type: "boolean",
+                                                points: 5,
+                                                options: ["True", "False"],
+                                                correct_answer: "True"
+                                            }
+                                        ];
+                                        downloadJsonFile(sample, "quiz_questions_template.json");
+                                        toast({ title: "Template Downloaded! 📥" });
+                                    }}
+                                    className="h-7 text-xs gap-1"
+                                >
+                                    <Download className="h-3 w-3" /> Template
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                        setJsonPaperText(JSON.stringify([
+                                            {
+                                                question_text: "What is the primary architectural benefit of Row-Level Security (RLS)?",
+                                                type: "mcq",
+                                                points: 10,
+                                                options: ["Kernel-level isolation", "Database-enforced tenant security", "Higher network throughput", "Client-side encryption"],
+                                                correct_answer: "Database-enforced tenant security"
+                                            },
+                                            {
+                                                question_text: "PostgreSQL functions configured with SECURITY DEFINER run with the privileges of the defining role.",
+                                                type: "boolean",
+                                                points: 5,
+                                                options: ["True", "False"],
+                                                correct_answer: "True"
+                                            },
+                                            {
+                                                question_text: "Explain the difference between horizontal and vertical database sharding in distributed systems.",
+                                                type: "short",
+                                                points: 15,
+                                                correct_answer: "Horizontal sharding splits rows across multiple database instances, while vertical sharding splits columns or tables across specialized nodes."
+                                            }
+                                        ], null, 2));
+                                    }}
+                                    className="h-7 text-xs text-primary gap-1"
+                                >
+                                    <Sparkles className="h-3 w-3" /> Sample
+                                </Button>
+                            </div>
                         </div>
                         <Textarea
                             rows={12}

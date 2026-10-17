@@ -347,14 +347,14 @@ export default function Careers() {
             Join our mission to empower 500+ Indian universities and colleges with automated NEP 2020 credit banking, autonomous AI curricula, and next-gen campus security.
           </p>
 
-          <div className="pt-4 flex items-center justify-center gap-3">
+          <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
             <Button
               size="lg"
               onClick={() => {
                 const el = document.getElementById("open-positions");
                 el?.scrollIntoView({ behavior: "smooth" });
               }}
-              className="bg-primary text-primary-foreground font-bold text-xs shadow-md gap-2"
+              className="w-full sm:w-auto bg-primary text-primary-foreground font-bold text-xs shadow-md gap-2"
             >
               View {jobs.length} Open Positions <ArrowRight className="h-4 w-4" />
             </Button>
@@ -362,7 +362,7 @@ export default function Careers() {
               variant="outline"
               size="lg"
               onClick={() => navigate("/blog")}
-              className="text-xs font-bold"
+              className="w-full sm:w-auto text-xs font-bold"
             >
               Read Our EdTech Research
             </Button>
@@ -410,7 +410,7 @@ export default function Careers() {
             </div>
 
             {/* Filters */}
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
               <div className="relative w-full sm:w-64">
                 <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
@@ -421,7 +421,7 @@ export default function Careers() {
                 />
               </div>
               <Select value={selectedDept} onValueChange={setSelectedDept}>
-                <SelectTrigger className="w-[170px] bg-card text-xs h-9">
+                <SelectTrigger className="w-full sm:w-[170px] bg-card text-xs h-9">
                   <SelectValue placeholder="All Departments" />
                 </SelectTrigger>
                 <SelectContent className="text-xs">
@@ -549,7 +549,7 @@ export default function Careers() {
 
       {/* MODAL 1: JOB ROLE DETAILS */}
       <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
-        <DialogContent className="max-w-2xl bg-card border text-card-foreground max-h-[88vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-2xl bg-card border text-card-foreground max-h-[88vh] overflow-y-auto p-4 sm:p-6">
           {selectedJobForDetail && (
             <div className="space-y-5">
               <DialogHeader>
@@ -634,7 +634,7 @@ export default function Careers() {
 
       {/* MODAL 2: INTERACTIVE JOB APPLICATION FORM */}
       <Dialog open={isApplyModalOpen} onOpenChange={setIsApplyModalOpen}>
-        <DialogContent className="max-w-2xl bg-card border text-card-foreground max-h-[92vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-2xl bg-card border text-card-foreground max-h-[92vh] overflow-y-auto p-4 sm:p-6">
           {submitSuccess ? (
             <div className="py-8 text-center space-y-4 animate-in fade-in zoom-in-95">
               <div className="w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center mx-auto">

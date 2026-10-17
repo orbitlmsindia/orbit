@@ -139,7 +139,7 @@ export function FinanceLayout({ children, headerTitle, headerDescription, action
       )}
 
       {/* Main Content Area */}
-      <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full">
+      <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full pb-24 md:pb-8 touch-pan-smooth">
         {(headerTitle || action) && (
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-800">
             <div>

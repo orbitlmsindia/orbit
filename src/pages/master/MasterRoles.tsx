@@ -570,20 +570,22 @@ export default function MasterRoles() {
 
         {/* Main Tabs Container */}
         <Tabs defaultValue="staff" className="space-y-6">
-          <TabsList className="bg-muted p-1 rounded-xl w-full sm:w-auto flex flex-wrap border border-border">
-            <TabsTrigger value="staff" className="flex items-center gap-2 px-4 py-2">
-              <Users className="h-4 w-4" />
-              Staff Directory & Delegates ({staff.length})
-            </TabsTrigger>
-            <TabsTrigger value="roles" className="flex items-center gap-2 px-4 py-2">
-              <ShieldCheck className="h-4 w-4" />
-              Custom Roles & Permissions ({roles.length})
-            </TabsTrigger>
-            <TabsTrigger id="tab-trigger-matrix" value="matrix" className="flex items-center gap-2 px-4 py-2">
-              <Layers className="h-4 w-4" />
-              Full Permissions Matrix
-            </TabsTrigger>
-          </TabsList>
+          <div className="w-full overflow-x-auto scrollbar-none pb-1">
+            <TabsList className="inline-flex min-w-max bg-muted p-1 rounded-xl border border-border gap-1">
+              <TabsTrigger value="staff" className="flex items-center gap-2 px-4 py-2">
+                <Users className="h-4 w-4" />
+                Staff Directory & Delegates ({staff.length})
+              </TabsTrigger>
+              <TabsTrigger value="roles" className="flex items-center gap-2 px-4 py-2">
+                <ShieldCheck className="h-4 w-4" />
+                Custom Roles & Permissions ({roles.length})
+              </TabsTrigger>
+              <TabsTrigger id="tab-trigger-matrix" value="matrix" className="flex items-center gap-2 px-4 py-2">
+                <Layers className="h-4 w-4" />
+                Full Permissions Matrix
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* ───────────────────────────────────────────────────────────
               TAB 1: STAFF DIRECTORY & DELEGATES
@@ -591,7 +593,7 @@ export default function MasterRoles() {
           <TabsContent value="staff" className="space-y-4">
             {/* Filter Bar */}
             <Card className="border border-border">
-              <CardContent className="p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <CardContent className="p-4 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
                 <div className="relative flex-1 max-w-md">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -602,9 +604,9 @@ export default function MasterRoles() {
                   />
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="grid grid-cols-2 sm:flex items-center gap-2">
                   <Select value={roleFilter} onValueChange={setRoleFilter}>
-                    <SelectTrigger className="w-[180px]">
+                    <SelectTrigger className="w-full sm:w-[180px]">
                       <SelectValue placeholder="Filter by Role" />
                     </SelectTrigger>
                     <SelectContent>
@@ -618,7 +620,7 @@ export default function MasterRoles() {
                   </Select>
 
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-[140px]">
+                    <SelectTrigger className="w-full sm:w-[140px]">
                       <SelectValue placeholder="Status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1040,7 +1042,7 @@ export default function MasterRoles() {
           MODAL 1: CREATE / EDIT CUSTOM ROLE
       ─────────────────────────────────────────────────────────── */}
       <Dialog open={isRoleModalOpen} onOpenChange={setIsRoleModalOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-3xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <form onSubmit={handleSaveRole}>
             <DialogHeader>
               <DialogTitle className="text-xl font-bold font-display flex items-center gap-2">
@@ -1207,7 +1209,7 @@ export default function MasterRoles() {
           MODAL 2: INVITE / ADD STAFF MEMBER
       ─────────────────────────────────────────────────────────── */}
       <Dialog open={isStaffModalOpen} onOpenChange={setIsStaffModalOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <form onSubmit={handleSaveStaff}>
             <DialogHeader>
               <DialogTitle className="text-xl font-bold font-display flex items-center gap-2">
@@ -1318,7 +1320,7 @@ export default function MasterRoles() {
           MODAL 3: RESET STAFF PASSWORD / CREDENTIALS
       ─────────────────────────────────────────────────────────── */}
       <Dialog open={isResetPasswordModalOpen} onOpenChange={setIsResetPasswordModalOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold flex items-center gap-2">
               <Key className="h-5 w-5 text-amber-500" />

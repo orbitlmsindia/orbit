@@ -4,7 +4,7 @@ import { TeacherLayout } from "@/components/layout/TeacherLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Users, MoreVertical, Loader2, BookOpen, Trash2, Pencil, Sparkles, Ticket, IndianRupee } from "lucide-react";
+import { Plus, Search, Users, MoreVertical, Loader2, BookOpen, Trash2, Pencil, Sparkles, Ticket, IndianRupee, Download, FileCode } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import CouponManager from "@/components/teacher/CouponManager";
+import { exportCourseToJson, downloadJsonFile, copyJsonToClipboard } from "@/lib/courseJsonImporter";
 
 export default function TeacherCourses() {
     const navigate = useNavigate();
@@ -216,6 +217,24 @@ export default function TeacherCourses() {
         }
     };
 
+    const handleExportCourseJson = async (courseId: string, title: string, e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        try {
+            toast({ title: "Generating Course JSON...", description: `Packaging "${title}" with all curriculum modules, quizzes, and policies.` });
+            const data = await exportCourseToJson(courseId);
+            const safeTitle = title.toLowerCase().replace(/[^a-z0-9]/g, "_");
+            downloadJsonFile(data, `orbit_course_${safeTitle}.json`);
+            await copyJsonToClipboard(data);
+            toast({
+                title: "Course JSON Exported! 📥",
+                description: `Downloaded "orbit_course_${safeTitle}.json" & copied to clipboard.`
+            });
+        } catch (err: any) {
+            toast({ variant: "destructive", title: "Export Failed", description: err.message });
+        }
+    };
+
     const filteredCourses = courses.filter(c =>
         c.title.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -237,26 +256,32 @@ export default function TeacherCourses() {
                     <h1 className="text-3xl font-display font-bold">My Courses</h1>
                     <p className="text-muted-foreground">Manage your assigned courses and content.</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     <Link to="/teacher/courses/json-builder">
-                        <Button variant="outline" className="gap-2 border-primary/20 hover:bg-primary/5 text-primary">
-                            <Sparkles className="h-4 w-4" /> JSON Importer
+                        <Button variant="outline" size="sm" className="gap-2 border-primary/20 hover:bg-primary/5 text-primary text-xs font-semibold">
+                            <Sparkles className="h-4 w-4" /> JSON Importer & Studio
+                        </Button>
+                    </Link>
+                    <Link to="/teacher/courses/json-builder?tab=export-course">
+                        <Button variant="outline" size="sm" className="gap-2 border-emerald-500/30 hover:bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 text-xs font-semibold">
+                            <Download className="h-4 w-4" /> Export Course JSON
                         </Button>
                     </Link>
                     <Button
+                        size="sm"
                         variant={activeTab === "coupons" ? "default" : "outline"}
                         onClick={() => setSearchParams({ tab: activeTab === "coupons" ? "courses" : "coupons" })}
-                        className={`gap-2 ${activeTab === "coupons" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "border-emerald-500/30 hover:bg-emerald-500/5 text-emerald-600"}`}
+                        className={`gap-2 text-xs ${activeTab === "coupons" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "border-emerald-500/30 hover:bg-emerald-500/5 text-emerald-600"}`}
                     >
                         <Ticket className="h-4 w-4" /> {activeTab === "coupons" ? "My Courses" : "Manage Coupons"}
                     </Button>
                     <Dialog open={addCourseModalOpen} onOpenChange={setAddCourseModalOpen}>
                         <DialogTrigger asChild>
-                            <Button className="gap-2">
+                            <Button size="sm" className="gap-2 text-xs">
                                 <Plus className="h-4 w-4" /> Create Course
                             </Button>
                         </DialogTrigger>
-                    <DialogContent className="sm:max-w-lg">
+                    <DialogContent className="w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                         <DialogHeader>
                             <DialogTitle>Create New Course</DialogTitle>
                             <DialogDescription>
@@ -473,6 +498,9 @@ export default function TeacherCourses() {
                                                     <Link to={`/teacher/courses/${course.id}`}>
                                                         <Pencil className="h-4 w-4" /> Edit Course
                                                     </Link>
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem className="gap-2 text-emerald-600 dark:text-emerald-400 font-medium cursor-pointer" onClick={(e) => handleExportCourseJson(course.id, course.title, e)}>
+                                                    <Download className="h-4 w-4" /> Export Course JSON 📤
                                                 </DropdownMenuItem>
                                                 <DropdownMenuSeparator />
                                                 {course.status === 'Published' ? (

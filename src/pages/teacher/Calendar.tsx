@@ -111,14 +111,14 @@ export default function TeacherCalendar() {
     return (
         <TeacherLayout>
             <div className="space-y-6 animate-fade-in">
-                <div className="flex items-center justify-between">
-                    <h1 className="text-3xl font-display font-bold">Calendar</h1>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <h1 className="text-2xl sm:text-3xl font-display font-bold">Calendar</h1>
                     <button
                         type="button"
                         onClick={() => setJsonModalOpen(true)}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-primary/30 text-primary hover:bg-primary/5 text-sm font-semibold transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-primary/30 text-primary hover:bg-primary/5 text-xs sm:text-sm font-semibold transition-colors cursor-pointer w-fit"
                     >
-                        <FileJson className="h-4 w-4" /> JSON Schedule Updater (⌘K / Ctrl+K)
+                        <FileJson className="h-4 w-4" /> JSON Schedule Updater (⌘K)
                     </button>
                 </div>
 

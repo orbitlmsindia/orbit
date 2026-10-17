@@ -49,11 +49,17 @@ import {
   Check,
   Ticket,
   FileCode,
+  Download,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 import { AdminCourseJsonModal } from "@/components/admin/AdminCourseJsonModal";
 import { AdminCouponManager } from "@/components/admin/AdminCouponManager";
+import {
+  exportCourseToJson,
+  downloadJsonFile,
+  copyJsonToClipboard,
+} from "@/lib/courseJsonImporter";
 
 export default function CourseManagement() {
   const { toast } = useToast();
@@ -256,6 +262,30 @@ export default function CourseManagement() {
     }
   };
 
+  const handleExportCourseJson = async (courseId: string, courseTitle: string) => {
+    try {
+      toast({
+        title: "Generating Course JSON Export... 📦",
+        description: `Bundling full curriculum, quizzes, flashcards & mnemonics for "${courseTitle}".`,
+      });
+      const data = await exportCourseToJson(courseId);
+      const cleanTitle = courseTitle.toLowerCase().replace(/[^a-z0-9]+/g, "_");
+      const filename = `${cleanTitle}_full_orbit_course.json`;
+      downloadJsonFile(data, filename);
+      await copyJsonToClipboard(data);
+      toast({
+        title: "Course JSON Exported! 📤",
+        description: `Downloaded "${filename}" and copied full JSON payload to clipboard.`,
+      });
+    } catch (err: any) {
+      toast({
+        title: "Export Failed",
+        description: err.message || "Failed to export course JSON.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const tableColumns = [
     {
       key: "title",
@@ -296,6 +326,12 @@ export default function CourseManagement() {
               <Link to={`/admin/courses/${row.id}/edit`}>
                 <Pencil className="h-4 w-4" /> Edit Content
               </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="gap-2 text-primary font-medium"
+              onClick={() => handleExportCourseJson(row.id, row.title)}
+            >
+              <Download className="h-4 w-4" /> Export Course JSON 📤
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="gap-2" asChild>
@@ -370,18 +406,18 @@ export default function CourseManagement() {
         {/* Tabs for Courses & Curricula vs Coupons & Discounts */}
         <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)} className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-3">
-            <TabsList className="bg-muted p-1">
-              <TabsTrigger value="courses" className="flex items-center gap-2 text-xs font-semibold">
+            <TabsList className="bg-muted p-1 w-full sm:w-auto grid grid-cols-2 sm:inline-flex">
+              <TabsTrigger value="courses" className="flex items-center justify-center gap-2 text-xs font-semibold">
                 <BookOpen className="h-4 w-4" />
                 All Courses ({courses.length})
               </TabsTrigger>
-              <TabsTrigger value="coupons" className="flex items-center gap-2 text-xs font-semibold">
+              <TabsTrigger value="coupons" className="flex items-center justify-center gap-2 text-xs font-semibold">
                 <Ticket className="h-4 w-4 text-purple-600" />
                 Coupons & Discounts
               </TabsTrigger>
             </TabsList>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="w-full sm:w-auto flex flex-wrap items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
@@ -396,20 +432,32 @@ export default function CourseManagement() {
                 variant="outline"
                 size="sm"
                 onClick={() => setJsonCourseModalOpen(true)}
-                className="gap-1.5 text-xs font-semibold border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10"
+                className="flex-1 sm:flex-none gap-1.5 text-xs font-semibold border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10"
               >
                 <FileCode className="h-4 w-4" />
-                Import Course via JSON
+                Import via JSON
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                asChild
+                className="flex-1 sm:flex-none gap-1.5 text-xs font-semibold border-primary/30 text-primary hover:bg-primary/10"
+              >
+                <Link to="/teacher/courses/json-builder">
+                  <Sparkles className="h-4 w-4 text-amber-500" />
+                  JSON Studio
+                </Link>
               </Button>
 
               <Dialog open={addCourseModalOpen} onOpenChange={setAddCourseModalOpen}>
                 <DialogTrigger asChild>
-                  <Button size="sm" className="gap-1.5 text-xs font-semibold bg-primary text-primary-foreground">
+                  <Button size="sm" className="flex-1 sm:flex-none gap-1.5 text-xs font-semibold bg-primary text-primary-foreground">
                     <Plus className="h-4 w-4" />
                     Add Course
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-lg">
+                <DialogContent className="w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                   <DialogHeader>
                     <DialogTitle>Create New Course</DialogTitle>
                     <DialogDescription>
@@ -572,6 +620,12 @@ export default function CourseManagement() {
                               <Link to={`/admin/courses/${course.id}/edit?tab=students`}>
                                 <Users className="h-4 w-4" /> View Enrolled Students
                               </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="gap-2 text-primary font-medium"
+                              onClick={() => handleExportCourseJson(course.id, course.title)}
+                            >
+                              <Download className="h-4 w-4" /> Export Course JSON 📤
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             {course.is_deletion_requested && (

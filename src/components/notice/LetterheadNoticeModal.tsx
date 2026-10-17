@@ -143,7 +143,7 @@ export function LetterheadNoticeModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl p-6 bg-card border max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] sm:max-w-3xl p-4 sm:p-6 bg-card border max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary" /> Official Institutional Letterhead Notice Generator

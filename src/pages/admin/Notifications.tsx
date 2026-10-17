@@ -37,9 +37,13 @@ import {
   AlertCircle,
   Info,
   Megaphone,
+  Paperclip,
+  Link as LinkIcon,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
+import { formatMessageWithAttachment, parseAnnouncementAttachment } from "@/lib/announcementUtils";
+import { AnnouncementAttachmentCard } from "@/components/notifications/AnnouncementAttachmentCard";
 
 // Templates can remain static or be moved to DB later
 const templates = [
@@ -58,6 +62,8 @@ export default function Notifications() {
   const [notificationType, setNotificationType] = useState("general");
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
+  const [attachmentUrl, setAttachmentUrl] = useState("");
+  const [attachmentLabel, setAttachmentLabel] = useState("");
 
   const [notificationsHistory, setNotificationsHistory] = useState<any[]>([]);
   const [coursesList, setCoursesList] = useState<any[]>([]);
@@ -130,6 +136,9 @@ export default function Notifications() {
         notificationType === "reminder" ? "deadline" : "general"
       );
 
+      // Format message with attachment link if provided
+      const formattedMessage = formatMessageWithAttachment(message, attachmentUrl, attachmentLabel);
+
       if (selectedAudience === "courses") {
         let totalSent = 0;
         for (const courseId of selectedCourses) {
@@ -138,7 +147,7 @@ export default function Notifications() {
             const { data: count, error } = await supabase.rpc('x_n_c_s', {
               p_course_id: courseId,
               p_title: title,
-              p_message: message,
+              p_message: formattedMessage,
               p_notification_type: safeNotificationType,
               p_sender_id: user.id,
               p_sender_role: userRole,
@@ -164,7 +173,8 @@ export default function Notifications() {
               const notifs = enrs.map((e: any) => ({
                 user_id: e.student_id,
                 title,
-                message,
+                message: formattedMessage,
+                link_url: attachmentUrl.trim() || undefined,
                 notification_type: 'course',
                 course_id: courseId,
                 sender_role: userRole,
@@ -179,7 +189,7 @@ export default function Notifications() {
 
         toast({
           title: "Notifications Sent",
-          description: `Successfully sent ${totalSent} notifications to course students.`
+          description: `Successfully sent ${totalSent} notifications to course students${attachmentUrl ? ' with attached link' : ''}.`
         });
       } else {
         // Send to all users of a specific role
@@ -200,7 +210,8 @@ export default function Notifications() {
         const notifications = targetUsers.map(u => ({
           user_id: u.id,
           title,
-          message,
+          message: formattedMessage,
+          link_url: attachmentUrl.trim() || undefined,
           notification_type: safeNotificationType,
           sender_role: userRole,
           sender_id: user.id,
@@ -210,11 +221,11 @@ export default function Notifications() {
         try {
           const { error } = await supabase.from('notifications').insert(notifications);
           if (error) {
-            console.warn("Standard insert error, retrying minimal fields:", error);
+            console.warn("Standard insert error, retrying minimal fields with formatted message:", error);
             const minimalNotifs = targetUsers.map(u => ({
               user_id: u.id,
               title,
-              message,
+              message: formattedMessage,
               notification_type: 'general',
               created_at: new Date().toISOString()
             }));
@@ -227,13 +238,15 @@ export default function Notifications() {
 
         toast({
           title: "Notifications Sent",
-          description: `Successfully sent ${targetUsers.length} notifications.`
+          description: `Successfully sent ${targetUsers.length} notifications${attachmentUrl ? ' with attached link' : ''}.`
         });
       }
 
       setCreateModalOpen(false);
       setTitle("");
       setMessage("");
+      setAttachmentUrl("");
+      setAttachmentLabel("");
       setSelectedCourses([]);
       setSelectedAudience("all");
       fetchData(); // Refresh list
@@ -285,14 +298,20 @@ export default function Notifications() {
       header: "Notification",
       cell: (row: any) => {
         const typeConfig = getTypeConfig(row.type);
+        const attachment = parseAnnouncementAttachment(row.message, row.link_url);
         return (
-          <div className="flex items-start gap-3">
-            <div className={`p-2 rounded-lg bg-muted`}>
+          <div className="flex items-start gap-3 max-w-md">
+            <div className={`p-2 rounded-lg bg-muted shrink-0 mt-0.5`}>
               <typeConfig.icon className={`h-4 w-4 text-muted-foreground`} />
             </div>
-            <div>
-              <p className="font-medium">{row.title}</p>
-              <p className="text-xs text-muted-foreground line-clamp-1 max-w-xs">{row.message}</p>
+            <div className="min-w-0 space-y-1">
+              <p className="font-medium text-sm text-foreground">{row.title}</p>
+              <p className="text-xs text-muted-foreground line-clamp-2">{attachment.cleanMessage}</p>
+              {attachment.hasAttachment && (
+                <div className="pt-1">
+                  <AnnouncementAttachmentCard attachment={attachment} compact />
+                </div>
+              )}
             </div>
           </div>
         );
@@ -368,7 +387,7 @@ export default function Notifications() {
                 New Notification
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-xl">
+            <DialogContent className="w-[95vw] sm:max-w-xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
               <DialogHeader>
                 <DialogTitle>Create Notification</DialogTitle>
                 <DialogDescription>
@@ -458,6 +477,38 @@ export default function Notifications() {
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                   />
+                </div>
+
+                {/* Attachment Link */}
+                <div className="space-y-3 p-3.5 rounded-xl border border-primary/20 bg-primary/5">
+                  <div className="flex items-center gap-2">
+                    <Paperclip className="h-4 w-4 text-primary" />
+                    <Label htmlFor="admin-attachment-url" className="text-xs font-bold text-foreground">
+                      Attach Link (Google Drive, Meet, PDF, Circular, External URL)
+                    </Label>
+                  </div>
+                  <Input
+                    id="admin-attachment-url"
+                    placeholder="https://drive.google.com/... or https://meet.google.com/..."
+                    value={attachmentUrl}
+                    onChange={(e) => setAttachmentUrl(e.target.value)}
+                    className="text-xs bg-background"
+                  />
+                  <div className="space-y-1">
+                    <Label htmlFor="admin-attachment-label" className="text-[11px] text-muted-foreground">
+                      Button Label (Optional)
+                    </Label>
+                    <Input
+                      id="admin-attachment-label"
+                      placeholder="e.g. View Academic Circular / Join Google Meet"
+                      value={attachmentLabel}
+                      onChange={(e) => setAttachmentLabel(e.target.value)}
+                      className="text-xs bg-background"
+                    />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Students and recipients will receive a prominent 1-click interactive link card with host badges.
+                  </p>
                 </div>
 
               </div>

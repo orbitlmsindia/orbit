@@ -10,12 +10,14 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Save, Search, CheckCircle2, XCircle, Loader2, Upload, FileUp, Download } from "lucide-react";
+import { Calendar as CalendarIcon, Save, Search, CheckCircle2, XCircle, Loader2, Upload, FileUp, Download, FileText, Share2, Printer } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
+import { StudentAttendanceDossierModal, StudentDossierData } from "@/components/attendance/StudentAttendanceDossierModal";
+import { ExamAttendanceSlipModal, ExamSlipData } from "@/components/attendance/ExamAttendanceSlipModal";
 
 export default function Attendance() {
     const { toast } = useToast();
@@ -31,6 +33,35 @@ export default function Attendance() {
     const [calendarOpen, setCalendarOpen] = useState(false);
     const [hasExistingRecords, setHasExistingRecords] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Parent & Student Attendance Dossier Export Modal
+    const [dossierModalOpen, setDossierModalOpen] = useState(false);
+    const [selectedDossierData, setSelectedDossierData] = useState<StudentDossierData | null>(null);
+    const [teacherName, setTeacherName] = useState("");
+    const [collegeName, setCollegeName] = useState("Orbit Institute of Technology & Science");
+
+    // Examination Hall Ticket & Attendance Slip
+    const [examSlipOpen, setExamSlipOpen] = useState(false);
+    const [selectedSlipData, setSelectedSlipData] = useState<ExamSlipData | null>(null);
+
+    const handleOpenExamSlip = (student?: any) => {
+        const targetStudent = student || (filteredStudents.length > 0 ? filteredStudents[0] : null);
+        if (!targetStudent) {
+            toast({ variant: "destructive", title: "No Student Selected", description: "Select a student to generate exam admit slip." });
+            return;
+        }
+        const currentCourse = uploadedCourses.find(c => c.id === courseId);
+        setSelectedSlipData({
+            studentId: targetStudent.id,
+            studentName: targetStudent.name,
+            studentEmail: targetStudent.email,
+            courseId: courseId,
+            courseTitle: currentCourse?.title || "Enrolled Curriculum Course",
+            mentorName: teacherName || "Faculty In-Charge",
+            collegeName: collegeName || "Orbit Institute of Technology & Science"
+        });
+        setExamSlipOpen(true);
+    };
 
     useEffect(() => {
         fetchInitialData();
@@ -88,9 +119,20 @@ export default function Attendance() {
 
             const { data: profile } = await supabase
                 .from('users')
-                .select('role')
+                .select('role, full_name, college_id')
                 .eq('id', user.id)
                 .single();
+
+            setTeacherName(profile?.full_name || user.user_metadata?.full_name || "Faculty Mentor");
+
+            if (profile?.college_id) {
+                const { data: col } = await supabase
+                    .from('colleges')
+                    .select('name')
+                    .eq('id', profile.college_id)
+                    .maybeSingle();
+                if (col?.name) setCollegeName(col.name);
+            }
 
             // 1. Fetch Teacher's Courses (for the dropdown)
             let query = supabase.from('courses').select('id, title');
@@ -126,6 +168,21 @@ export default function Attendance() {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleOpenDossier = (student: any) => {
+        const selectedCourseObj = uploadedCourses.find(c => c.id === courseId);
+        setSelectedDossierData({
+            studentId: student.id,
+            studentName: student.name || "Student",
+            studentEmail: student.email,
+            studentAvatar: student.avatar,
+            courseId: courseId || undefined,
+            courseTitle: selectedCourseObj?.title || "Enrolled Course & Practical Lab",
+            mentorName: teacherName || "Faculty Mentor",
+            parentName: `Parent / Guardian of ${student.name || 'Student'}`
+        });
+        setDossierModalOpen(true);
     };
 
     const toggleStatus = (studentId: string) => {
@@ -324,7 +381,7 @@ export default function Attendance() {
                                 <Upload className="h-4 w-4" /> Bulk Upload
                             </Button>
                         </DialogTrigger>
-                        <DialogContent>
+                        <DialogContent className="w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                             <DialogHeader>
                                 <DialogTitle>Bulk Upload Attendance</DialogTitle>
                                 <DialogDescription>
@@ -367,6 +424,30 @@ export default function Attendance() {
                             </div>
                         </DialogContent>
                     </Dialog>
+
+                    <Button
+                        variant="outline"
+                        className="gap-2 border-primary/30 text-primary hover:bg-primary/10 font-semibold"
+                        onClick={() => {
+                            if (filteredStudents.length > 0) {
+                                handleOpenDossier(filteredStudents[0]);
+                            } else {
+                                toast({ variant: "destructive", title: "No students", description: "Select a course with enrolled students first." });
+                            }
+                        }}
+                    >
+                        <Share2 className="h-4 w-4" />
+                        <span>Share Student Dossier</span>
+                    </Button>
+
+                    <Button
+                        variant="outline"
+                        className="gap-1.5 border-indigo-500/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 font-semibold"
+                        onClick={() => handleOpenExamSlip()}
+                    >
+                        <FileText className="h-4 w-4" />
+                        <span>Issue Exam Slip 🎫</span>
+                    </Button>
 
                     <Button className="gap-2" onClick={handleSaveAttendance} disabled={loading}>
                         {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -432,7 +513,7 @@ export default function Attendance() {
                                 <Loader2 className="animate-spin mr-2" /> Loading students...
                             </div>
                         ) : (
-                            <Table>
+                            <Table className="min-w-[500px]">
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead className="w-[50px]">
@@ -441,12 +522,13 @@ export default function Attendance() {
                                         <TableHead>Student</TableHead>
                                         <TableHead>Email</TableHead>
                                         <TableHead align="center" className="text-center w-[150px]">Status</TableHead>
+                                        <TableHead align="right" className="text-right w-[180px]">Student & Parent Dossier</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {filteredStudents.length === 0 && (
                                         <TableRow>
-                                            <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                                            <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                                                 {searchQuery ? `No students found matching "${searchQuery}"` : "No students found in your institute."}
                                             </TableCell>
                                         </TableRow>
@@ -480,6 +562,29 @@ export default function Attendance() {
                                                             <XCircle className="h-3 w-3" /> Absent
                                                         </Badge>
                                                     )}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                                                <div className="flex items-center justify-end gap-1.5">
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => handleOpenDossier(student)}
+                                                        className="h-8 gap-1.5 text-xs font-semibold border-primary/30 text-primary hover:bg-primary/10 shadow-xs"
+                                                        title="Export formatted academic attendance dossier for student and parents"
+                                                    >
+                                                        <FileText className="h-3.5 w-3.5" />
+                                                        <span>Dossier</span>
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => handleOpenExamSlip(student)}
+                                                        className="h-8 gap-1 text-xs border-indigo-500/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 font-semibold"
+                                                        title="Issue Examination Admit Slip & Attendance Clearance"
+                                                    >
+                                                        <span>Admit Slip 🎫</span>
+                                                    </Button>
                                                 </div>
                                             </TableCell>
                                         </TableRow>
@@ -530,6 +635,21 @@ export default function Attendance() {
                 </Card>
             </div>
 
+            {/* Official Student & Parent Attendance Dossier Modal */}
+            <StudentAttendanceDossierModal
+                open={dossierModalOpen}
+                onOpenChange={setDossierModalOpen}
+                dossierData={selectedDossierData}
+                userRole="teacher"
+            />
+
+            {/* 🎫 Official Examination Hall Ticket & Attendance Clearance Slip Modal */}
+            <ExamAttendanceSlipModal
+                open={examSlipOpen}
+                onOpenChange={setExamSlipOpen}
+                slipData={selectedSlipData}
+                userRole="teacher"
+            />
         </TeacherLayout>
     );
 }

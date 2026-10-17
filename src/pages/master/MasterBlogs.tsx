@@ -534,49 +534,51 @@ export default function MasterBlogs() {
         </div>
 
         {/* Action Header & Filters */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-          <div className="flex flex-1 items-center gap-2 max-w-xl">
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+          <div className="flex flex-col sm:flex-row flex-1 items-stretch sm:items-center gap-2 max-w-2xl">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
               <Input
                 placeholder="Search articles by title, keywords, or URL slug..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 bg-slate-900 border-slate-800 text-white text-xs h-9"
+                className="pl-9 bg-slate-900 border-slate-800 text-white text-xs h-9 w-full"
               />
             </div>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-[160px] bg-slate-900 border-slate-800 text-slate-300 text-xs h-9">
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent className="bg-slate-900 border-slate-800 text-white text-xs">
-                <SelectItem value="all">All Categories</SelectItem>
-                {BLOG_CATEGORIES.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[130px] bg-slate-900 border-slate-800 text-slate-300 text-xs h-9">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent className="bg-slate-900 border-slate-800 text-white text-xs">
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="published">Published</SelectItem>
-                <SelectItem value="draft">Drafts</SelectItem>
-                <SelectItem value="featured">Featured Only</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="grid grid-cols-2 sm:flex items-center gap-2">
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-full sm:w-[150px] bg-slate-900 border-slate-800 text-slate-300 text-xs h-9">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-900 border-slate-800 text-white text-xs">
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {BLOG_CATEGORIES.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full sm:w-[130px] bg-slate-900 border-slate-800 text-slate-300 text-xs h-9">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-900 border-slate-800 text-white text-xs">
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="published">Published</SelectItem>
+                  <SelectItem value="draft">Drafts</SelectItem>
+                  <SelectItem value="featured">Featured Only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={loadBlogs}
-              className="border-slate-800 hover:bg-slate-800 text-slate-300 text-xs h-9"
+              className="border-slate-800 hover:bg-slate-800 text-slate-300 text-xs h-9 flex-1 sm:flex-initial"
             >
               <RefreshCw className={`w-3.5 h-3.5 mr-1 ${loading ? "animate-spin" : ""}`} /> Refresh
             </Button>
@@ -584,13 +586,13 @@ export default function MasterBlogs() {
               variant="outline"
               size="sm"
               onClick={() => window.open("/blog", "_blank")}
-              className="border-slate-800 hover:bg-slate-800 text-cyan-400 text-xs h-9"
+              className="border-slate-800 hover:bg-slate-800 text-cyan-400 text-xs h-9 flex-1 sm:flex-initial"
             >
-              <ExternalLink className="w-3.5 h-3.5 mr-1.5" /> Public Blog Hub
+              <ExternalLink className="w-3.5 h-3.5 mr-1.5" /> Public Blog
             </Button>
             <Button
               onClick={handleOpenCreateModal}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs h-9 shadow-md shadow-indigo-600/20"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs h-9 shadow-md shadow-indigo-600/20 w-full sm:w-auto"
             >
               <Plus className="w-4 h-4 mr-1.5" /> Write SEO Article
             </Button>
@@ -613,7 +615,8 @@ export default function MasterBlogs() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
+            {/* Desktop Table View */}
+            <div className="overflow-x-auto hidden md:block">
               <Table>
                 <TableHeader className="bg-slate-950/60 border-b border-slate-800">
                   <TableRow className="border-slate-800 hover:bg-transparent">
@@ -768,12 +771,119 @@ export default function MasterBlogs() {
                 </TableBody>
               </Table>
             </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden divide-y divide-slate-800/80">
+              {filteredBlogs.length === 0 ? (
+                <div className="text-center py-10 text-slate-400 text-xs px-4">
+                  No articles found matching your query. Click "Write SEO Article" to create one.
+                </div>
+              ) : (
+                filteredBlogs.map((blog) => (
+                  <div key={blog.id} className="p-4 space-y-3">
+                    <div className="flex items-start gap-3">
+                      <img
+                        src={blog.coverImage}
+                        alt={blog.title}
+                        className="w-16 h-14 rounded-lg object-cover border border-slate-800 shrink-0 mt-0.5"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div
+                          className="font-semibold text-white text-xs line-clamp-2 hover:text-indigo-400 transition-colors cursor-pointer"
+                          onClick={() => handleOpenEditModal(blog)}
+                        >
+                          {blog.title}
+                        </div>
+                        <div className="text-[11px] font-mono text-slate-400 flex items-center gap-1 truncate mt-0.5">
+                          <span className="text-indigo-400">/blog/</span>
+                          <span className="truncate">{blog.slug}</span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                          <Badge variant="outline" className="text-[10px] border-slate-700 text-slate-300 bg-slate-950/40">
+                            {blog.category}
+                          </Badge>
+                          <span className="text-[10px] text-slate-400">{blog.readingTime}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-800/60">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleTogglePublish(blog)}
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border flex items-center gap-1 transition-all cursor-pointer ${
+                            blog.isPublished
+                              ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                              : "bg-slate-800 text-slate-400 border-slate-700"
+                          }`}
+                        >
+                          {blog.isPublished ? (
+                            <>
+                              <Eye className="w-3 h-3 text-emerald-400" />
+                              <span>Live</span>
+                            </>
+                          ) : (
+                            <>
+                              <EyeOff className="w-3 h-3 text-slate-400" />
+                              <span>Draft</span>
+                            </>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleFeatured(blog)}
+                          title={blog.isFeatured ? "Featured" : "Click to feature"}
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-all cursor-pointer ${
+                            blog.isFeatured
+                              ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
+                              : "bg-slate-800/40 text-slate-500 border-slate-800"
+                          }`}
+                        >
+                          ★ {blog.isFeatured ? "Featured" : "Regular"}
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => window.open(`/blog/${blog.slug}`, "_blank")}
+                          className="h-8 w-8 p-0 text-slate-400 hover:text-cyan-400 hover:bg-slate-800"
+                          title="Preview Live URL"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleOpenEditModal(blog)}
+                          className="h-8 w-8 p-0 text-slate-400 hover:text-indigo-400 hover:bg-slate-800"
+                          title="Edit Article & SEO"
+                        >
+                          <Edit className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDeleteBlog(blog.id, blog.title)}
+                          className="h-8 w-8 p-0 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10"
+                          title="Delete Blog"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </CardContent>
         </Card>
 
         {/* MODAL: WRITE / EDIT BLOG POST */}
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-          <DialogContent className="max-w-4xl bg-slate-900 border-slate-800 text-slate-100 max-h-[92vh] overflow-y-auto">
+          <DialogContent className="w-[95vw] sm:max-w-4xl bg-slate-900 border-slate-800 text-slate-100 max-h-[90vh] overflow-y-auto p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle className="text-lg font-bold text-white flex items-center gap-2">
                 <BookOpen className="w-5 h-5 text-indigo-400" />
@@ -786,16 +896,16 @@ export default function MasterBlogs() {
 
             <form onSubmit={handleSaveBlog} className="space-y-4 pt-2">
               <Tabs value={editorTab} onValueChange={setEditorTab} className="w-full">
-                <TabsList className="bg-slate-950 border border-slate-800 text-slate-400 grid grid-cols-2">
+                <TabsList className="bg-slate-950 border border-slate-800 text-slate-400 grid grid-cols-1 sm:grid-cols-2 h-auto p-1 gap-1">
                   <TabsTrigger
                     value="content"
-                    className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white text-xs"
+                    className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white text-xs py-2"
                   >
                     <FileText className="w-3.5 h-3.5 mr-1.5" /> Article Content & Media
                   </TabsTrigger>
                   <TabsTrigger
                     value="seo"
-                    className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white text-xs"
+                    className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white text-xs py-2"
                   >
                     <Globe className="w-3.5 h-3.5 mr-1.5" /> SEO Metadata & Google SERP Preview
                   </TabsTrigger>
@@ -834,13 +944,13 @@ export default function MasterBlogs() {
                           Auto-generate from Title
                         </button>
                       </div>
-                      <div className="flex items-center rounded-md bg-slate-950 border border-slate-800 px-3">
-                        <span className="text-xs text-slate-500 font-mono select-none">https://orbitlms.in/blog/</span>
+                      <div className="flex flex-col sm:flex-row sm:items-center rounded-md bg-slate-950 border border-slate-800 p-2 sm:px-3 gap-1">
+                        <span className="text-[11px] sm:text-xs text-slate-500 font-mono select-none truncate">https://orbitlms.in/blog/</span>
                         <input
                           type="text"
                           value={form.slug}
                           onChange={(e) => setForm({ ...form, slug: generateSlug(e.target.value) })}
-                          className="bg-transparent border-0 text-indigo-400 text-xs font-mono py-2 focus:outline-none flex-1"
+                          className="bg-transparent border-0 text-indigo-400 text-xs font-mono py-1 sm:py-2 focus:outline-none flex-1 w-full"
                           placeholder="slug-url-path"
                           required
                         />

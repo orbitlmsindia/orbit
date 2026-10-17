@@ -686,7 +686,7 @@ export default function UserManagement() {
                   Add Single User
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
+              <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader>
                   <DialogTitle>Add New User</DialogTitle>
                   <DialogDescription>
@@ -847,7 +847,7 @@ export default function UserManagement() {
 
         {/* Reset Password Dialog */}
         <Dialog open={resetPasswordModalOpen} onOpenChange={setResetPasswordModalOpen}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle>Reset Password</DialogTitle>
               <DialogDescription>
@@ -956,7 +956,7 @@ export default function UserManagement() {
         </Tabs>
         {/* User Details Dialog */}
         <Dialog open={viewUserModalOpen} onOpenChange={setViewUserModalOpen}>
-          <DialogContent className="sm:max-w-xl">
+          <DialogContent className="w-[95vw] sm:max-w-xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle>User Details</DialogTitle>
               <DialogDescription>View and manage user information</DialogDescription>
@@ -1181,7 +1181,7 @@ export default function UserManagement() {
 
         {/* Manage Departments Dialog */}
         <Dialog open={deptModalOpen} onOpenChange={setDeptModalOpen}>
-          <DialogContent className="sm:max-w-lg">
+          <DialogContent className="w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Building2 className="h-5 w-5 text-primary" /> Manage Departments

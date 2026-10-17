@@ -2,12 +2,15 @@ import { useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Loader2 } from "lucide-react";
+import AccessDenied from "@/pages/AccessDenied";
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     const [session, setSession] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [isAuthorized, setIsAuthorized] = useState(false);
     const [isCollegeSuspended, setIsCollegeSuspended] = useState(false);
+    const [currentUserRole, setCurrentUserRole] = useState<string>("student");
+    const [requiredRoleName, setRequiredRoleName] = useState<string>("Authorized Role");
     const location = useLocation();
 
     useEffect(() => {
@@ -21,6 +24,7 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
             if (!session && isMasterStaffActive && location.pathname.startsWith('/master')) {
                 if (isMounted) {
                     setSession({ user: { email: "staff@orbitlms.in" } });
+                    setCurrentUserRole("master_staff");
                     setIsAuthorized(true);
                     setLoading(false);
                 }
@@ -57,12 +61,13 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
                     session.user.app_metadata?.user_role ||
                     session.user.user_metadata?.role ||
                     sessionStorage.getItem('userRole') ||
-                    ''
+                    'student'
                 ).toLowerCase();
             }
 
             if (userRole) {
                 sessionStorage.setItem('userRole', userRole);
+                if (isMounted) setCurrentUserRole(userRole);
             }
             if (collegeId) {
                 sessionStorage.setItem('collegeId', collegeId);
@@ -94,15 +99,18 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
             const isAdminRole = userRole === 'admin' || userRole === 'super_admin' || userRole === 'master_admin';
             const isTeacherRole = userRole === 'teacher';
             const isFinanceRole = userRole === 'finance';
+            const isStudentRole = userRole === 'student';
 
             // Authorization check per route prefix
             if (location.pathname.startsWith('/master')) {
+                if (isMounted) setRequiredRoleName("Master SaaS Administrator");
                 if (isMasterRole) {
                     if (isMounted) setIsAuthorized(true);
                 } else {
                     if (isMounted) setIsAuthorized(false);
                 }
             } else if (location.pathname.startsWith('/admin')) {
+                if (isMounted) setRequiredRoleName("Institutional Administrator");
                 if (isAdminRole) {
                     if (isMounted) setIsAuthorized(true);
                 } else {
@@ -123,13 +131,22 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
                     }
                 }
             } else if (location.pathname.startsWith('/finance')) {
+                if (isMounted) setRequiredRoleName("Finance Officer");
                 if (isFinanceRole || isAdminRole) {
                     if (isMounted) setIsAuthorized(true);
                 } else {
                     if (isMounted) setIsAuthorized(false);
                 }
             } else if (location.pathname.startsWith('/teacher')) {
+                if (isMounted) setRequiredRoleName("Teacher / Faculty");
                 if (isTeacherRole || isAdminRole) {
+                    if (isMounted) setIsAuthorized(true);
+                } else {
+                    if (isMounted) setIsAuthorized(false);
+                }
+            } else if (location.pathname.startsWith('/student')) {
+                if (isMounted) setRequiredRoleName("Student / Learner");
+                if (isStudentRole || isAdminRole) {
                     if (isMounted) setIsAuthorized(true);
                 } else {
                     if (isMounted) setIsAuthorized(false);
@@ -157,7 +174,7 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
     if (loading) {
         return (
-            <div className="h-screen w-full flex items-center justify-center">
+            <div className="h-screen w-full flex items-center justify-center bg-slate-950">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
         );
@@ -174,19 +191,15 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
         return <Navigate to="/service-maintenance" replace />;
     }
 
-    // Role-specific redirect for unauthorized route access
+    // Role-specific restriction display
     if (!isAuthorized) {
-        if (location.pathname.startsWith('/master')) {
-            return <Navigate to="/master/login" replace />;
-        }
-        const cachedRole = (sessionStorage.getItem('userRole') || session?.user?.user_metadata?.role || '').toLowerCase();
-        if (cachedRole === 'teacher') {
-            return <Navigate to="/teacher" replace />;
-        }
-        if (cachedRole === 'admin' || cachedRole === 'super_admin' || cachedRole === 'master_admin') {
-            return <Navigate to="/admin" replace />;
-        }
-        return <Navigate to="/student" replace />;
+        return (
+            <AccessDenied
+                requiredRole={requiredRoleName}
+                currentRole={currentUserRole}
+                userEmail={session?.user?.email}
+            />
+        );
     }
 
     return <>{children}</>;

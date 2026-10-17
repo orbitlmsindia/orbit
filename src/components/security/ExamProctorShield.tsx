@@ -308,7 +308,7 @@ export function ExamProctorShield({
     <>
       {/* 1. Pre-Exam Proctoring & Integrity Agreement Modal */}
       <Dialog open={agreementOpen} onOpenChange={() => {}}>
-        <DialogContent className="max-w-lg p-0 overflow-hidden border-2 border-primary/30 shadow-2xl">
+        <DialogContent className="w-[95vw] sm:max-w-lg p-0 border-2 border-primary/30 shadow-2xl max-h-[90vh] overflow-y-auto">
           <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-6 border-b flex items-center gap-3">
             <div className="h-12 w-12 rounded-xl bg-primary/20 text-primary flex items-center justify-center shrink-0 shadow-inner">
               <Shield className="h-6 w-6" />
@@ -379,7 +379,7 @@ export function ExamProctorShield({
 
       {/* 2. Fullscreen Breach Warning Modal */}
       <Dialog open={fullscreenWarningOpen} onOpenChange={() => {}}>
-        <DialogContent className="max-w-md p-6 border-2 border-destructive/50 bg-background shadow-2xl text-center space-y-4">
+        <DialogContent className="w-[95vw] sm:max-w-md p-4 sm:p-6 border-2 border-destructive/50 bg-background shadow-2xl text-center space-y-4 max-h-[90vh] overflow-y-auto">
           <div className="h-16 w-16 rounded-full bg-destructive/10 text-destructive flex items-center justify-center mx-auto animate-pulse">
             <ShieldAlert className="h-8 w-8" />
           </div>

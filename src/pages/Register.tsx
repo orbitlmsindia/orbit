@@ -209,7 +209,7 @@ export default function Register() {
                         </Alert>
                     )}
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="space-y-2">
                             <Label htmlFor="firstName">First Name</Label>
                             <Input
@@ -261,7 +261,7 @@ export default function Register() {
                         </div>
                     )}
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="space-y-2">
                             <Label htmlFor="mobile">10-Digit Mobile Number</Label>
                             <Input

@@ -372,8 +372,87 @@ export default function MasterCourses() {
             </Button>
           </CardHeader>
           <CardContent className="pt-0 px-0">
-            <div className="overflow-x-auto">
-              <Table>
+            {/* Mobile Cards View */}
+            <div className="md:hidden divide-y divide-slate-800">
+              {loading ? (
+                <div className="text-center py-10 text-slate-400 text-sm">
+                  <RefreshCw className="h-5 w-5 animate-spin inline mr-2 text-purple-400" />
+                  Loading courses directory...
+                </div>
+              ) : filteredCourses.length === 0 ? (
+                <div className="text-center py-10 text-slate-400 text-sm">
+                  No courses found matching filters.
+                </div>
+              ) : (
+                filteredCourses.map((c) => {
+                  const collegeName = getCollegeName(c.college_id);
+                  const instructor = getInstructorName(c);
+
+                  return (
+                    <div key={c.id} className="p-4 space-y-3 bg-slate-900/60 hover:bg-slate-800/40">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="space-y-1">
+                          <h4
+                            className="font-bold text-sm text-slate-100 hover:text-purple-400 cursor-pointer leading-snug"
+                            onClick={() => handleOpenCourseDetail(c)}
+                          >
+                            {c.title}
+                          </h4>
+                          <div className="text-xs text-slate-400 font-mono flex flex-wrap items-center gap-1.5">
+                            <span>{c.course_domain || "General Domain"}</span>
+                            {c.duration_hours && <span>• {c.duration_hours}h</span>}
+                          </div>
+                        </div>
+                        <Badge
+                          variant={c.is_published ? "default" : "outline"}
+                          className={`text-[10px] shrink-0 ${
+                            c.is_published
+                              ? "bg-emerald-600 text-white"
+                              : "border-slate-700 text-slate-400"
+                          }`}
+                        >
+                          {c.is_published ? "Published" : "Draft"}
+                        </Badge>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs text-slate-300">
+                        <div className="flex items-center gap-1 truncate">
+                          <Building2 className="h-3 w-3 text-slate-400 shrink-0" />
+                          <span className="truncate">{collegeName}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-slate-400">By:</span> {instructor}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
+                        <div className="flex items-center gap-3">
+                          <span className="font-mono text-xs font-semibold text-indigo-400">
+                            {c.credit_points || 3} Credits
+                          </span>
+                          <span className="font-mono text-xs font-bold text-emerald-400">
+                            {c.price ? `₹${c.price.toLocaleString("en-IN")}` : "Free"}
+                          </span>
+                        </div>
+
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleOpenCourseDetail(c)}
+                          className="h-7 text-xs border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 gap-1 px-3"
+                        >
+                          <Eye className="h-3 w-3 text-purple-400" /> Inspect
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Desktop Table */}
+            <div className="hidden md:block overflow-x-auto">
+              <Table className="min-w-[850px]">
                 <TableHeader className="bg-slate-950/80">
                   <TableRow className="border-slate-800 hover:bg-transparent">
                     <TableHead className="text-slate-300 pl-6">Curriculum Title</TableHead>
@@ -478,7 +557,7 @@ export default function MasterCourses() {
 
       {/* Course Deep Inspection Dialog */}
       <Dialog open={courseModalOpen} onOpenChange={setCourseModalOpen}>
-        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-slate-900 border-slate-800 text-white w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base text-slate-100">
               <BookOpen className="h-5 w-5 text-purple-400" />

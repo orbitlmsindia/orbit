@@ -33,12 +33,14 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PLATFORM_FEATURES, DEFAULT_PLANS } from "@/types/plans";
+import { getRegisteredFeatures, getRegisteredPlans, updateCollegeCustomFeatures } from "@/services/featuresService";
 
 export default function MasterCollegeDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
     const { toast } = useToast();
+    const [allFeatures, setAllFeatures] = useState(() => getRegisteredFeatures());
+    const [allPlans, setAllPlans] = useState(() => getRegisteredPlans());
     const [college, setCollege] = useState<any>(null);
     const [students, setStudents] = useState<any[]>([]);
     const [teachers, setTeachers] = useState<any[]>([]);
@@ -60,6 +62,9 @@ export default function MasterCollegeDetail() {
 
     const fetchDetails = async () => {
         try {
+            setAllFeatures(getRegisteredFeatures());
+            setAllPlans(getRegisteredPlans());
+
             // Load College Meta
             const { data: colData } = await supabase.from('colleges').select('*').eq('id', id).single();
             setCollege(colData);
@@ -67,7 +72,7 @@ export default function MasterCollegeDetail() {
                 setActiveFeatures(
                     Array.isArray(colData.enabled_features)
                         ? colData.enabled_features
-                        : PLATFORM_FEATURES.map(f => f.id)
+                        : getRegisteredFeatures().map(f => f.id)
                 );
                 setCustomMaxStudents(colData.max_students || 1000);
             }
@@ -150,7 +155,7 @@ export default function MasterCollegeDetail() {
     };
 
     const handleApplyPlanPreset = (planId: string) => {
-        const found = DEFAULT_PLANS.find(p => p.id === planId);
+        const found = allPlans.find(p => p.id === planId);
         if (found) {
             setSelectedPlanPreset(planId);
             setActiveFeatures(found.features);
@@ -337,45 +342,47 @@ export default function MasterCollegeDetail() {
             <div className="space-y-6">
                 {/* State Banner */}
                 {!isTurnedOn && (
-                    <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 flex items-center justify-between text-xs">
+                    <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
                         <div className="flex items-center gap-2">
                             <PowerOff className="h-4 w-4 text-amber-400 shrink-0" />
                             <span>
                                 <strong>Service Maintenance Active:</strong> This college is currently turned OFF. All student & faculty accounts attempting to log in will see the Service Maintenance & Customer Care screen.
                             </span>
                         </div>
-                        <Button size="sm" onClick={handleTogglePower} className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold h-7 shrink-0">
+                        <Button size="sm" onClick={handleTogglePower} className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold h-8 shrink-0 w-full sm:w-auto">
                             Turn ON Now
                         </Button>
                     </div>
                 )}
 
                 <Tabs defaultValue="students" className="w-full">
-                    <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 h-auto p-1 bg-slate-900 border border-slate-800 text-slate-400 gap-1">
-                        <TabsTrigger value="students" className="data-[state=active]:bg-slate-800 data-[state=active]:text-white text-xs py-2">
-                            <Users className="w-3.5 h-3.5 mr-1.5 text-emerald-400"/> Students ({students.length})
-                        </TabsTrigger>
-                        <TabsTrigger value="teachers" className="data-[state=active]:bg-slate-800 data-[state=active]:text-white text-xs py-2">
-                            <Shield className="w-3.5 h-3.5 mr-1.5 text-indigo-400"/> Faculty ({teachers.length})
-                        </TabsTrigger>
-                        <TabsTrigger value="courses" className="data-[state=active]:bg-slate-800 data-[state=active]:text-white text-xs py-2">
-                            <BookOpen className="w-3.5 h-3.5 mr-1.5 text-purple-400"/> Courses ({courses.length})
-                        </TabsTrigger>
-                        <TabsTrigger value="enrollments" className="data-[state=active]:bg-slate-800 data-[state=active]:text-white text-xs py-2">
-                            <Activity className="w-3.5 h-3.5 mr-1.5 text-sky-400"/> Enrollments ({enrollments.length})
-                        </TabsTrigger>
-                        <TabsTrigger value="billing" className="data-[state=active]:bg-slate-800 data-[state=active]:text-white text-xs py-2">
-                            <Receipt className="w-3.5 h-3.5 mr-1.5 text-amber-400"/> Invoices ({invoices.length})
-                        </TabsTrigger>
-                        <TabsTrigger value="plan_features" className="data-[state=active]:bg-slate-800 data-[state=active]:text-white text-xs py-2">
-                            <Layers className="w-3.5 h-3.5 mr-1.5 text-cyan-400"/> Plan & Features
-                        </TabsTrigger>
-                    </TabsList>
+                    <div className="w-full overflow-x-auto scrollbar-none pb-1">
+                        <TabsList className="inline-flex min-w-max h-auto p-1 bg-slate-900 border border-slate-800 text-slate-400 gap-1">
+                            <TabsTrigger value="students" className="data-[state=active]:bg-slate-800 data-[state=active]:text-white text-xs py-2 px-3">
+                                <Users className="w-3.5 h-3.5 mr-1.5 text-emerald-400"/> Students ({students.length})
+                            </TabsTrigger>
+                            <TabsTrigger value="teachers" className="data-[state=active]:bg-slate-800 data-[state=active]:text-white text-xs py-2 px-3">
+                                <Shield className="w-3.5 h-3.5 mr-1.5 text-indigo-400"/> Faculty ({teachers.length})
+                            </TabsTrigger>
+                            <TabsTrigger value="courses" className="data-[state=active]:bg-slate-800 data-[state=active]:text-white text-xs py-2 px-3">
+                                <BookOpen className="w-3.5 h-3.5 mr-1.5 text-purple-400"/> Courses ({courses.length})
+                            </TabsTrigger>
+                            <TabsTrigger value="enrollments" className="data-[state=active]:bg-slate-800 data-[state=active]:text-white text-xs py-2 px-3">
+                                <Activity className="w-3.5 h-3.5 mr-1.5 text-sky-400"/> Enrollments ({enrollments.length})
+                            </TabsTrigger>
+                            <TabsTrigger value="billing" className="data-[state=active]:bg-slate-800 data-[state=active]:text-white text-xs py-2 px-3">
+                                <Receipt className="w-3.5 h-3.5 mr-1.5 text-amber-400"/> Invoices ({invoices.length})
+                            </TabsTrigger>
+                            <TabsTrigger value="plan_features" className="data-[state=active]:bg-slate-800 data-[state=active]:text-white text-xs py-2 px-3">
+                                <Layers className="w-3.5 h-3.5 mr-1.5 text-cyan-400"/> Plan & Features
+                            </TabsTrigger>
+                        </TabsList>
+                    </div>
 
                     {/* Students Tab */}
                     <TabsContent value="students" className="mt-4">
                         <Card className="bg-slate-900 border-slate-800 text-white rounded-xl shadow-sm">
-                            <CardHeader className="border-b border-slate-800 pb-3 flex flex-row items-center justify-between">
+                            <CardHeader className="border-b border-slate-800 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                                 <div>
                                     <CardTitle className="text-base text-slate-100">Enrolled Student Directory</CardTitle>
                                     <CardDescription className="text-slate-400 text-xs">Active learner accounts associated with this institution.</CardDescription>
@@ -390,36 +397,38 @@ export default function MasterCollegeDetail() {
                                 </Button>
                             </CardHeader>
                             <CardContent className="pt-2 px-0">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow className="border-slate-800 hover:bg-transparent">
-                                            <TableHead className="text-slate-400 pl-6">Student Name</TableHead>
-                                            <TableHead className="text-slate-400">Email Address</TableHead>
-                                            <TableHead className="text-slate-400">Department</TableHead>
-                                            <TableHead className="text-slate-400 text-right pr-6">Status</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {students.length === 0 ? (
-                                            <TableRow>
-                                                <TableCell colSpan={4} className="text-center py-8 text-slate-400">
-                                                    No students enrolled in this college yet.
-                                                </TableCell>
+                                <div className="overflow-x-auto w-full">
+                                    <Table className="min-w-[600px]">
+                                        <TableHeader>
+                                            <TableRow className="border-slate-800 hover:bg-transparent">
+                                                <TableHead className="text-slate-400 pl-6">Student Name</TableHead>
+                                                <TableHead className="text-slate-400">Email Address</TableHead>
+                                                <TableHead className="text-slate-400">Department</TableHead>
+                                                <TableHead className="text-slate-400 text-right pr-6">Status</TableHead>
                                             </TableRow>
-                                        ) : students.map(s => (
-                                            <TableRow key={s.id} className="border-slate-800 hover:bg-slate-800/40">
-                                                <TableCell className="font-semibold text-slate-100 pl-6">{s.full_name}</TableCell>
-                                                <TableCell className="font-mono text-xs text-slate-300">{s.email}</TableCell>
-                                                <TableCell className="text-xs text-slate-400">{s.department || 'General'}</TableCell>
-                                                <TableCell className="text-right pr-6">
-                                                    <Badge variant={s.status === 'active' ? 'default' : 'outline'} className={s.status === 'active' ? 'bg-emerald-600' : ''}>
-                                                        {s.status || 'Active'}
-                                                    </Badge>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {students.length === 0 ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={4} className="text-center py-8 text-slate-400">
+                                                        No students enrolled in this college yet.
+                                                    </TableCell>
+                                                </TableRow>
+                                            ) : students.map(s => (
+                                                <TableRow key={s.id} className="border-slate-800 hover:bg-slate-800/40">
+                                                    <TableCell className="font-semibold text-slate-100 pl-6">{s.full_name}</TableCell>
+                                                    <TableCell className="font-mono text-xs text-slate-300">{s.email}</TableCell>
+                                                    <TableCell className="text-xs text-slate-400">{s.department || 'General'}</TableCell>
+                                                    <TableCell className="text-right pr-6">
+                                                        <Badge variant={s.status === 'active' ? 'default' : 'outline'} className={s.status === 'active' ? 'bg-emerald-600' : ''}>
+                                                            {s.status || 'Active'}
+                                                        </Badge>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
                             </CardContent>
                         </Card>
                     </TabsContent>
@@ -427,7 +436,7 @@ export default function MasterCollegeDetail() {
                     {/* Faculty Tab */}
                     <TabsContent value="teachers" className="mt-4">
                         <Card className="bg-slate-900 border-slate-800 text-white rounded-xl shadow-sm">
-                            <CardHeader className="border-b border-slate-800 pb-3 flex flex-row items-center justify-between">
+                            <CardHeader className="border-b border-slate-800 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                                 <div>
                                     <CardTitle className="text-base text-slate-100">Faculty & Administrators Directory</CardTitle>
                                     <CardDescription className="text-slate-400 text-xs">Assigned teachers, institutional admins, and finance officers.</CardDescription>
@@ -442,36 +451,38 @@ export default function MasterCollegeDetail() {
                                 </Button>
                             </CardHeader>
                             <CardContent className="pt-2 px-0">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow className="border-slate-800 hover:bg-transparent">
-                                            <TableHead className="text-slate-400 pl-6">Role Privilege</TableHead>
-                                            <TableHead className="text-slate-400">Staff Member</TableHead>
-                                            <TableHead className="text-slate-400">Official Email</TableHead>
-                                            <TableHead className="text-slate-400 text-right pr-6">Department</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {teachers.length === 0 ? (
-                                            <TableRow>
-                                                <TableCell colSpan={4} className="text-center py-8 text-slate-400">
-                                                    No faculty members mapped to this college yet.
-                                                </TableCell>
+                                <div className="overflow-x-auto w-full">
+                                    <Table className="min-w-[600px]">
+                                        <TableHeader>
+                                            <TableRow className="border-slate-800 hover:bg-transparent">
+                                                <TableHead className="text-slate-400 pl-6">Role Privilege</TableHead>
+                                                <TableHead className="text-slate-400">Staff Member</TableHead>
+                                                <TableHead className="text-slate-400">Official Email</TableHead>
+                                                <TableHead className="text-slate-400 text-right pr-6">Department</TableHead>
                                             </TableRow>
-                                        ) : teachers.map(t => (
-                                            <TableRow key={t.id} className="border-slate-800 hover:bg-slate-800/40">
-                                                <TableCell className="pl-6">
-                                                    <Badge variant="outline" className={`font-mono text-xs ${t.role === 'admin' ? 'border-indigo-500/40 text-indigo-400' : 'border-purple-500/40 text-purple-400'}`}>
-                                                        {t.role?.toUpperCase()}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="font-semibold text-slate-100">{t.full_name}</TableCell>
-                                                <TableCell className="font-mono text-xs text-slate-300">{t.email}</TableCell>
-                                                <TableCell className="text-right text-xs text-slate-400 pr-6">{t.department || 'Academic Affairs'}</TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {teachers.length === 0 ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={4} className="text-center py-8 text-slate-400">
+                                                        No faculty members mapped to this college yet.
+                                                    </TableCell>
+                                                </TableRow>
+                                            ) : teachers.map(t => (
+                                                <TableRow key={t.id} className="border-slate-800 hover:bg-slate-800/40">
+                                                    <TableCell className="pl-6">
+                                                        <Badge variant="outline" className={`font-mono text-xs ${t.role === 'admin' ? 'border-indigo-500/40 text-indigo-400' : 'border-purple-500/40 text-purple-400'}`}>
+                                                            {t.role?.toUpperCase()}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell className="font-semibold text-slate-100">{t.full_name}</TableCell>
+                                                    <TableCell className="font-mono text-xs text-slate-300">{t.email}</TableCell>
+                                                    <TableCell className="text-right text-xs text-slate-400 pr-6">{t.department || 'Academic Affairs'}</TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
                             </CardContent>
                         </Card>
                     </TabsContent>
@@ -479,7 +490,7 @@ export default function MasterCollegeDetail() {
                     {/* Courses Tab */}
                     <TabsContent value="courses" className="mt-4">
                         <Card className="bg-slate-900 border-slate-800 text-white rounded-xl shadow-sm">
-                            <CardHeader className="border-b border-slate-800 pb-3 flex flex-row items-center justify-between">
+                            <CardHeader className="border-b border-slate-800 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                                 <div>
                                     <CardTitle className="text-base text-slate-100">Course Curriculum Matrix</CardTitle>
                                     <CardDescription className="text-slate-400 text-xs">Curriculums deployed and assigned to this college instance.</CardDescription>
@@ -494,36 +505,38 @@ export default function MasterCollegeDetail() {
                                 </Button>
                             </CardHeader>
                             <CardContent className="pt-2 px-0">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow className="border-slate-800 hover:bg-transparent">
-                                            <TableHead className="text-slate-400 pl-6">Curriculum Title</TableHead>
-                                            <TableHead className="text-slate-400">Status</TableHead>
-                                            <TableHead className="text-slate-400 text-right pr-6">Deployed On</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {courses.length === 0 ? (
-                                            <TableRow>
-                                                <TableCell colSpan={3} className="text-center py-8 text-slate-400">
-                                                    No courses currently provisioned under this college ID.
-                                                </TableCell>
+                                <div className="overflow-x-auto w-full">
+                                    <Table className="min-w-[500px]">
+                                        <TableHeader>
+                                            <TableRow className="border-slate-800 hover:bg-transparent">
+                                                <TableHead className="text-slate-400 pl-6">Curriculum Title</TableHead>
+                                                <TableHead className="text-slate-400">Status</TableHead>
+                                                <TableHead className="text-slate-400 text-right pr-6">Deployed On</TableHead>
                                             </TableRow>
-                                        ) : courses.map(c => (
-                                            <TableRow key={c.id} className="border-slate-800 hover:bg-slate-800/40">
-                                                <TableCell className="font-semibold text-slate-100 pl-6">{c.title}</TableCell>
-                                                <TableCell>
-                                                    <Badge variant={c.is_published ? 'default' : 'outline'} className={c.is_published ? 'bg-emerald-600' : 'text-slate-400'}>
-                                                        {c.is_published ? 'Published' : 'Draft'}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="text-right font-mono text-xs text-slate-400 pr-6">
-                                                    {c.created_at ? new Date(c.created_at).toLocaleDateString() : 'Active'}
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {courses.length === 0 ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={3} className="text-center py-8 text-slate-400">
+                                                        No courses currently provisioned under this college ID.
+                                                    </TableCell>
+                                                </TableRow>
+                                            ) : courses.map(c => (
+                                                <TableRow key={c.id} className="border-slate-800 hover:bg-slate-800/40">
+                                                    <TableCell className="font-semibold text-slate-100 pl-6">{c.title}</TableCell>
+                                                    <TableCell>
+                                                        <Badge variant={c.is_published ? 'default' : 'outline'} className={c.is_published ? 'bg-emerald-600' : 'text-slate-400'}>
+                                                            {c.is_published ? 'Published' : 'Draft'}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell className="text-right font-mono text-xs text-slate-400 pr-6">
+                                                        {c.created_at ? new Date(c.created_at).toLocaleDateString() : 'Active'}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
                             </CardContent>
                         </Card>
                     </TabsContent>
@@ -531,7 +544,7 @@ export default function MasterCollegeDetail() {
                     {/* Enrollments Tab */}
                     <TabsContent value="enrollments" className="mt-4">
                         <Card className="bg-slate-900 border-slate-800 text-white rounded-xl shadow-sm">
-                            <CardHeader className="border-b border-slate-800 pb-3 flex flex-row items-center justify-between">
+                            <CardHeader className="border-b border-slate-800 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                                 <div>
                                     <CardTitle className="text-base text-slate-100">Enrollment Telemetry</CardTitle>
                                     <CardDescription className="text-slate-400 text-xs">Live course completion and student enrollment records.</CardDescription>
@@ -546,38 +559,40 @@ export default function MasterCollegeDetail() {
                                 </Button>
                             </CardHeader>
                             <CardContent className="pt-2 px-0">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow className="border-slate-800 hover:bg-transparent">
-                                            <TableHead className="text-slate-400 pl-6">Course</TableHead>
-                                            <TableHead className="text-slate-400">Progress</TableHead>
-                                            <TableHead className="text-slate-400 text-right pr-6">Enrollment Status</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {enrollments.length === 0 ? (
-                                            <TableRow>
-                                                <TableCell colSpan={3} className="text-center py-8 text-slate-400">
-                                                    No active course enrollments mapped to this tenant yet.
-                                                </TableCell>
+                                <div className="overflow-x-auto w-full">
+                                    <Table className="min-w-[500px]">
+                                        <TableHeader>
+                                            <TableRow className="border-slate-800 hover:bg-transparent">
+                                                <TableHead className="text-slate-400 pl-6">Course</TableHead>
+                                                <TableHead className="text-slate-400">Progress</TableHead>
+                                                <TableHead className="text-slate-400 text-right pr-6">Enrollment Status</TableHead>
                                             </TableRow>
-                                        ) : enrollments.map(e => (
-                                            <TableRow key={e.id} className="border-slate-800 hover:bg-slate-800/40">
-                                                <TableCell className="font-semibold text-slate-100 pl-6">
-                                                    {Array.isArray(e.course) ? e.course[0]?.title : e.course?.title || 'Course'}
-                                                </TableCell>
-                                                <TableCell className="font-mono text-xs text-emerald-400">
-                                                    {e.progress || 0}% Complete
-                                                </TableCell>
-                                                <TableCell className="text-right pr-6">
-                                                    <Badge variant="outline" className="border-emerald-500/40 text-emerald-400">
-                                                        {e.status?.toUpperCase() || 'APPROVED'}
-                                                    </Badge>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {enrollments.length === 0 ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={3} className="text-center py-8 text-slate-400">
+                                                        No active course enrollments mapped to this tenant yet.
+                                                    </TableCell>
+                                                </TableRow>
+                                            ) : enrollments.map(e => (
+                                                <TableRow key={e.id} className="border-slate-800 hover:bg-slate-800/40">
+                                                    <TableCell className="font-semibold text-slate-100 pl-6">
+                                                        {Array.isArray(e.course) ? e.course[0]?.title : e.course?.title || 'Course'}
+                                                    </TableCell>
+                                                    <TableCell className="font-mono text-xs text-emerald-400">
+                                                        {e.progress || 0}% Complete
+                                                    </TableCell>
+                                                    <TableCell className="text-right pr-6">
+                                                        <Badge variant="outline" className="border-emerald-500/40 text-emerald-400">
+                                                            {e.status?.toUpperCase() || 'APPROVED'}
+                                                        </Badge>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
                             </CardContent>
                         </Card>
                     </TabsContent>
@@ -636,53 +651,55 @@ export default function MasterCollegeDetail() {
                                 <CardDescription className="text-slate-400 text-xs">All invoices generated for this institutional instance.</CardDescription>
                             </CardHeader>
                             <CardContent className="pt-2 px-0">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow className="border-slate-800 hover:bg-transparent">
-                                            <TableHead className="text-slate-400 pl-6">Invoice #</TableHead>
-                                            <TableHead className="text-center text-slate-400">Seats</TableHead>
-                                            <TableHead className="text-right text-slate-400">Demand Amount</TableHead>
-                                            <TableHead className="text-slate-400">Status</TableHead>
-                                            <TableHead className="text-right text-slate-400 pr-6">Action</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {invoices.length === 0 ? (
-                                            <TableRow>
-                                                <TableCell colSpan={5} className="text-center py-8 text-slate-400">
-                                                    No invoices issued for this college yet.
-                                                </TableCell>
+                                <div className="overflow-x-auto w-full">
+                                    <Table className="min-w-[550px]">
+                                        <TableHeader>
+                                            <TableRow className="border-slate-800 hover:bg-transparent">
+                                                <TableHead className="text-slate-400 pl-6">Invoice #</TableHead>
+                                                <TableHead className="text-center text-slate-400">Seats</TableHead>
+                                                <TableHead className="text-right text-slate-400">Demand Amount</TableHead>
+                                                <TableHead className="text-slate-400">Status</TableHead>
+                                                <TableHead className="text-right text-slate-400 pr-6">Action</TableHead>
                                             </TableRow>
-                                        ) : invoices.map(inv => (
-                                            <TableRow key={inv.id} className="border-slate-800 hover:bg-slate-800/40">
-                                                <TableCell className="font-mono text-xs font-semibold text-slate-200 pl-6">{inv.invoice_number}</TableCell>
-                                                <TableCell className="text-center font-mono text-xs text-slate-300">{inv.student_count}</TableCell>
-                                                <TableCell className="text-right font-mono text-xs font-bold text-emerald-400">
-                                                    ₹{inv.total_amount?.toLocaleString('en-IN')}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Badge variant={inv.status === 'paid' ? 'default' : 'outline'} className={inv.status === 'paid' ? 'bg-emerald-600' : 'border-amber-500/40 text-amber-400'}>
-                                                        {inv.status?.toUpperCase()}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="text-right pr-6">
-                                                    <div className="flex justify-end gap-2">
-                                                        {inv.status === 'pending' && (
-                                                            <Button size="sm" variant="outline" className="h-7 text-xs border-emerald-500/40 text-emerald-400 hover:bg-emerald-950/40" onClick={() => markInvoicePaid(inv.id)}>
-                                                                Mark Paid
-                                                            </Button>
-                                                        )}
-                                                        {inv.pdf_url && (
-                                                            <Button size="sm" variant="ghost" className="h-7 text-xs text-slate-300 hover:text-white" onClick={() => window.open(inv.pdf_url, '_blank')}>
-                                                                <Download className="h-3 w-3 mr-1" /> PDF
-                                                            </Button>
-                                                        )}
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {invoices.length === 0 ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={5} className="text-center py-8 text-slate-400">
+                                                        No invoices issued for this college yet.
+                                                    </TableCell>
+                                                </TableRow>
+                                            ) : invoices.map(inv => (
+                                                <TableRow key={inv.id} className="border-slate-800 hover:bg-slate-800/40">
+                                                    <TableCell className="font-mono text-xs font-semibold text-slate-200 pl-6">{inv.invoice_number}</TableCell>
+                                                    <TableCell className="text-center font-mono text-xs text-slate-300">{inv.student_count}</TableCell>
+                                                    <TableCell className="text-right font-mono text-xs font-bold text-emerald-400">
+                                                        ₹{inv.total_amount?.toLocaleString('en-IN')}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Badge variant={inv.status === 'paid' ? 'default' : 'outline'} className={inv.status === 'paid' ? 'bg-emerald-600' : 'border-amber-500/40 text-amber-400'}>
+                                                            {inv.status?.toUpperCase()}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell className="text-right pr-6">
+                                                        <div className="flex justify-end gap-2">
+                                                            {inv.status === 'pending' && (
+                                                                <Button size="sm" variant="outline" className="h-7 text-xs border-emerald-500/40 text-emerald-400 hover:bg-emerald-950/40" onClick={() => markInvoicePaid(inv.id)}>
+                                                                    Mark Paid
+                                                                </Button>
+                                                            )}
+                                                            {inv.pdf_url && (
+                                                                <Button size="sm" variant="ghost" className="h-7 text-xs text-slate-300 hover:text-white" onClick={() => window.open(inv.pdf_url, '_blank')}>
+                                                                    <Download className="h-3 w-3 mr-1" /> PDF
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
                             </CardContent>
                         </Card>
                     </TabsContent>
@@ -771,18 +788,18 @@ export default function MasterCollegeDetail() {
                                     </div>
                                 </div>
 
-                                {/* Granular 12-Module Checklist */}
+                                {/* Granular Platform Feature Checklist */}
                                 <div className="space-y-3 pt-2">
                                     <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                                         <div className="text-xs font-semibold text-slate-200">
-                                            Platform Feature Checklist ({activeFeatures.length}/{PLATFORM_FEATURES.length} Enabled)
+                                            Platform Feature Checklist ({activeFeatures.length}/{allFeatures.length} Enabled)
                                         </div>
                                         <div className="flex gap-2">
                                             <Button
                                                 type="button"
                                                 variant="ghost"
                                                 size="sm"
-                                                onClick={() => setActiveFeatures(PLATFORM_FEATURES.map(f => f.id))}
+                                                onClick={() => setActiveFeatures(allFeatures.map(f => f.id))}
                                                 className="text-xs text-cyan-400 hover:text-cyan-300 h-6 px-2"
                                             >
                                                 Enable All
@@ -800,7 +817,7 @@ export default function MasterCollegeDetail() {
                                     </div>
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                        {PLATFORM_FEATURES.map(feat => {
+                                        {allFeatures.map(feat => {
                                             const isChecked = activeFeatures.includes(feat.id);
                                             return (
                                                 <div

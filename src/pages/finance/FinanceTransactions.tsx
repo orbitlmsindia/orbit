@@ -183,7 +183,7 @@ export default function FinanceTransactions() {
               No transactions match your search filter.
             </div>
           ) : (
-            <Table>
+            <Table className="min-w-[750px]">
               <TableHeader className="bg-slate-950/60">
                 <TableRow className="border-slate-800">
                   <TableHead className="text-slate-300">Transaction ID</TableHead>

@@ -35,7 +35,11 @@ import {
   Bot,
   Wand2,
   Check,
-  RotateCcw
+  RotateCcw,
+  Lightbulb,
+  Brain,
+  Zap,
+  Bookmark
 } from "lucide-react";
 import {
   validateCourseJson,
@@ -46,12 +50,23 @@ import {
   SAMPLE_COURSE_JSON,
   SAMPLE_WEEKLY_MODULE_JSON,
   SAMPLE_QUIZ_JSON,
+  SAMPLE_FLASHCARDS_JSON,
+  SAMPLE_MNEMONICS_JSON,
   validateModuleTimeBudget,
   importQuizFromJson,
   importSectionFromJson,
+  importFlashcardsFromJson,
+  importMnemonicsFromJson,
+  exportCourseToJson,
+  downloadJsonFile,
+  copyJsonToClipboard,
+  exportAllFlashcardDecksToJson,
+  exportAllMnemonicsToJson,
   JsonCoursePayload,
   JsonSection,
   JsonQuiz,
+  JsonFlashcardDeck,
+  JsonMnemonic,
   ValidationError
 } from "@/lib/courseJsonImporter";
 
@@ -59,8 +74,8 @@ export default function JsonCourseBuilder() {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Active Main Builder Mode: 'full-course' | 'ai-generator' | 'module-import' | 'quiz-import'
-  const [builderMode, setBuilderMode] = useState<"full-course" | "ai-generator" | "module-import" | "quiz-import">("full-course");
+  // Active Main Builder Mode: 'full-course' | 'export-course' | 'ai-generator' | 'module-import' | 'quiz-import' | 'flashcards-import' | 'mnemonics-import'
+  const [builderMode, setBuilderMode] = useState<"full-course" | "export-course" | "ai-generator" | "module-import" | "quiz-import" | "flashcards-import" | "mnemonics-import">("full-course");
 
   // Structural Approach: 'weekly' | 'section'
   const [structuringApproach, setStructuringApproach] = useState<"weekly" | "section">("weekly");
@@ -81,6 +96,9 @@ export default function JsonCourseBuilder() {
   const [aiIncludeQuizzes, setAiIncludeQuizzes] = useState(true);
   const [aiIncludeAssignments, setAiIncludeAssignments] = useState(true);
   const [aiIncludeLive, setAiIncludeLive] = useState(true);
+  const [aiIncludeFlashcards, setAiIncludeFlashcards] = useState(true);
+  const [aiIncludeMnemonics, setAiIncludeMnemonics] = useState(true);
+  const [aiIncludeAttendancePolicy, setAiIncludeAttendancePolicy] = useState(true);
 
   // Available Courses for Specific Importers
   const [teacherCourses, setTeacherCourses] = useState<any[]>([]);
@@ -99,6 +117,23 @@ export default function JsonCourseBuilder() {
   const [parsedModule, setParsedModule] = useState<JsonSection | null>(null);
   const [moduleValid, setModuleValid] = useState<boolean | null>(null);
   const [isImportingModule, setIsImportingModule] = useState(false);
+
+  // Flashcards Importer Specific State
+  const [flashcardsJsonText, setFlashcardsJsonText] = useState("");
+  const [parsedFlashcardsDeck, setParsedFlashcardsDeck] = useState<JsonFlashcardDeck | null>(null);
+  const [flashcardsValid, setFlashcardsValid] = useState<boolean | null>(null);
+  const [isImportingFlashcards, setIsImportingFlashcards] = useState(false);
+
+  // Mnemonics Importer Specific State
+  const [mnemonicsJsonText, setMnemonicsJsonText] = useState("");
+  const [parsedMnemonics, setParsedMnemonics] = useState<JsonMnemonic[] | null>(null);
+  const [mnemonicsValid, setMnemonicsValid] = useState<boolean | null>(null);
+  const [isImportingMnemonics, setIsImportingMnemonics] = useState(false);
+
+  // Full Course JSON Exporter State
+  const [exportCourseId, setExportCourseId] = useState<string>("");
+  const [exportedJsonText, setExportedJsonText] = useState<string>("");
+  const [isExportingCourse, setIsExportingCourse] = useState<boolean>(false);
 
   // Template Copy Statuses
   const [copiedTemplate, setCopiedTemplate] = useState<string | null>(null);
@@ -216,6 +251,37 @@ REQUIREMENTS:
          }
        ])` : ""}
      ${aiIncludeAssignments ? 'f) 1 Practical Assignment (type: "assignment", title: "Practical Implementation Task", description: "Build a project...", points: 100)' : ""}
+2. TOP-LEVEL COURSE PEDAGOGY:
+   ${aiIncludeAttendancePolicy ? `- "attendance_policy": { "mandatory_percentage": 75, "exam_clearance_required": true, "total_planned_sessions": 40, "condonation_rules": "75% attendance required to sit for semester examinations." }` : ""}
+   ${aiIncludeFlashcards ? `- "flashcard_decks": [
+       {
+         "title": "${aiTopic} Active Recall Flashcards",
+         "subject": "${aiDomain}",
+         "description": "High-yield revision cards for exam preparation.",
+         "cards": [
+           {
+             "front": "What is the primary concept of ...?",
+             "back": "Comprehensive technical explanation...",
+             "hint": "Brief memory hook",
+             "category": "Core Principle",
+             "difficulty": "medium"
+           }
+         ]
+       }
+     ]` : ""}
+   ${aiIncludeMnemonics ? `- "mnemonics": [
+       {
+         "title": "Essential Memory Hook",
+         "acronym": "P-D-C-A",
+         "phrase": "Plan Do Check Act",
+         "subject": "${aiDomain}",
+         "explanation": "High-yield cognitive memory hook for this curriculum.",
+         "breakdown": [
+           { "letter": "P", "word": "Plan", "meaning": "Formulate objectives and models." }
+         ],
+         "examTip": "Always cite this sequence when addressing architectural questions."
+       }
+     ]` : ""}
 
 JSON SCHEMA EXAMPLE TO FOLLOW:
 {
@@ -228,6 +294,26 @@ JSON SCHEMA EXAMPLE TO FOLLOW:
   "original_price": 3499,
   "organization_name": "Orbit Tech Academy",
   "is_published": true,
+  ${aiIncludeAttendancePolicy ? '"attendance_policy": { "mandatory_percentage": 75, "exam_clearance_required": true, "total_planned_sessions": 40 },' : ""}
+  ${aiIncludeFlashcards ? `"flashcard_decks": [
+    {
+      "title": "${aiTopic} Flashcards",
+      "subject": "${aiDomain}",
+      "cards": [
+        { "front": "What is ...?", "back": "Detailed answer...", "hint": "Clue", "category": "Core", "difficulty": "medium" }
+      ]
+    }
+  ],` : ""}
+  ${aiIncludeMnemonics ? `"mnemonics": [
+    {
+      "title": "Core Mnemonic Hook",
+      "acronym": "A-C-I-D",
+      "phrase": "Atomic Code Is Durable",
+      "subject": "${aiDomain}",
+      "explanation": "Guarantees...",
+      "breakdown": [{ "letter": "A", "word": "Atomicity", "meaning": "All or nothing" }]
+    }
+  ],` : ""}
   "sections": [
     {
       "title": "${structuringApproach === "weekly" ? "Week 1" : "Module 1"}: Foundations",
@@ -303,7 +389,7 @@ Ensure all JSON keys and formatting are 100% syntactically valid JSON. Return ON
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, targetMode: "full" | "module" | "quiz") => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, targetMode: "full" | "module" | "quiz" | "flashcards" | "mnemonics") => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -320,6 +406,12 @@ Ensure all JSON keys and formatting are 100% syntactically valid JSON. Return ON
         } else if (targetMode === "quiz") {
           setQuizJsonText(result);
           validateQuizJson(result);
+        } else if (targetMode === "flashcards") {
+          setFlashcardsJsonText(result);
+          validateFlashcardsJson(result);
+        } else if (targetMode === "mnemonics") {
+          setMnemonicsJsonText(result);
+          validateMnemonicsJson(result);
         }
       }
     };
@@ -403,6 +495,66 @@ Ensure all JSON keys and formatting are 100% syntactically valid JSON. Return ON
       setParsedModule(null);
     }
   };
+
+  const validateFlashcardsJson = (text: string) => {
+    if (!text.trim()) {
+      setFlashcardsValid(null);
+      setParsedFlashcardsDeck(null);
+      return;
+    }
+    try {
+      let clean = text.trim();
+      if (clean.startsWith("```json")) clean = clean.replace(/^```json\s*/, "").replace(/\s*```$/, "");
+      else if (clean.startsWith("```")) clean = clean.replace(/^```\s*/, "").replace(/\s*```$/, "");
+
+      const parsed = JSON.parse(clean);
+      const cards = Array.isArray(parsed) ? parsed : (parsed.cards || parsed.flashcards);
+      if (Array.isArray(cards) && cards.length > 0) {
+        setFlashcardsValid(true);
+        setParsedFlashcardsDeck(Array.isArray(parsed) ? {
+          title: "Custom Flashcard Deck",
+          description: "Curated active recall cards.",
+          subject: "Computer Science",
+          icon: "⚡",
+          color: "from-blue-600 to-indigo-700",
+          cards: cards
+        } : parsed);
+      } else {
+        setFlashcardsValid(false);
+        setParsedFlashcardsDeck(null);
+      }
+    } catch {
+      setFlashcardsValid(false);
+      setParsedFlashcardsDeck(null);
+    }
+  };
+
+  const validateMnemonicsJson = (text: string) => {
+    if (!text.trim()) {
+      setMnemonicsValid(null);
+      setParsedMnemonics(null);
+      return;
+    }
+    try {
+      let clean = text.trim();
+      if (clean.startsWith("```json")) clean = clean.replace(/^```json\s*/, "").replace(/\s*```$/, "");
+      else if (clean.startsWith("```")) clean = clean.replace(/^```\s*/, "").replace(/\s*```$/, "");
+
+      const parsed = JSON.parse(clean);
+      const list = Array.isArray(parsed) ? parsed : (parsed.mnemonics || parsed.items);
+      if (Array.isArray(list) && list.length > 0) {
+        setMnemonicsValid(true);
+        setParsedMnemonics(list);
+      } else {
+        setMnemonicsValid(false);
+        setParsedMnemonics(null);
+      }
+    } catch {
+      setMnemonicsValid(false);
+      setParsedMnemonics(null);
+    }
+  };
+
 
   const handleImport = async () => {
     if (!isValid || !parsedData) {
@@ -493,6 +645,82 @@ Ensure all JSON keys and formatting are 100% syntactically valid JSON. Return ON
     }
   };
 
+  const handleImportFlashcards = async () => {
+    if (!parsedFlashcardsDeck || !flashcardsValid) {
+      toast({ variant: "destructive", title: "Error", description: "Please provide a valid flashcards JSON deck." });
+      return;
+    }
+    setIsImportingFlashcards(true);
+    try {
+      const selectedCourse = teacherCourses.find(c => c.id === selectedCourseId);
+      const res = importFlashcardsFromJson(parsedFlashcardsDeck, selectedCourseId || undefined, selectedCourse?.title || undefined);
+      if (res.success) {
+        toast({
+          title: "Flashcards Deck Imported! 🗂️",
+          description: `Deck "${res.deckTitle}" with ${res.cardsCount} cards is ready for 3D active recall practice.`
+        });
+        setFlashcardsJsonText("");
+        setParsedFlashcardsDeck(null);
+        setFlashcardsValid(null);
+      } else {
+        toast({ variant: "destructive", title: "Import Failed", description: res.error });
+      }
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error", description: err.message });
+    } finally {
+      setIsImportingFlashcards(false);
+    }
+  };
+
+  const handleImportMnemonics = async () => {
+    if (!parsedMnemonics || !mnemonicsValid) {
+      toast({ variant: "destructive", title: "Error", description: "Please provide a valid mnemonics JSON array." });
+      return;
+    }
+    setIsImportingMnemonics(true);
+    try {
+      const selectedCourse = teacherCourses.find(c => c.id === selectedCourseId);
+      const res = importMnemonicsFromJson(parsedMnemonics, selectedCourseId || undefined, selectedCourse?.title || undefined);
+      if (res.success) {
+        toast({
+          title: "Mnemonics Imported! 🧠",
+          description: `Imported ${res.mnemonicsCount} high-yield mnemonic anchors into cognitive memory.`
+        });
+        setMnemonicsJsonText("");
+        setParsedMnemonics(null);
+        setMnemonicsValid(null);
+      } else {
+        toast({ variant: "destructive", title: "Import Failed", description: res.error });
+      }
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error", description: err.message });
+    } finally {
+      setIsImportingMnemonics(false);
+    }
+  };
+
+  const handleExportCourse = async (targetCourseId?: string) => {
+    const cid = targetCourseId || exportCourseId || selectedCourseId;
+    if (!cid) {
+      toast({ variant: "destructive", title: "Error", description: "Please select a course to export." });
+      return;
+    }
+    setIsExportingCourse(true);
+    try {
+      const data = await exportCourseToJson(cid);
+      const formatted = JSON.stringify(data, null, 2);
+      setExportedJsonText(formatted);
+      toast({
+        title: "Course JSON Export Ready! 🚀",
+        description: `Exported "${data.title}" with ${data.sections?.length || 0} modules and all learning items.`
+      });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Export Error", description: err.message });
+    } finally {
+      setIsExportingCourse(false);
+    }
+  };
+
   const stats = parsedData ? computePreviewStats(parsedData) : null;
 
   return (
@@ -503,9 +731,9 @@ Ensure all JSON keys and formatting are 100% syntactically valid JSON. Return ON
             <Sparkles className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="text-3xl font-display font-bold">Orbit Course & Curriculum JSON Importer</h1>
+            <h1 className="text-3xl font-display font-bold">Orbit Course & Curriculum JSON Hub</h1>
             <p className="text-muted-foreground text-sm mt-0.5">
-              Build complete courses, weekly mission modules, or generate with AI using structured JSON templates.
+              Build complete courses, weekly mission modules, or export existing courses to structured JSON.
             </p>
           </div>
         </div>
@@ -539,6 +767,9 @@ Ensure all JSON keys and formatting are 100% syntactically valid JSON. Return ON
             <TabsTrigger value="full-course" className="gap-2 font-bold text-xs px-3 py-1.5">
               <BookOpen className="h-4 w-4" /> Complete Course Importer
             </TabsTrigger>
+            <TabsTrigger value="export-course" className="gap-2 font-bold text-xs px-3 py-1.5 text-emerald-600 dark:text-emerald-400">
+              <Download className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /> Export Course to JSON
+            </TabsTrigger>
             <TabsTrigger value="ai-generator" className="gap-2 font-bold text-xs px-3 py-1.5 text-primary">
               <Bot className="h-4 w-4 text-primary" /> 🤖 AI Master Prompt Generator
             </TabsTrigger>
@@ -547,6 +778,12 @@ Ensure all JSON keys and formatting are 100% syntactically valid JSON. Return ON
             </TabsTrigger>
             <TabsTrigger value="quiz-import" className="gap-2 font-bold text-xs px-3 py-1.5">
               <HelpCircle className="h-4 w-4" /> Specific Quiz Importer
+            </TabsTrigger>
+            <TabsTrigger value="flashcards-import" className="gap-2 font-bold text-xs px-3 py-1.5">
+              <Layers className="h-4 w-4 text-indigo-500" /> Flashcards Deck Importer
+            </TabsTrigger>
+            <TabsTrigger value="mnemonics-import" className="gap-2 font-bold text-xs px-3 py-1.5">
+              <Brain className="h-4 w-4 text-purple-500" /> Mnemonics Hub Importer
             </TabsTrigger>
           </TabsList>
         </div>
@@ -664,36 +901,47 @@ Ensure all JSON keys and formatting are 100% syntactically valid JSON. Return ON
                           </div>
 
                           {stats && (
-                            <div className="grid grid-cols-2 gap-2 text-xs">
-                              <div className="p-3 border rounded-xl bg-background/50 flex items-center gap-2.5">
-                                <BookOpen className="h-4 w-4 text-indigo-500" />
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                              <div className="p-2.5 border rounded-xl bg-background/50 flex items-center gap-2">
+                                <BookOpen className="h-4 w-4 text-indigo-500 shrink-0" />
                                 <div>
                                   <p className="text-[10px] text-muted-foreground">{structuringApproach === "weekly" ? "Weeks / Modules" : "Sections"}</p>
-                                  <p className="text-base font-bold">{stats.sectionCount}</p>
+                                  <p className="text-sm font-bold">{stats.sectionCount}</p>
                                 </div>
                               </div>
-                              <div className="p-3 border rounded-xl bg-background/50 flex items-center gap-2.5">
-                                <Video className="h-4 w-4 text-amber-500" />
+                              <div className="p-2.5 border rounded-xl bg-background/50 flex items-center gap-2">
+                                <Video className="h-4 w-4 text-amber-500 shrink-0" />
                                 <div>
                                   <p className="text-[10px] text-muted-foreground font-medium">Lectures & Media</p>
-                                  <p className="text-base font-bold">{stats.videoCount}</p>
+                                  <p className="text-sm font-bold">{stats.videoCount}</p>
                                 </div>
                               </div>
-                              <div className="p-3 border rounded-xl bg-background/50 flex items-center gap-2.5">
-                                <FileText className="h-4 w-4 text-emerald-500" />
+                              <div className="p-2.5 border rounded-xl bg-background/50 flex items-center gap-2">
+                                <FileText className="h-4 w-4 text-emerald-500 shrink-0" />
                                 <div>
                                   <p className="text-[10px] text-muted-foreground font-medium">Readings & PDFs</p>
-                                  <p className="text-base font-bold">{stats.pdfCount + stats.textCount}</p>
+                                  <p className="text-sm font-bold">{stats.pdfCount + stats.textCount}</p>
                                 </div>
                               </div>
-                              <div className="p-3 border rounded-xl bg-background/50 flex items-center gap-2.5">
-                                <div className="flex items-center gap-1 text-rose-500">
-                                  <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse"></span>
-                                  <HelpCircle className="h-4 w-4 text-rose-500" />
-                                </div>
+                              <div className="p-2.5 border rounded-xl bg-background/50 flex items-center gap-2">
+                                <HelpCircle className="h-4 w-4 text-rose-500 shrink-0" />
                                 <div>
-                                  <p className="text-[10px] text-muted-foreground font-medium">Live & Quizzes</p>
-                                  <p className="text-base font-bold">{stats.liveClassCount} Live / {stats.quizCount} Quiz ({stats.questionCount} Qs)</p>
+                                  <p className="text-[10px] text-muted-foreground font-medium">Quizzes & Live</p>
+                                  <p className="text-sm font-bold">{stats.quizCount}Q ({stats.questionCount}qs) / {stats.liveClassCount}L</p>
+                                </div>
+                              </div>
+                              <div className="p-2.5 border rounded-xl bg-background/50 flex items-center gap-2">
+                                <Layers className="h-4 w-4 text-blue-500 shrink-0" />
+                                <div>
+                                  <p className="text-[10px] text-muted-foreground font-medium">Flashcards Decks</p>
+                                  <p className="text-sm font-bold">{stats.flashcardCount} Cards</p>
+                                </div>
+                              </div>
+                              <div className="p-2.5 border rounded-xl bg-background/50 flex items-center gap-2">
+                                <Brain className="h-4 w-4 text-purple-500 shrink-0" />
+                                <div>
+                                  <p className="text-[10px] text-muted-foreground font-medium">Mnemonics & Rules</p>
+                                  <p className="text-sm font-bold">{stats.mnemonicCount} MNE {stats.hasAttendancePolicy ? "• 75% Slip" : ""}</p>
                                 </div>
                               </div>
                             </div>
@@ -798,6 +1046,121 @@ Ensure all JSON keys and formatting are 100% syntactically valid JSON. Return ON
           </div>
         </TabsContent>
 
+        {/* ─── 1.5 FULL COURSE JSON EXPORTER TAB ─────────────────────── */}
+        <TabsContent value="export-course">
+          <Card className="border border-border bg-card/60 backdrop-blur-md shadow-sm">
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <Download className="h-5 w-5 text-emerald-600" /> Export Course to JSON
+                  </CardTitle>
+                  <CardDescription>
+                    Export complete course curricula, lesson media, quizzes, questions, attendance clearance rules, flashcards, and mnemonics to standardized JSON.
+                  </CardDescription>
+                </div>
+                {exportedJsonText && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        await copyJsonToClipboard(exportedJsonText);
+                        toast({ title: "Copied! 📋", description: "Course JSON copied to clipboard." });
+                      }}
+                      className="gap-1.5 text-xs font-semibold"
+                    >
+                      <Clipboard className="h-3.5 w-3.5" /> Copy JSON
+                    </Button>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => {
+                        const selected = teacherCourses.find(c => c.id === exportCourseId);
+                        const safeTitle = (selected?.title || "course").toLowerCase().replace(/[^a-z0-9]/g, "_");
+                        downloadJsonFile(exportedJsonText, `orbit_course_${safeTitle}.json`);
+                        toast({ title: "Downloaded! 📥", description: `Saved as orbit_course_${safeTitle}.json` });
+                      }}
+                      className="gap-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md"
+                    >
+                      <Download className="h-3.5 w-3.5" /> Download .json
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setJsonText(exportedJsonText);
+                        validateJson(exportedJsonText);
+                        setBuilderMode("full-course");
+                        toast({ title: "Loaded into Importer! 🔄", description: "You can now edit or duplicate this course structure." });
+                      }}
+                      className="gap-1.5 text-xs font-semibold"
+                    >
+                      <Wand2 className="h-3.5 w-3.5 text-primary" /> Edit in Importer
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 max-w-2xl">
+                <div className="space-y-1.5 flex-1">
+                  <Label className="text-xs font-bold">Select Course to Export</Label>
+                  <Select value={exportCourseId} onValueChange={(val) => {
+                    setExportCourseId(val);
+                    handleExportCourse(val);
+                  }}>
+                    <SelectTrigger className="text-xs">
+                      <SelectValue placeholder="Choose a course to generate JSON..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teacherCourses.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  onClick={() => handleExportCourse()}
+                  disabled={!exportCourseId || isExportingCourse}
+                  className="gap-2 font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white shrink-0"
+                >
+                  <Download className="h-4 w-4" />
+                  {isExportingCourse ? "Generating JSON..." : "Fetch & Export Course JSON"}
+                </Button>
+              </div>
+
+              {exportedJsonText ? (
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <FileCode className="h-3.5 w-3.5 text-emerald-600" /> Exported JSON Payload
+                    </span>
+                    <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30 text-[11px]">
+                      Ready for Export & Import
+                    </Badge>
+                  </div>
+                  <Textarea
+                    readOnly
+                    className="min-h-[420px] font-mono text-xs leading-relaxed bg-background/50 border rounded-xl"
+                    value={exportedJsonText}
+                  />
+                </div>
+              ) : (
+                <div className="py-16 text-center border-2 border-dashed rounded-xl flex flex-col items-center justify-center text-muted-foreground space-y-3">
+                  <Download className="h-10 w-10 text-muted-foreground/40" />
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">No course JSON generated yet</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Select any assigned course above and click "Fetch & Export Course JSON" to view the complete payload.</p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         {/* ─── 2. AI MASTER PROMPT GENERATOR TAB ───────────────────────── */}
         <TabsContent value="ai-generator">
           <div className="grid gap-6 lg:grid-cols-5 items-start">
@@ -875,6 +1238,18 @@ Ensure all JSON keys and formatting are 100% syntactically valid JSON. Return ON
                     <div className="flex items-center justify-between">
                       <Label className="cursor-pointer">Include Live Interactive Class Sessions</Label>
                       <Switch checked={aiIncludeLive} onCheckedChange={setAiIncludeLive} />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label className="cursor-pointer">Include Active Recall Flashcard Decks</Label>
+                      <Switch checked={aiIncludeFlashcards} onCheckedChange={setAiIncludeFlashcards} />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label className="cursor-pointer">Include Cognitive Mnemonics & Recall Hooks</Label>
+                      <Switch checked={aiIncludeMnemonics} onCheckedChange={setAiIncludeMnemonics} />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label className="cursor-pointer">Include Institutional Exam Attendance Policy (75% rule)</Label>
+                      <Switch checked={aiIncludeAttendancePolicy} onCheckedChange={setAiIncludeAttendancePolicy} />
                     </div>
                   </div>
 
@@ -1074,6 +1449,276 @@ Ensure all JSON keys and formatting are 100% syntactically valid JSON. Return ON
 
               <Button onClick={handleImportQuiz} disabled={!quizValid || isImportingQuiz || !selectedSectionId} className="gap-2 font-bold">
                 <Play className="h-4 w-4" /> {isImportingQuiz ? "Importing Quiz..." : "Import Quiz into Module"}
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ─── 5. FLASHCARDS DECK IMPORTER TAB ─────────────────────── */}
+        <TabsContent value="flashcards-import">
+          <Card className="border border-border bg-card/60 backdrop-blur-md shadow-sm">
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <Layers className="h-5 w-5 text-indigo-500" /> Flashcards Deck JSON Importer
+                  </CardTitle>
+                  <CardDescription>
+                    Import high-yield active recall flashcard decks with front/back questions, hints, and spaced repetition tags.
+                  </CardDescription>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const text = JSON.stringify(SAMPLE_FLASHCARDS_JSON, null, 2);
+                      setFlashcardsJsonText(text);
+                      validateFlashcardsJson(text);
+                    }}
+                    className="gap-1.5 text-xs font-semibold"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 text-indigo-500" /> Load Sample Deck
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleCopyTemplate(SAMPLE_FLASHCARDS_JSON, "Flashcards Template")}
+                    className="gap-1.5 text-xs font-semibold"
+                  >
+                    <Clipboard className="h-3.5 w-3.5" />
+                    {copiedTemplate === "Flashcards Template" ? "Copied!" : "Copy JSON Template"}
+                  </Button>
+                  <Button variant="outline" size="sm" className="relative cursor-pointer text-xs">
+                    <Upload className="h-3.5 w-3.5 mr-1" /> Upload .json
+                    <input
+                      type="file"
+                      accept=".json"
+                      onChange={(e) => handleFileUpload(e, "flashcards")}
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                    />
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="max-w-md space-y-1.5">
+                <Label className="text-xs font-bold">Attach to Course (Optional)</Label>
+                <Select value={selectedCourseId} onValueChange={setSelectedCourseId}>
+                  <SelectTrigger className="text-xs">
+                    <SelectValue placeholder="Select course (or create platform-wide deck)..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="global">Platform-Wide High-Yield Deck</SelectItem>
+                    {teacherCourses.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold">Flashcards JSON Code</Label>
+                  {flashcardsValid === true && (
+                    <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
+                      <CheckCircle className="h-3.5 w-3.5" /> Valid Deck Payload
+                    </span>
+                  )}
+                  {flashcardsValid === false && (
+                    <span className="text-xs font-bold text-rose-500 flex items-center gap-1">
+                      <XCircle className="h-3.5 w-3.5" /> Invalid JSON or empty cards list
+                    </span>
+                  )}
+                </div>
+                <Textarea
+                  placeholder="Paste Flashcards Deck JSON or cards array here..."
+                  className="min-h-[220px] font-mono text-xs leading-relaxed"
+                  value={flashcardsJsonText}
+                  onChange={(e) => {
+                    setFlashcardsJsonText(e.target.value);
+                    validateFlashcardsJson(e.target.value);
+                  }}
+                />
+              </div>
+
+              {parsedFlashcardsDeck && (
+                <div className="p-4 rounded-xl border bg-muted/20 space-y-3 text-xs">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bold text-foreground flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-emerald-500" /> Deck: {parsedFlashcardsDeck.title || "Custom Deck"}
+                      </h4>
+                      <p className="text-muted-foreground text-[11px] mt-0.5">{parsedFlashcardsDeck.description || "Active recall spaced repetition cards."}</p>
+                    </div>
+                    <Badge variant="outline" className="bg-indigo-500/10 text-indigo-600 border-indigo-500/30">
+                      {parsedFlashcardsDeck.cards?.length || 0} Flashcards
+                    </Badge>
+                  </div>
+                  <div className="max-h-48 overflow-y-auto space-y-2 pt-2 border-t font-mono text-[11px]">
+                    {parsedFlashcardsDeck.cards?.map((c, idx) => (
+                      <div key={idx} className="p-2.5 rounded-lg border bg-card/60 space-y-1">
+                        <div className="flex items-center justify-between font-bold text-foreground">
+                          <span className="text-primary font-mono">Card {idx + 1}: {c.front}</span>
+                          <Badge variant="outline" className="text-[10px] uppercase font-semibold">
+                            {c.difficulty || "medium"}
+                          </Badge>
+                        </div>
+                        <p className="text-muted-foreground text-xs whitespace-pre-line">{c.back}</p>
+                        {c.hint && <p className="text-[10px] text-amber-600 font-sans italic">💡 Hint: {c.hint}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <Button
+                onClick={handleImportFlashcards}
+                disabled={!flashcardsValid || isImportingFlashcards}
+                className="gap-2 font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md"
+              >
+                <Layers className="h-4 w-4" />
+                {isImportingFlashcards ? "Importing Deck..." : "Import Flashcards Deck into System"}
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ─── 6. MNEMONICS HUB IMPORTER TAB ───────────────────────── */}
+        <TabsContent value="mnemonics-import">
+          <Card className="border border-border bg-card/60 backdrop-blur-md shadow-sm">
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <Brain className="h-5 w-5 text-purple-500" /> Cognitive Mnemonics Hub JSON Importer
+                  </CardTitle>
+                  <CardDescription>
+                    Import structured cognitive recall anchors, phonetic sentences, and letter-by-letter concept breakdowns.
+                  </CardDescription>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const text = JSON.stringify(SAMPLE_MNEMONICS_JSON, null, 2);
+                      setMnemonicsJsonText(text);
+                      validateMnemonicsJson(text);
+                    }}
+                    className="gap-1.5 text-xs font-semibold"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 text-purple-500" /> Load Sample Mnemonics
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleCopyTemplate(SAMPLE_MNEMONICS_JSON, "Mnemonics Template")}
+                    className="gap-1.5 text-xs font-semibold"
+                  >
+                    <Clipboard className="h-3.5 w-3.5" />
+                    {copiedTemplate === "Mnemonics Template" ? "Copied!" : "Copy JSON Template"}
+                  </Button>
+                  <Button variant="outline" size="sm" className="relative cursor-pointer text-xs">
+                    <Upload className="h-3.5 w-3.5 mr-1" /> Upload .json
+                    <input
+                      type="file"
+                      accept=".json"
+                      onChange={(e) => handleFileUpload(e, "mnemonics")}
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                    />
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="max-w-md space-y-1.5">
+                <Label className="text-xs font-bold">Attach to Course (Optional)</Label>
+                <Select value={selectedCourseId} onValueChange={setSelectedCourseId}>
+                  <SelectTrigger className="text-xs">
+                    <SelectValue placeholder="Select course (or create platform-wide mnemonics)..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="global">Platform-Wide High-Yield Mnemonics</SelectItem>
+                    {teacherCourses.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold">Mnemonics JSON Code</Label>
+                  {mnemonicsValid === true && (
+                    <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
+                      <CheckCircle className="h-3.5 w-3.5" /> Valid Mnemonics Array
+                    </span>
+                  )}
+                  {mnemonicsValid === false && (
+                    <span className="text-xs font-bold text-rose-500 flex items-center gap-1">
+                      <XCircle className="h-3.5 w-3.5" /> Invalid JSON or empty mnemonics array
+                    </span>
+                  )}
+                </div>
+                <Textarea
+                  placeholder="Paste Mnemonics JSON array with acronyms, phrases, and breakdowns here..."
+                  className="min-h-[220px] font-mono text-xs leading-relaxed"
+                  value={mnemonicsJsonText}
+                  onChange={(e) => {
+                    setMnemonicsJsonText(e.target.value);
+                    validateMnemonicsJson(e.target.value);
+                  }}
+                />
+              </div>
+
+              {parsedMnemonics && (
+                <div className="p-4 rounded-xl border bg-muted/20 space-y-3 text-xs">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-foreground flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-emerald-500" /> Mnemonics Loaded: {parsedMnemonics.length}
+                    </h4>
+                    <Badge variant="outline" className="bg-purple-500/10 text-purple-600 border-purple-500/30">
+                      Cognitive Anchors
+                    </Badge>
+                  </div>
+                  <div className="max-h-56 overflow-y-auto space-y-2 pt-2 border-t font-mono text-[11px]">
+                    {parsedMnemonics.map((m, idx) => (
+                      <div key={idx} className="p-3 rounded-lg border bg-card/60 space-y-1.5 font-sans">
+                        <div className="flex items-center justify-between font-bold">
+                          <span className="text-foreground">{idx + 1}. {m.title}</span>
+                          <Badge variant="secondary" className="font-mono font-bold tracking-wider text-primary">
+                            {m.acronym}
+                          </Badge>
+                        </div>
+                        <p className="text-sm font-semibold text-primary italic font-serif">"{m.phrase}"</p>
+                        {m.explanation && <p className="text-xs text-muted-foreground">{m.explanation}</p>}
+                        {m.breakdown && m.breakdown.length > 0 && (
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 pt-1">
+                            {m.breakdown.map((b, bi) => (
+                              <div key={bi} className="p-1.5 rounded border bg-background/50 text-[10px]">
+                                <span className="font-bold text-primary">{b.letter}:</span> {b.word}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <Button
+                onClick={handleImportMnemonics}
+                disabled={!mnemonicsValid || isImportingMnemonics}
+                className="gap-2 font-bold bg-purple-600 hover:bg-purple-700 text-white shadow-md"
+              >
+                <Brain className="h-4 w-4" />
+                {isImportingMnemonics ? "Importing Mnemonics..." : "Import Mnemonics into Memory Hub"}
               </Button>
             </CardContent>
           </Card>

@@ -50,12 +50,18 @@ const ALL_TABLES = [
     "aura_awards",
     "invoices",
     "attendance",
+    "attendance_policies",
+    "attendance_clearance_records",
+    "flashcard_decks",
+    "flashcards",
+    "mnemonics",
     "daily_quotes",
     "notifications",
     "blogs",
     "job_openings",
     "job_applications",
-    "contact_messages"
+    "contact_messages",
+    "audit_logs"
 ];
 
 // Helper to safely fetch table data or empty array if table doesn't exist
@@ -292,10 +298,16 @@ export async function restoreFullSystemBackup(
         // 8. Gamification & Aura Rewards
         if (tables.aura_awards) await upsertTableData("aura_awards", tables.aura_awards);
 
-        // 9. Operational: Attendance, Daily Quotes, Notifications
+        // 9. Operational: Attendance, Policies, Clearance, Flashcards & Mnemonics
         if (tables.attendance) await upsertTableData("attendance", tables.attendance);
+        if (tables.attendance_policies) await upsertTableData("attendance_policies", tables.attendance_policies);
+        if (tables.attendance_clearance_records) await upsertTableData("attendance_clearance_records", tables.attendance_clearance_records);
+        if (tables.flashcard_decks) await upsertTableData("flashcard_decks", tables.flashcard_decks);
+        if (tables.flashcards) await upsertTableData("flashcards", tables.flashcards);
+        if (tables.mnemonics) await upsertTableData("mnemonics", tables.mnemonics);
         if (tables.daily_quotes) await upsertTableData("daily_quotes", tables.daily_quotes);
         if (tables.notifications) await upsertTableData("notifications", tables.notifications);
+        if (tables.audit_logs) await upsertTableData("audit_logs", tables.audit_logs);
 
         // 10. Public Portals: Blogs, Careers, Inquiries
         if (tables.blogs) await upsertTableData("blogs", tables.blogs);

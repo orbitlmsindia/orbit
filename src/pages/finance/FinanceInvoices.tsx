@@ -212,7 +212,7 @@ export default function FinanceInvoices() {
               No invoices match your search.
             </div>
           ) : (
-            <Table>
+            <Table className="min-w-[700px]">
               <TableHeader className="bg-slate-950/60">
                 <TableRow className="border-slate-800">
                   <TableHead className="text-slate-300">Invoice No.</TableHead>

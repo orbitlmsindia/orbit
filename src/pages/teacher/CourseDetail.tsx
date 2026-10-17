@@ -53,7 +53,10 @@ import {
     importSectionsToExistingCourse,
     normalizeCourseJson,
     validateCourseJson,
-    SAMPLE_COURSE_JSON
+    SAMPLE_COURSE_JSON,
+    exportCourseToJson,
+    downloadJsonFile,
+    copyJsonToClipboard
 } from "@/lib/courseJsonImporter";
 import { MarkdownEditor } from "@/components/ui/MarkdownEditor";
 import { FileJson, Award, UserPlus } from "lucide-react";
@@ -1362,41 +1365,24 @@ ${liveHTML}
         toast({ title: "📚 Textbook PDF Generated!", description: "Use the print dialog to save as PDF." });
     };
 
-    // 📦 Backup Course JSON
-    const handleBackupCourseJSON = () => {
-        if (!course) return;
+    // 📦 Export Complete Course JSON
+    const handleBackupCourseJSON = async () => {
+        if (!course || !id) return;
 
-        const backupPayload = {
-            version: "1.0",
-            exportedAt: new Date().toISOString(),
-            course: {
-                title: course.title,
-                description: course.description,
-                domain: course.domain,
-                credit_points: course.credit_points,
-                objectives: course.objectives,
-                instructions: course.instructions,
-                instructor_intro: course.instructor_intro,
-                exam_policy: course.exam_policy
-            },
-            sections: sections.map(s => ({
-                title: s.title,
-                order_index: s.order_index,
-                items: s.items
-            }))
-        };
+        try {
+            toast({ title: "Generating Course JSON...", description: `Packaging "${course.title}" with curriculum, quizzes, flashcards, and mnemonics.` });
+            const payload = await exportCourseToJson(id);
+            const safeTitle = (course.title || "course").toLowerCase().replace(/[^a-z0-9]/g, "_");
+            downloadJsonFile(payload, `orbit_course_${safeTitle}.json`);
+            await copyJsonToClipboard(payload);
 
-        const jsonStr = JSON.stringify(backupPayload, null, 2);
-        const blob = new Blob([jsonStr], { type: 'application/json' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${course.title.replace(/\s+/g, '_')}_Backup_${new Date().toISOString().slice(0, 10)}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-
-        toast({ title: "Course JSON Backup Exported! 📦", description: "Backup file downloaded to your device." });
+            toast({
+                title: "Course JSON Exported! 📥",
+                description: `Downloaded "orbit_course_${safeTitle}.json" & copied JSON to clipboard.`
+            });
+        } catch (err: any) {
+            toast({ variant: "destructive", title: "Export Error", description: err.message });
+        }
     };
 
     // 📥 Restore Course JSON
@@ -1646,15 +1632,20 @@ ${liveHTML}
                     <Button onClick={handleDownloadCoursePDF} variant="outline" className="gap-1.5 font-bold border-purple-500/40 text-purple-600 dark:text-purple-400 bg-purple-500/10 hover:bg-purple-500/20">
                         <FileText className="h-4 w-4" /> Download PDF Package 📄
                     </Button>
-                    <Button onClick={handleBackupCourseJSON} variant="outline" className="gap-1.5 font-bold border-slate-700">
-                        <Download className="h-4 w-4" /> Backup JSON 📦
+                    <Button onClick={handleBackupCourseJSON} variant="outline" className="gap-1.5 font-bold border-slate-700 hover:bg-slate-800/10 text-emerald-600 dark:text-emerald-400">
+                        <Download className="h-4 w-4" /> Export Course JSON 📤
                     </Button>
                     <label className="cursor-pointer">
                         <input type="file" accept=".json" onChange={handleRestoreCourseJSON} className="hidden" />
                         <Button variant="outline" className="gap-1.5 font-bold border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 pointer-events-none">
-                            <UploadCloud className="h-4 w-4" /> Restore JSON 📥
+                            <UploadCloud className="h-4 w-4" /> Import / Restore JSON 📥
                         </Button>
                     </label>
+                    <Link to={`/teacher/courses/json-builder`}>
+                        <Button variant="outline" className="gap-1.5 font-bold border-primary/40 text-primary bg-primary/10 hover:bg-primary/20">
+                            <Sparkles className="h-4 w-4" /> JSON Course Studio 🪄
+                        </Button>
+                    </Link>
                     <Link to={`/student/courses/${id}/learn`} target="_blank">
                         <Button variant="secondary" className="gap-1.5 font-bold text-primary bg-primary/10 hover:bg-primary/20 border border-primary/30 shadow-xs">
                             <Eye className="h-4 w-4" /> Preview ↗
@@ -1806,7 +1797,7 @@ ${liveHTML}
                                         <Plus className="h-4 w-4" /> {structuringApproach === "weekly" ? "Add Weekly Module" : "Add Section"}
                                     </Button>
                                 </DialogTrigger>
-                                <DialogContent className="sm:max-w-md">
+                                <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                                     <DialogHeader>
                                         <DialogTitle>{structuringApproach === "weekly" ? "Add Weekly Mission Module" : "Add New Section"}</DialogTitle>
                                         <DialogDescription>
@@ -3110,7 +3101,7 @@ ${liveHTML}
 
             {/* 📋 Live Class Attendance Modal */}
             <Dialog open={!!attendanceClassModal} onOpenChange={(open) => !open && setAttendanceClassModal(null)}>
-                <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+                <DialogContent className="w-[95vw] sm:max-w-3xl max-h-[85vh] overflow-y-auto p-4 sm:p-6">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2 text-xl font-bold">
                             <CheckSquare className="h-5 w-5 text-emerald-500" />
@@ -3296,13 +3287,14 @@ function AddContentDialog({ sectionId, onSuccess }: { sectionId: string, onSucce
                     <Plus className="h-3.5 w-3.5" /> Add Content
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="w-[95vw] sm:max-w-xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader>
                     <DialogTitle>Add Content to Module</DialogTitle>
                     <DialogDescription>Choose content type and allocate time duration.</DialogDescription>
                 </DialogHeader>
                 <Tabs value={type} onValueChange={(v: any) => setType(v)} className="w-full">
-                    <TabsList className="grid w-full grid-cols-6 mb-4">
+                    <div className="w-full overflow-x-auto scrollbar-none pb-1">
+                        <TabsList className="inline-flex min-w-max mb-4">
                         <TabsTrigger value="video">Video</TabsTrigger>
                         <TabsTrigger value="presentation">Presentation</TabsTrigger>
                         <TabsTrigger value="pdf">PDF / Doc</TabsTrigger>
@@ -3310,6 +3302,7 @@ function AddContentDialog({ sectionId, onSuccess }: { sectionId: string, onSucce
                         <TabsTrigger value="quiz">Quiz</TabsTrigger>
                         <TabsTrigger value="assignment">Assignment</TabsTrigger>
                     </TabsList>
+                    </div>
 
                     <div className="space-y-4 py-2">
                         <div className="grid grid-cols-3 gap-3">
@@ -3719,7 +3712,7 @@ function ImportSectionsDialog({ courseId, structuringApproach = "weekly", onSucc
                     <Sparkles className="h-4 w-4" /> {structuringApproach === "weekly" ? "Import Weekly JSON" : "Import Section JSON"}
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="w-[95vw] sm:max-w-xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <Sparkles className="h-5 w-5 text-primary" /> {structuringApproach === "weekly" ? "Import Weekly Mission Modules via JSON" : "Import Sections via JSON"}
@@ -3845,7 +3838,7 @@ function EditSectionDialog({ section, onSuccess, open, onOpenChange }: { section
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader>
                     <DialogTitle>Edit Section & ✨ Aura Points</DialogTitle>
                 </DialogHeader>
@@ -3949,7 +3942,7 @@ function EditItemDialog({ item, onSuccess, open, onOpenChange }: { item: any | n
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogContent className="w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader>
                     <DialogTitle>Edit {item.itemType === 'assignment' ? (item.type === 'quiz' ? 'Quiz' : 'Assignment') : item.type.toUpperCase()}</DialogTitle>
                 </DialogHeader>
@@ -4062,7 +4055,7 @@ function EditLiveClassDialog({ liveClass, open, onOpenChange, onSave }: {
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <Pencil className="h-4 w-4" /> Edit Live Class Session

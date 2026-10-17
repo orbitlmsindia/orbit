@@ -80,9 +80,9 @@ export default function MasterAnalytics() {
             headerTitle="Global SaaS Analytics"
             headerDescription="Real-time multi-tenant acquisition curves, student growth, and curriculum popularity."
             action={
-                <div className="flex gap-3 items-center">
+                <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center w-full sm:w-auto">
                     <Select value={timeframe} onValueChange={(val: any) => setTimeframe(val)}>
-                        <SelectTrigger className="w-[130px] bg-slate-900 border-slate-700 text-slate-100 hover:bg-slate-800">
+                        <SelectTrigger className="w-full sm:w-[130px] bg-slate-900 border-slate-700 text-slate-100 hover:bg-slate-800">
                             <SelectValue placeholder="Timeframe" />
                         </SelectTrigger>
                         <SelectContent className="bg-slate-900 border-slate-800 text-slate-100">
@@ -92,7 +92,7 @@ export default function MasterAnalytics() {
                     </Select>
 
                     <Select value={selectedCollege} onValueChange={setSelectedCollege}>
-                        <SelectTrigger className="w-[220px] bg-slate-900 border-slate-700 text-slate-100 hover:bg-slate-800">
+                        <SelectTrigger className="w-full sm:w-[220px] bg-slate-900 border-slate-700 text-slate-100 hover:bg-slate-800">
                             <SelectValue placeholder="Filter by Tenant" />
                         </SelectTrigger>
                         <SelectContent className="bg-slate-900 border-slate-800 text-slate-100">

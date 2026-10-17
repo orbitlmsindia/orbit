@@ -30,6 +30,8 @@ import {
     Sparkles
 } from "lucide-react";
 import { AwardAuraPointsModal, AwardAuraStudent } from "@/components/gamification/AwardAuraPointsModal";
+import { StudentAttendanceDossierModal, StudentDossierData } from "@/components/attendance/StudentAttendanceDossierModal";
+import { ExamAttendanceSlipModal, ExamSlipData } from "@/components/attendance/ExamAttendanceSlipModal";
 
 export default function AdminCourseDetail() {
     const { id } = useParams();
@@ -42,6 +44,10 @@ export default function AdminCourseDetail() {
     const [enrollments, setEnrollments] = useState<any[]>([]);
     const [auraModalOpen, setAuraModalOpen] = useState(false);
     const [selectedAuraStudent, setSelectedAuraStudent] = useState<AwardAuraStudent | null>(null);
+    const [dossierModalOpen, setDossierModalOpen] = useState(false);
+    const [selectedDossierData, setSelectedDossierData] = useState<StudentDossierData | null>(null);
+    const [examSlipModalOpen, setExamSlipModalOpen] = useState(false);
+    const [selectedExamSlipData, setSelectedExamSlipData] = useState<ExamSlipData | null>(null);
 
     useEffect(() => {
         if (id) fetchCourseData();
@@ -612,24 +618,71 @@ export default function AdminCourseDetail() {
                                                     {enrollment.status === 'rejected' ? "Declined" : (enrollment.completed ? "Completed" : "Active")}
                                                 </Badge>
                                                 {enrollment.status !== 'rejected' && (
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        onClick={() => {
-                                                            setSelectedAuraStudent({
-                                                                id: enrollment.student?.id || enrollment.student_id,
-                                                                full_name: enrollment.student?.full_name,
-                                                                email: enrollment.student?.email,
-                                                                avatar_url: enrollment.student?.avatar_url,
-                                                                aura_points: enrollment.student?.aura_points || 0
-                                                            });
-                                                            setAuraModalOpen(true);
-                                                        }}
-                                                        className="gap-1.5 border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 font-bold text-xs"
-                                                        title="Award Aura Points (Admin)"
-                                                    >
-                                                        <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Award Aura ✨
-                                                    </Button>
+                                                    <>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            onClick={() => {
+                                                                setSelectedDossierData({
+                                                                    studentId: enrollment.student?.id || enrollment.student_id,
+                                                                    studentName: enrollment.student?.full_name || "Student",
+                                                                    studentEmail: enrollment.student?.email || "",
+                                                                    studentAvatar: enrollment.student?.avatar_url,
+                                                                    courseId: course?.id,
+                                                                    courseTitle: course?.title || "Course",
+                                                                    mentorName: course?.teacher?.full_name || "Course Mentor",
+                                                                    collegeName: course?.organization_name || "Orbit Institute",
+                                                                    parentName: `Parent / Guardian of ${enrollment.student?.full_name || 'Student'}`
+                                                                });
+                                                                setDossierModalOpen(true);
+                                                            }}
+                                                            className="gap-1.5 border-primary/30 text-primary hover:bg-primary/10 font-bold text-xs"
+                                                            title="Export Attendance Dossier for Student & Parent"
+                                                        >
+                                                            <FileText className="h-3.5 w-3.5" /> Dossier 📋
+                                                        </Button>
+
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            onClick={() => {
+                                                                setSelectedExamSlipData({
+                                                                    studentId: enrollment.student?.id || enrollment.student_id,
+                                                                    studentName: enrollment.student?.full_name || "Student",
+                                                                    studentEmail: enrollment.student?.email || "",
+                                                                    avatarUrl: enrollment.student?.avatar_url,
+                                                                    courseId: course?.id,
+                                                                    courseTitle: course?.title || "Course",
+                                                                    mentorName: course?.teacher?.full_name || "Course Mentor",
+                                                                    collegeName: course?.organization_name || "Orbit Institute"
+                                                                });
+                                                                setExamSlipModalOpen(true);
+                                                            }}
+                                                            className="gap-1 border-indigo-500/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 font-bold text-xs"
+                                                            title="Issue Examination Admit Slip & Attendance Clearance"
+                                                        >
+                                                            <span>Admit Slip 🎫</span>
+                                                        </Button>
+
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            onClick={() => {
+                                                                setSelectedAuraStudent({
+                                                                    id: enrollment.student?.id || enrollment.student_id,
+                                                                    full_name: enrollment.student?.full_name,
+                                                                    email: enrollment.student?.email,
+                                                                    avatar_url: enrollment.student?.avatar_url,
+                                                                    aura_points: enrollment.student?.aura_points || 0
+                                                                });
+                                                                setAuraModalOpen(true);
+                                                            }}
+                                                            className="gap-1.5 border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 font-bold text-xs"
+                                                            title="Award Aura Points (Admin)"
+                                                        >
+                                                            <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Award Aura ✨
+                                                        </Button>
+                                                    </>
                                                 )}
                                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive ml-1" onClick={() => handleDeleteEnrollment(enrollment.id)} title="Remove Student">
                                                     <Trash2 className="h-4 w-4" />
@@ -660,6 +713,22 @@ export default function AdminCourseDetail() {
                 student={selectedAuraStudent}
                 course={course ? { id: course.id, title: course.title, domain: course.domain } : null}
                 onSuccess={fetchCourseData}
+            />
+
+            {/* 📋 Official Student & Parent Attendance Dossier Modal */}
+            <StudentAttendanceDossierModal
+                open={dossierModalOpen}
+                onOpenChange={setDossierModalOpen}
+                dossierData={selectedDossierData}
+                userRole="admin"
+            />
+
+            {/* 🎫 Official Examination Hall Ticket & Attendance Clearance Slip Modal */}
+            <ExamAttendanceSlipModal
+                open={examSlipModalOpen}
+                onOpenChange={setExamSlipModalOpen}
+                slipData={selectedExamSlipData}
+                userRole="admin"
             />
         </AdminLayout>
     );
@@ -765,7 +834,7 @@ function AddContentDialog({ sectionId, onAdded }: { sectionId: string, onAdded: 
             <DialogTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2"><Plus className="h-3 w-3" /> Add Lesson</Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader>
                     <DialogTitle>Add Lesson Content</DialogTitle>
                 </DialogHeader>

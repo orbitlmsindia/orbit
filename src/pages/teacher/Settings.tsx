@@ -39,6 +39,7 @@ import { useTheme } from "@/components/theme-provider";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 import { useNavigate } from "react-router-dom";
+import { ThemeSelectorGrid } from "@/components/theme/ThemeSelectorGrid";
 
 export default function TeacherSettings() {
     const navigate = useNavigate();
@@ -1071,6 +1072,24 @@ export default function TeacherSettings() {
                                 <Button onClick={handleSaveQuote} disabled={loadingQuote} className="gap-2">
                                     <Save className="h-4 w-4" /> {loadingQuote ? "Saving..." : "Save Quote"}
                                 </Button>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    {/* Appearance Tab */}
+                    <TabsContent value="appearance">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-xl font-bold flex items-center gap-2">
+                                    <Palette className="h-5 w-5 text-primary" />
+                                    Instructor Theme Studio & Visual Customization
+                                </CardTitle>
+                                <CardDescription>
+                                    Personalize your educator workspace across 10 custom visual themes using ⚡ Orbit Flux.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="pt-2">
+                                <ThemeSelectorGrid userRole="teacher" />
                             </CardContent>
                         </Card>
                     </TabsContent>

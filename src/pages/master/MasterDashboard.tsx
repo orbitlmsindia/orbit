@@ -494,7 +494,7 @@ _Orbit LMS Enterprise Multi-Tenant Cloud Platform_`;
 
         {/* Live Tenant Registry & Instant Kill-Switch Matrix */}
         <Card className="bg-slate-900 border-slate-800 text-white rounded-xl shadow-sm overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-slate-800">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
             <div>
               <CardTitle className="text-base text-slate-100 flex items-center gap-2">
                 <Building2 className="h-5 w-5 text-indigo-400" />
@@ -504,7 +504,7 @@ _Orbit LMS Enterprise Multi-Tenant Cloud Platform_`;
                 Real-time active colleges. Toggle the switch to instantly turn ON or OFF service maintenance for any college.
               </CardDescription>
             </div>
-            <Button asChild size="sm" variant="ghost" className="text-xs text-emerald-400 hover:text-emerald-300 hover:bg-slate-800">
+            <Button asChild size="sm" variant="ghost" className="text-xs text-emerald-400 hover:text-emerald-300 hover:bg-slate-800 self-start sm:self-auto">
               <Link to="/master/colleges">
                 View Full Engine <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
               </Link>
@@ -512,126 +512,227 @@ _Orbit LMS Enterprise Multi-Tenant Cloud Platform_`;
           </CardHeader>
 
           <CardContent className="pt-2 px-0 overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-slate-800 hover:bg-transparent">
-                  <TableHead className="text-slate-400 pl-6">Institution & Contact</TableHead>
-                  <TableHead className="text-slate-400">Subdomain</TableHead>
-                  <TableHead className="text-slate-400 text-center">Student Capacity</TableHead>
-                  <TableHead className="text-slate-400 text-center">Expiry / Cycle</TableHead>
-                  <TableHead className="text-slate-400 text-center">Platform Switch</TableHead>
-                  <TableHead className="text-slate-400 text-right pr-6">Quick Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-slate-400">
-                      Loading live tenant registry...
-                    </TableCell>
+            {/* Desktop Table View */}
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-slate-800 hover:bg-transparent">
+                    <TableHead className="text-slate-400 pl-6">Institution & Contact</TableHead>
+                    <TableHead className="text-slate-400">Subdomain</TableHead>
+                    <TableHead className="text-slate-400 text-center">Student Capacity</TableHead>
+                    <TableHead className="text-slate-400 text-center">Expiry / Cycle</TableHead>
+                    <TableHead className="text-slate-400 text-center">Platform Switch</TableHead>
+                    <TableHead className="text-slate-400 text-right pr-6">Quick Actions</TableHead>
                   </TableRow>
-                ) : collegesList.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-slate-400">
-                      No tenant institutions found.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  collegesList.map((col) => {
-                    const sub = col.email?.split("@")[0] || col.name.toLowerCase().replace(/[^a-z0-9]/g, "");
-                    const isTurnedOn = col.activation_status !== false;
-                    const isToggling = togglingId === col.id;
+                </TableHeader>
 
-                    const expiryDateFormatted = col.subscription_expiry_date
-                      ? new Date(col.subscription_expiry_date).toLocaleDateString("en-IN", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })
-                      : "Active 30d";
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8 text-slate-400">
+                        Loading live tenant registry...
+                      </TableCell>
+                    </TableRow>
+                  ) : collegesList.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8 text-slate-400">
+                        No tenant institutions found.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    collegesList.map((col) => {
+                      const sub = col.email?.split("@")[0] || col.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+                      const isTurnedOn = col.activation_status !== false;
+                      const isToggling = togglingId === col.id;
 
-                    return (
-                      <TableRow key={col.id} className="border-slate-800 hover:bg-slate-800/40">
-                        <TableCell className="font-semibold text-slate-100 pl-6">
-                          <div>
-                            <p className="text-sm font-semibold text-white">{col.name}</p>
-                            <p className="text-xs text-slate-400">
-                              {col.contact_person || "Registrar"} • {col.phone || "No phone"}
-                            </p>
-                          </div>
-                        </TableCell>
+                      const expiryDateFormatted = col.subscription_expiry_date
+                        ? new Date(col.subscription_expiry_date).toLocaleDateString("en-IN", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })
+                        : "Active 30d";
 
-                        <TableCell className="font-mono text-xs text-slate-400">
-                          {sub}.orbitlms.edu.in
-                        </TableCell>
+                      return (
+                        <TableRow key={col.id} className="border-slate-800 hover:bg-slate-800/40">
+                          <TableCell className="font-semibold text-slate-100 pl-6">
+                            <div>
+                              <p className="text-sm font-semibold text-white">{col.name}</p>
+                              <p className="text-xs text-slate-400">
+                                {col.contact_person || "Registrar"} • {col.phone || "No phone"}
+                              </p>
+                            </div>
+                          </TableCell>
 
-                        <TableCell className="text-center font-mono text-xs text-slate-200">
-                          {col.max_students || 1000} Seats
-                        </TableCell>
+                          <TableCell className="font-mono text-xs text-slate-400">
+                            {sub}.orbitlms.edu.in
+                          </TableCell>
 
-                        <TableCell className="text-center font-mono text-xs text-slate-300">
-                          <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700">
-                            {expiryDateFormatted}
+                          <TableCell className="text-center font-mono text-xs text-slate-200">
+                            {col.max_students || 1000} Seats
+                          </TableCell>
+
+                          <TableCell className="text-center font-mono text-xs text-slate-300">
+                            <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700">
+                              {expiryDateFormatted}
+                            </span>
+                          </TableCell>
+
+                          {/* Direct Turn ON/OFF Switch */}
+                          <TableCell className="text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              <Switch
+                                checked={isTurnedOn}
+                                disabled={isToggling}
+                                onCheckedChange={() => handleToggleActivation(col)}
+                                className="data-[state=checked]:bg-emerald-600 data-[state=unchecked]:bg-rose-600"
+                              />
+                              <Badge
+                                variant={isTurnedOn ? "default" : "destructive"}
+                                className={`text-[10px] font-bold ${
+                                  isTurnedOn
+                                    ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                                    : "bg-rose-500/20 text-rose-400 border-rose-500/30"
+                                }`}
+                              >
+                                {isTurnedOn ? "ON" : "MAINTENANCE"}
+                              </Badge>
+                            </div>
+                          </TableCell>
+
+                          <TableCell className="text-right pr-6">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {/* Official Institutional Purchasing & Subscription Reminder */}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setSelectedCollegeForReminder(col);
+                                  setReminderModalOpen(true);
+                                }}
+                                title="Dispatch Purchasing & Subscription Reminder"
+                                className="h-8 px-2 text-xs text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 font-medium"
+                              >
+                                <MessageSquare className="h-3.5 w-3.5 mr-1 text-amber-400" />
+                                Send Reminder
+                              </Button>
+
+                              {/* Deep Dive into College Details */}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => navigate(`/master/colleges/${col.id}`)}
+                                className="h-8 px-2 text-xs text-slate-300 hover:text-white hover:bg-slate-800"
+                              >
+                                Deep Dive <ArrowUpRight className="ml-1 h-3.5 w-3.5 text-sky-400" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Mobile Tenant Cards View */}
+            <div className="grid grid-cols-1 gap-3 md:hidden p-4">
+              {loading ? (
+                <div className="text-center py-8 text-slate-400 text-sm">Loading live tenant registry...</div>
+              ) : collegesList.length === 0 ? (
+                <div className="text-center py-8 text-slate-400 text-sm">No tenant institutions found.</div>
+              ) : (
+                collegesList.map((col) => {
+                  const sub = col.email?.split("@")[0] || col.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+                  const isTurnedOn = col.activation_status !== false;
+                  const isToggling = togglingId === col.id;
+
+                  const expiryDateFormatted = col.subscription_expiry_date
+                    ? new Date(col.subscription_expiry_date).toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })
+                    : "Active 30d";
+
+                  return (
+                    <div key={col.id} className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <h4 className="font-semibold text-white text-base">{col.name}</h4>
+                          <p className="text-xs text-slate-400 font-mono mt-0.5">{sub}.orbitlms.edu.in</p>
+                          <p className="text-[11px] text-slate-400 mt-1">
+                            {col.contact_person || "Registrar"} • {col.phone || "No phone"}
+                          </p>
+                        </div>
+                        <Badge
+                          variant={isTurnedOn ? "default" : "destructive"}
+                          className={`text-[10px] font-bold ${
+                            isTurnedOn
+                              ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 shrink-0"
+                              : "bg-rose-500/20 text-rose-400 border-rose-500/30 shrink-0"
+                          }`}
+                        >
+                          {isTurnedOn ? "ON" : "MAINTENANCE"}
+                        </Badge>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs font-mono bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80">
+                        <div>
+                          <span className="text-[10px] text-slate-400 block font-sans">Capacity:</span>
+                          <span className="font-semibold text-white">{col.max_students || 1000} Seats</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 block font-sans">Cycle Expiry:</span>
+                          <span className="text-slate-300">{expiryDateFormatted}</span>
+                        </div>
+                      </div>
+
+                      {/* Power Switch on Mobile */}
+                      <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-900/40 border border-slate-800">
+                        <span className="text-xs font-semibold text-slate-300">Platform Switch</span>
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={isTurnedOn}
+                            disabled={isToggling}
+                            onCheckedChange={() => handleToggleActivation(col)}
+                            className="data-[state=checked]:bg-emerald-600 data-[state=unchecked]:bg-rose-600"
+                          />
+                          <span className="text-xs font-bold font-mono text-slate-200">
+                            {isTurnedOn ? "Active" : "Off"}
                           </span>
-                        </TableCell>
+                        </div>
+                      </div>
 
-                        {/* Direct Turn ON/OFF Switch */}
-                        <TableCell className="text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <Switch
-                              checked={isTurnedOn}
-                              disabled={isToggling}
-                              onCheckedChange={() => handleToggleActivation(col)}
-                              className="data-[state=checked]:bg-emerald-600 data-[state=unchecked]:bg-rose-600"
-                            />
-                            <Badge
-                              variant={isTurnedOn ? "default" : "destructive"}
-                              className={`text-[10px] font-bold ${
-                                isTurnedOn
-                                  ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-                                  : "bg-rose-500/20 text-rose-400 border-rose-500/30"
-                              }`}
-                            >
-                              {isTurnedOn ? "ON" : "MAINTENANCE"}
-                            </Badge>
-                          </div>
-                        </TableCell>
-
-                        <TableCell className="text-right pr-6">
-                          <div className="flex items-center justify-end gap-1.5">
-                            {/* Official Institutional Purchasing & Subscription Reminder */}
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => {
-                                setSelectedCollegeForReminder(col);
-                                setReminderModalOpen(true);
-                              }}
-                              title="Dispatch Purchasing & Subscription Reminder"
-                              className="h-8 px-2 text-xs text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 font-medium"
-                            >
-                              <MessageSquare className="h-3.5 w-3.5 mr-1 text-amber-400" />
-                              Send Reminder
-                            </Button>
-
-                            {/* Deep Dive into College Details */}
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => navigate(`/master/colleges/${col.id}`)}
-                              className="h-8 px-2 text-xs text-slate-300 hover:text-white hover:bg-slate-800"
-                            >
-                              Deep Dive <ArrowUpRight className="ml-1 h-3.5 w-3.5 text-sky-400" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
+                      {/* Quick Actions */}
+                      <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-800/80">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setSelectedCollegeForReminder(col);
+                            setReminderModalOpen(true);
+                          }}
+                          className="h-8 px-2 text-xs text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 font-medium"
+                        >
+                          <MessageSquare className="h-3.5 w-3.5 mr-1 text-amber-400" />
+                          Reminder
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => navigate(`/master/colleges/${col.id}`)}
+                          className="h-8 px-2.5 text-xs text-slate-200 hover:text-white hover:bg-slate-800"
+                        >
+                          Deep Dive <ArrowUpRight className="ml-1 h-3.5 w-3.5 text-sky-400" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>

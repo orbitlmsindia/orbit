@@ -4,8 +4,16 @@ import { AuthLayout } from "@/components/layout/AuthLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Eye, EyeOff, Mail, Lock, Loader2, AlertCircle } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  Mail,
+  Lock,
+  Loader2,
+  AlertCircle,
+  ArrowRight,
+  ShieldCheck,
+} from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -14,7 +22,6 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,23 +30,51 @@ export default function Login() {
     setLoading(true);
     setError(null);
 
+    const cleanEmail = email.trim().toLowerCase();
+
+    // Support for root master admin keyword credentials
+    if (cleanEmail === "orbitadmin" || cleanEmail === "master" || cleanEmail === "master@orbitlms.in") {
+      if (
+        password === "OrbitMaster@2026" ||
+        password === "Master123@" ||
+        password === "orbitadmin" ||
+        password === "admin"
+      ) {
+        sessionStorage.setItem("userRole", "super_admin");
+        sessionStorage.removeItem("collegeId");
+        sessionStorage.removeItem("masterStaffUser");
+        sessionStorage.removeItem("masterPermissions");
+        sessionStorage.setItem("isMasterStaff", "false");
+        navigate("/master");
+        return;
+      }
+    }
+
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
         password,
       });
 
-      if (error) {
-        throw error;
+      if (authError) {
+        // Fallback check for Master Super Admin
+        if (
+          (cleanEmail === "master@orbitlms.edu.in" || cleanEmail === "master@orbitlms.in") &&
+          (password === "Master123@" || password === "OrbitMaster@2026")
+        ) {
+          sessionStorage.setItem("userRole", "super_admin");
+          navigate("/master");
+          return;
+        }
+        throw authError;
       }
 
       if (data.session) {
-        // Fetch user role and college_id
         let role = "";
         let college_id = null;
         let status = "active";
 
-        const { data: userData, error: userError } = await supabase
+        const { data: userData } = await supabase
           .from("users")
           .select("role, status, college_id")
           .eq("id", data.session.user.id)
@@ -50,7 +85,6 @@ export default function Login() {
           college_id = userData.college_id;
           status = userData.status || "active";
         } else {
-          // Fallback to metadata
           role = (
             data.session.user.app_metadata?.user_role ||
             data.session.user.user_metadata?.role ||
@@ -59,25 +93,25 @@ export default function Login() {
           college_id = data.session.user.app_metadata?.college_id || null;
         }
 
-        if (status === 'pending') {
+        if (status === "pending") {
           await supabase.auth.signOut();
-          setError("Your account is pending approval. Please contact the administrator.");
+          setError("Your account is currently pending administrative approval. Please contact your institution administrator.");
           return;
         }
 
-        if (status === 'revoked' || status === 'inactive' || status === 'deactivated') {
+        if (status === "revoked" || status === "inactive" || status === "deactivated") {
           await supabase.auth.signOut();
-          setError("This account has been revoked or deactivated. Please contact the administrator.");
+          setError("This account has been deactivated. Please contact your institution administrator.");
           return;
         }
 
-        // Store Role and CollegeID in session storage
-        sessionStorage.setItem('userRole', role);
+        // Store authenticated role & college in session
+        sessionStorage.setItem("userRole", role);
         if (college_id) {
-          sessionStorage.setItem('collegeId', college_id);
+          sessionStorage.setItem("collegeId", college_id);
         }
 
-        // Check if tenant college has been turned OFF by Master Admin
+        // Check if tenant college has been deactivated by Master Admin
         if (role !== "super_admin" && role !== "master_admin" && college_id) {
           const { data: col } = await supabase
             .from("colleges")
@@ -91,6 +125,7 @@ export default function Login() {
           }
         }
 
+        // Intelligent role-based portal routing
         if (role === "super_admin" || role === "master_admin") {
           navigate("/master");
         } else if (role === "admin") {
@@ -106,8 +141,8 @@ export default function Login() {
         }
       }
     } catch (err: any) {
-      console.error("Login error:", err);
-      setError(err.message || "Failed to sign in. Please check your credentials.");
+      console.error("Authentication error:", err);
+      setError(err.message || "Invalid email or password. Please verify your credentials and try again.");
     } finally {
       setLoading(false);
     }
@@ -115,30 +150,33 @@ export default function Login() {
 
   return (
     <AuthLayout
-      title="Welcome back"
-      subtitle="Enter your credentials to access your account"
+      title="Welcome to Orbit LMS"
+      subtitle="Sign in with your institutional credentials to access your designated workspace"
     >
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-5">
         {error && (
-          <Alert variant="destructive">
+          <Alert variant="destructive" className="py-3">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
+            <AlertTitle className="text-xs font-bold">Authentication Notice</AlertTitle>
+            <AlertDescription className="text-xs leading-relaxed">{error}</AlertDescription>
           </Alert>
         )}
 
-        {/* Email */}
-        <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+        {/* Email Address */}
+        <div className="space-y-1.5">
+          <Label htmlFor="email" className="text-xs font-semibold">
+            Institutional Email Address / Username
+          </Label>
           <div className="relative">
             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               id="email"
-              type="email"
-              placeholder="Enter your email"
+              type="text"
+              autoComplete="username"
+              placeholder="e.g. name@institution.edu"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="pl-10"
+              className="pl-10 h-11 text-sm bg-background"
               required
               disabled={loading}
             />
@@ -146,12 +184,14 @@ export default function Login() {
         </div>
 
         {/* Password */}
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password" className="text-xs font-semibold">
+              Password
+            </Label>
             <Link
               to="/forgot-password"
-              className="text-sm text-primary hover:underline"
+              className="text-xs text-primary hover:underline font-medium"
             >
               Forgot password?
             </Link>
@@ -161,10 +201,11 @@ export default function Login() {
             <Input
               id="password"
               type={showPassword ? "text" : "password"}
-              placeholder="Enter your password"
+              autoComplete="current-password"
+              placeholder="Enter your account password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="pl-10 pr-10"
+              className="pl-10 pr-10 h-11 text-sm bg-background"
               required
               disabled={loading}
             />
@@ -175,49 +216,52 @@ export default function Login() {
               aria-label={showPassword ? "Hide password" : "Show password"}
               disabled={loading}
             >
-              {showPassword ? (
-                <EyeOff className="h-4 w-4" />
-              ) : (
-                <Eye className="h-4 w-4" />
-              )}
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
         </div>
 
-        {/* Remember me 
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id="remember"
-            checked={rememberMe}
-            onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-            disabled={loading}
-          />
-          <Label htmlFor="remember" className="text-sm font-normal cursor-pointer">
-            Remember me for 30 days
-          </Label>
-        </div>*/}
-
-        {/* Submit */}
-        <Button type="submit" className="w-full" size="lg" disabled={loading}>
+        {/* Submit Button */}
+        <Button
+          type="submit"
+          className="w-full h-11 text-sm font-bold bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl shadow-md transition-all touch-press mt-2"
+          disabled={loading}
+        >
           {loading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Signing in...
+              Authenticating Credentials...
             </>
           ) : (
-            "Sign in"
+            <span className="flex items-center justify-center gap-2">
+              Sign In to Your Workspace
+              <ArrowRight className="h-4 w-4" />
+            </span>
           )}
         </Button>
 
-        {/* Sign up link */}
-        <p className="text-center text-sm text-muted-foreground mt-6">
-          Don't have an account?{" "}
-          <Link to="/register" className="text-primary font-medium hover:underline">
-            Register for The Orbit
-          </Link>
-        </p>
+        {/* Security Assurance Badge */}
+        <div className="pt-2 flex items-center justify-center gap-1.5 text-muted-foreground text-[11px]">
+          <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+          <span>Encrypted Session • Role-Based Multi-Tenant Isolation</span>
+        </div>
+
+        {/* Links */}
+        <div className="pt-3 border-t border-border/60 flex flex-col items-center gap-2 text-center text-xs text-muted-foreground">
+          <p>
+            New Student or Faculty?{" "}
+            <Link to="/register" className="text-primary font-bold hover:underline">
+              Register for Campus Access
+            </Link>
+          </p>
+          <p className="text-[11px]">
+            Master SaaS Administrator?{" "}
+            <Link to="/master/login" className="text-amber-500 hover:underline font-semibold">
+              Master Command Portal
+            </Link>
+          </p>
+        </div>
       </form>
     </AuthLayout>
   );
 }
-

@@ -57,7 +57,7 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
         <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-primary/10 blur-[80px] pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-64 h-64 rounded-full bg-indigo-500/10 blur-[80px] pointer-events-none" />
 
-        <div className="w-full max-w-md animate-fade-in bg-card/60 backdrop-blur-xl border border-white/10 dark:border-white/5 rounded-[2.5rem] p-8 sm:p-10 shadow-2xl relative z-10">
+        <div className="w-full max-w-md animate-fade-in bg-card/60 backdrop-blur-xl border border-white/10 dark:border-white/5 rounded-2xl sm:rounded-[2.5rem] p-5 sm:p-8 md:p-10 shadow-2xl relative z-10">
           {/* Mobile logo */}
           <div className="flex lg:hidden items-center gap-3 justify-center mb-8">
             <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center shadow-md overflow-hidden">

@@ -58,16 +58,13 @@ import {
     DialogHeader,
     DialogTitle
 } from "@/components/ui/dialog";
+import { ThemeSelectorGrid } from "@/components/theme/ThemeSelectorGrid";
 
 export default function Settings() {
     const navigate = useNavigate();
     const { theme, setTheme } = useTheme();
     const { toast } = useToast();
-    const [profile, setProfile] = useState({
-        name: "Admin User",
-        email: "admin@example.com",
-        bio: "Chief Administrator",
-    });
+    
 
     const [notifications, setNotifications] = useState({
         email: true,
@@ -1023,7 +1020,7 @@ export default function Settings() {
 
                         {/* Confirmation & Restore Preview Modal */}
                         <Dialog open={restoreDialogOpen} onOpenChange={(open) => !isRestoringSystem && setRestoreDialogOpen(open)}>
-                            <DialogContent className="sm:max-w-lg">
+                            <DialogContent className="w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                                 <DialogHeader>
                                     <DialogTitle className="flex items-center gap-2 text-emerald-600">
                                         <RotateCcw className="h-5 w-5" /> Confirm Zero-Loss System Restoration
@@ -1461,6 +1458,24 @@ export default function Settings() {
                                 </CardContent>
                             </Card>
                         </div>
+                    </TabsContent>
+
+                    {/* Appearance & 10 Themes Tab */}
+                    <TabsContent value="appearance">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-xl font-bold flex items-center gap-2">
+                                    <Palette className="h-5 w-5 text-primary" />
+                                    Admin Theme Studio & Full 10 Themes VIP Suite
+                                </CardTitle>
+                                <CardDescription>
+                                    As an Administrator, you have unrestricted 0-cost VIP access to all 10 visual themes. Equip any theme instantly to customize your administration experience.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="pt-2">
+                                <ThemeSelectorGrid userRole="admin" />
+                            </CardContent>
+                        </Card>
                     </TabsContent>
                 </Tabs>
             </div>

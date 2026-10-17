@@ -653,9 +653,9 @@ export default function MasterCareers() {
         </div>
 
         {/* Tab Selector & Actions */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">
-            <TabsList className="bg-slate-900 border border-slate-800 text-slate-400">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full lg:w-auto">
+            <TabsList className="bg-slate-900 border border-slate-800 text-slate-400 grid grid-cols-2 w-full sm:w-auto sm:inline-flex">
               <TabsTrigger
                 value="applications"
                 className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white text-xs sm:text-sm"
@@ -671,12 +671,12 @@ export default function MasterCareers() {
             </TabsList>
           </Tabs>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={loadData}
-              className="border-slate-800 hover:bg-slate-800 text-slate-300 text-xs h-9"
+              className="border-slate-800 hover:bg-slate-800 text-slate-300 text-xs h-9 flex-1 sm:flex-initial"
             >
               <RefreshCw className={`w-3.5 h-3.5 mr-1 ${loading ? "animate-spin" : ""}`} /> Refresh
             </Button>
@@ -684,23 +684,23 @@ export default function MasterCareers() {
               variant="outline"
               size="sm"
               onClick={() => window.open("/careers", "_blank")}
-              className="border-slate-800 hover:bg-slate-800 text-cyan-400 text-xs h-9"
+              className="border-slate-800 hover:bg-slate-800 text-cyan-400 text-xs h-9 flex-1 sm:flex-initial"
             >
-              <ExternalLink className="w-3.5 h-3.5 mr-1.5" /> View /careers Portal
+              <ExternalLink className="w-3.5 h-3.5 mr-1.5" /> View /careers
             </Button>
             {activeTab === "applications" ? (
               <Button
                 onClick={handleExportCSV}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-9 shadow-md shadow-emerald-600/20"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-9 shadow-md shadow-emerald-600/20 w-full sm:w-auto"
               >
                 <Download className="w-4 h-4 mr-1.5" /> Export Candidates CSV
               </Button>
             ) : (
               <Button
                 onClick={handleOpenCreateJob}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs h-9 shadow-md shadow-indigo-600/20"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs h-9 shadow-md shadow-indigo-600/20 w-full sm:w-auto"
               >
-                <Plus className="w-4 h-4 mr-1.5" /> Post New Job Opening
+                <Plus className="w-4 h-4 mr-1.5" /> Post Job Opening
               </Button>
             )}
           </div>
@@ -710,51 +710,54 @@ export default function MasterCareers() {
         {activeTab === "applications" && (
           <div className="space-y-4">
             {/* Search & Filters */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-              <div className="flex flex-1 items-center gap-2 max-w-xl">
+            <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+              <div className="flex flex-col sm:flex-row flex-1 items-stretch sm:items-center gap-2 max-w-2xl">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                   <Input
                     placeholder="Search candidate name, email, phone, or location..."
                     value={appSearch}
                     onChange={(e) => setAppSearch(e.target.value)}
-                    className="pl-9 bg-slate-900 border-slate-800 text-white text-xs h-9"
+                    className="pl-9 bg-slate-900 border-slate-800 text-white text-xs h-9 w-full"
                   />
                 </div>
-                <Select value={appStatusFilter} onValueChange={setAppStatusFilter}>
-                  <SelectTrigger className="w-[150px] bg-slate-900 border-slate-800 text-slate-300 text-xs h-9">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-900 border-slate-800 text-white text-xs">
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="reviewing">Under Review</SelectItem>
-                    <SelectItem value="shortlisted">Shortlisted</SelectItem>
-                    <SelectItem value="interview_scheduled">Interview Scheduled</SelectItem>
-                    <SelectItem value="hired">Hired</SelectItem>
-                    <SelectItem value="rejected">Not Selected</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={appJobFilter} onValueChange={setAppJobFilter}>
-                  <SelectTrigger className="w-[180px] bg-slate-900 border-slate-800 text-slate-300 text-xs h-9">
-                    <SelectValue placeholder="Role Applied" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-900 border-slate-800 text-white text-xs">
-                    <SelectItem value="all">All Roles</SelectItem>
-                    {jobs.map((j) => (
-                      <SelectItem key={j.id} value={j.id}>
-                        {j.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="grid grid-cols-2 sm:flex items-center gap-2">
+                  <Select value={appStatusFilter} onValueChange={setAppStatusFilter}>
+                    <SelectTrigger className="w-full sm:w-[150px] bg-slate-900 border-slate-800 text-slate-300 text-xs h-9">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-slate-800 text-white text-xs">
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="reviewing">Under Review</SelectItem>
+                      <SelectItem value="shortlisted">Shortlisted</SelectItem>
+                      <SelectItem value="interview_scheduled">Interview Scheduled</SelectItem>
+                      <SelectItem value="hired">Hired</SelectItem>
+                      <SelectItem value="rejected">Not Selected</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={appJobFilter} onValueChange={setAppJobFilter}>
+                    <SelectTrigger className="w-full sm:w-[180px] bg-slate-900 border-slate-800 text-slate-300 text-xs h-9">
+                      <SelectValue placeholder="Role Applied" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-slate-800 text-white text-xs">
+                      <SelectItem value="all">All Roles</SelectItem>
+                      {jobs.map((j) => (
+                        <SelectItem key={j.id} value={j.id}>
+                          {j.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
 
             {/* Applications Table Card */}
             <Card className="bg-slate-900 border-slate-800 text-slate-100 shadow-md">
               <CardContent className="p-0">
-                <div className="overflow-x-auto">
+                {/* Desktop Table View */}
+                <div className="overflow-x-auto hidden md:block">
                   <Table>
                     <TableHeader className="bg-slate-950/60 border-b border-slate-800">
                       <TableRow className="border-slate-800 hover:bg-transparent">
@@ -874,6 +877,106 @@ export default function MasterCareers() {
                     </TableBody>
                   </Table>
                 </div>
+
+                {/* Candidate Mobile Cards */}
+                <div className="md:hidden divide-y divide-slate-800/80">
+                  {filteredApps.length === 0 ? (
+                    <div className="text-center py-10 text-slate-400 text-xs px-4">
+                      No candidate applications found matching the selected filters.
+                    </div>
+                  ) : (
+                    filteredApps.map((app) => (
+                      <div key={app.id} className="p-4 space-y-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="space-y-0.5">
+                            <div
+                              onClick={() => handleReviewApplication(app)}
+                              className="font-bold text-white text-sm hover:text-indigo-400 cursor-pointer flex items-center gap-1.5"
+                            >
+                              <span>{app.candidateName}</span>
+                              {app.linkedinUrl && (
+                                <span className="text-[10px] text-sky-400 bg-sky-500/10 px-1.5 py-0.2 rounded border border-sky-500/20">
+                                  in
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs text-indigo-400 font-medium">{app.jobTitle}</div>
+                          </div>
+                          <div className="shrink-0">{getStatusBadge(app.status)}</div>
+                        </div>
+
+                        <div className="text-[11px] text-slate-400 font-mono space-y-0.5">
+                          <div className="truncate">{app.email}</div>
+                          <div className="flex items-center gap-2">
+                            <span>{app.phone}</span>
+                            {app.location && (
+                              <>
+                                <span>•</span>
+                                <span className="text-slate-500 flex items-center gap-1 truncate">
+                                  <MapPin className="w-3 h-3 text-slate-400 shrink-0" /> {app.location}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-slate-800/60">
+                          <div className="p-2 rounded bg-slate-950/60 border border-slate-800">
+                            <span className="text-[10px] text-slate-500 block">Experience / Notice:</span>
+                            <span className="font-semibold text-slate-200 text-[11px]">{app.experienceLevel || "N/A"}</span>
+                            <span className="text-[10px] text-slate-500 block">Notice: {app.noticePeriod || "N/A"}</span>
+                          </div>
+                          <div className="p-2 rounded bg-slate-950/60 border border-slate-800">
+                            <span className="text-[10px] text-slate-500 block">Expected CTC:</span>
+                            <span className="font-mono text-emerald-400 font-bold text-xs">{app.expectedCtc || "Negotiable"}</span>
+                            <span className="text-[10px] text-slate-500 block">
+                              Applied {new Date(app.createdAt).toLocaleDateString("en-IN", { month: "short", day: "numeric" })}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-1 pt-1 border-t border-slate-800/60">
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleOpenWhatsApp(app)}
+                              className="h-8 px-2 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 text-xs gap-1"
+                            >
+                              <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleOpenEmail(app)}
+                              className="h-8 px-2 text-sky-400 hover:text-sky-300 hover:bg-sky-500/10 text-xs gap-1"
+                            >
+                              <Mail className="h-3.5 w-3.5" /> Email
+                            </Button>
+                          </div>
+
+                          <div className="flex items-center gap-1">
+                            <Button
+                              size="sm"
+                              onClick={() => handleReviewApplication(app)}
+                              className="h-8 px-2.5 text-xs bg-indigo-600/30 text-indigo-300 hover:bg-indigo-600/50"
+                            >
+                              Review
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDeleteApplication(app.id, app.candidateName)}
+                              className="h-8 w-8 p-0 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -884,18 +987,18 @@ export default function MasterCareers() {
           <div className="space-y-4">
             {/* Search & Dept Filter */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-              <div className="flex flex-1 items-center gap-2 max-w-lg">
+              <div className="flex flex-col sm:flex-row flex-1 items-stretch sm:items-center gap-2 max-w-xl">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                   <Input
                     placeholder="Search job postings by title, location, or keywords..."
                     value={jobSearch}
                     onChange={(e) => setJobSearch(e.target.value)}
-                    className="pl-9 bg-slate-900 border-slate-800 text-white text-xs h-9"
+                    className="pl-9 bg-slate-900 border-slate-800 text-white text-xs h-9 w-full"
                   />
                 </div>
                 <Select value={jobDeptFilter} onValueChange={setJobDeptFilter}>
-                  <SelectTrigger className="w-[180px] bg-slate-900 border-slate-800 text-slate-300 text-xs h-9">
+                  <SelectTrigger className="w-full sm:w-[180px] bg-slate-900 border-slate-800 text-slate-300 text-xs h-9">
                     <SelectValue placeholder="Department" />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-900 border-slate-800 text-white text-xs">
@@ -1020,7 +1123,7 @@ export default function MasterCareers() {
 
         {/* MODAL 1: CANDIDATE APPLICATION REVIEW & RECRUITER NOTES */}
         <Dialog open={isAppModalOpen} onOpenChange={setIsAppModalOpen}>
-          <DialogContent className="max-w-2xl bg-slate-900 border-slate-800 text-slate-100 max-h-[90vh] overflow-y-auto">
+          <DialogContent className="w-[95vw] sm:max-w-2xl bg-slate-900 border-slate-800 text-slate-100 max-h-[90vh] overflow-y-auto p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle className="text-lg font-bold text-white flex items-center gap-2">
                 <Users className="w-5 h-5 text-indigo-400" />
@@ -1193,7 +1296,7 @@ export default function MasterCareers() {
 
         {/* MODAL 2: CREATE / EDIT JOB OPENING */}
         <Dialog open={isJobModalOpen} onOpenChange={setIsJobModalOpen}>
-          <DialogContent className="max-w-2xl bg-slate-900 border-slate-800 text-slate-100 max-h-[90vh] overflow-y-auto">
+          <DialogContent className="w-[95vw] sm:max-w-2xl bg-slate-900 border-slate-800 text-slate-100 max-h-[90vh] overflow-y-auto p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle className="text-lg font-bold text-white flex items-center gap-2">
                 <Briefcase className="w-5 h-5 text-indigo-400" />

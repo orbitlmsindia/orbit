@@ -217,7 +217,7 @@ _Orbit LMS Enterprise Academic Intelligence Platform_`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl bg-slate-900 border-slate-800 text-white shadow-2xl">
+      <DialogContent className="w-[95vw] sm:max-w-xl max-h-[90vh] overflow-y-auto p-4 sm:p-6 bg-slate-900 border-slate-800 text-white shadow-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-lg text-white">
             <BellRing className="h-5 w-5 text-amber-400" />

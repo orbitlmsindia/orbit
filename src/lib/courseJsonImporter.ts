@@ -40,13 +40,61 @@ export interface JsonAssignment {
   points?: number;
 }
 
+// ─── Flashcards & Active Recall Schema ───
+export interface JsonFlashcard {
+  front: string;
+  back: string;
+  hint?: string;
+  category?: string;
+  difficulty?: "easy" | "medium" | "hard";
+  codeSnippet?: string;
+}
+
+export interface JsonFlashcardDeck {
+  title: string;
+  description?: string;
+  subject?: string;
+  icon?: string;
+  color?: string;
+  cards: JsonFlashcard[];
+}
+
+// ─── Mnemonics & Cognitive Memory Aids Schema ───
+export interface JsonMnemonicBreakdown {
+  letter: string;
+  word: string;
+  meaning: string;
+  example?: string;
+}
+
+export interface JsonMnemonic {
+  title: string;
+  acronym: string;
+  phrase: string;
+  subject?: string;
+  category?: string;
+  explanation: string;
+  breakdown: JsonMnemonicBreakdown[];
+  examTip?: string;
+}
+
+// ─── Examination & Attendance Policy Schema ───
+export interface JsonAttendancePolicy {
+  mandatory_percentage?: number; // e.g. 75
+  exam_clearance_required?: boolean;
+  total_planned_sessions?: number;
+  condonation_rules?: string;
+}
+
 export interface JsonContentItem {
   title: string;
-  type: "video" | "pdf" | "text" | "live" | "live_class" | "presentation" | "document" | "reference";
+  type: "video" | "pdf" | "text" | "live" | "live_class" | "presentation" | "document" | "reference" | "flashcards" | "flashcard_deck" | "mnemonic" | "mnemonics";
   url?: string;           // for video / pdf / presentation / document / live link
   content_text?: string;  // for text type
   duration_minutes?: number; // duration in minutes
   scheduled_at?: string; // scheduled time for live class
+  flashcards?: JsonFlashcard[]; // embedded flashcard deck
+  mnemonics?: JsonMnemonic[];   // embedded mnemonics
 }
 
 export type JsonSectionItem = JsonContentItem | JsonQuiz | JsonAssignment;
@@ -58,6 +106,8 @@ export interface JsonSection {
   topic_name?: string;
   aura_points?: number;
   items?: JsonSectionItem[];
+  flashcards?: JsonFlashcard[];
+  mnemonics?: JsonMnemonic[];
 }
 
 export interface JsonCoursePayload {
@@ -71,6 +121,10 @@ export interface JsonCoursePayload {
   instructions?: string;
   instructor_intro?: string;
   exam_policy?: string;
+  attendance_policy?: JsonAttendancePolicy;
+  flashcard_decks?: JsonFlashcardDeck[];
+  flashcards?: JsonFlashcard[];
+  mnemonics?: JsonMnemonic[];
   instructor_video_url?: string;
   instructor_qualifications?: string;
   instructor_socials?: {
@@ -337,6 +391,8 @@ export interface ImportResult {
   quizzesCreated: number;
   questionsCreated: number;
   assignmentsCreated: number;
+  flashcardsCreated?: number;
+  mnemonicsCreated?: number;
   errors: string[];
 }
 
@@ -349,6 +405,8 @@ export async function importCourseFromJson(rawPayload: JsonCoursePayload, overri
     quizzesCreated: 0,
     questionsCreated: 0,
     assignmentsCreated: 0,
+    flashcardsCreated: 0,
+    mnemonicsCreated: 0,
     errors: [],
   };
 
@@ -395,6 +453,45 @@ export async function importCourseFromJson(rawPayload: JsonCoursePayload, overri
     result.courseId = courseData.id;
     result.courseName = payload.title.trim();
 
+    // 2.5 Persist Course Attendance Policy if defined
+    if (payload.attendance_policy) {
+      try {
+        localStorage.setItem(`orbit_attendance_policy_${courseData.id}`, JSON.stringify(payload.attendance_policy));
+        const allPoliciesRaw = localStorage.getItem("orbit_attendance_policies");
+        const allPolicies = allPoliciesRaw ? JSON.parse(allPoliciesRaw) : {};
+        allPolicies[courseData.id] = payload.attendance_policy;
+        localStorage.setItem("orbit_attendance_policies", JSON.stringify(allPolicies));
+      } catch (policyErr) {
+        console.warn("Could not cache attendance policy:", policyErr);
+      }
+    }
+
+    // 2.6 Persist Course-Level Flashcard Decks if defined
+    if (payload.flashcard_decks || payload.flashcards) {
+      const fcTarget = payload.flashcard_decks || payload.flashcards;
+      if (Array.isArray(fcTarget)) {
+        fcTarget.forEach(item => {
+          const res = importFlashcardsFromJson(item, courseData.id, payload.title);
+          if (res.success) {
+            result.flashcardsCreated = (result.flashcardsCreated || 0) + res.cardsCount;
+          }
+        });
+      } else {
+        const res = importFlashcardsFromJson(fcTarget, courseData.id, payload.title);
+        if (res.success) {
+          result.flashcardsCreated = (result.flashcardsCreated || 0) + res.cardsCount;
+        }
+      }
+    }
+
+    // 2.7 Persist Course-Level Mnemonics if defined
+    if (payload.mnemonics) {
+      const mneRes = importMnemonicsFromJson(payload.mnemonics, courseData.id, payload.title);
+      if (mneRes.success) {
+        result.mnemonicsCreated = (result.mnemonicsCreated || 0) + mneRes.mnemonicsCount;
+      }
+    }
+
     // 3. Create sections + items + quizzes
     if (payload.sections && payload.sections.length > 0) {
       const sectionRes = await importSectionsToExistingCourse(courseData.id, payload.sections);
@@ -403,6 +500,12 @@ export async function importCourseFromJson(rawPayload: JsonCoursePayload, overri
       result.quizzesCreated = sectionRes.quizzesCreated;
       result.questionsCreated = sectionRes.questionsCreated;
       result.assignmentsCreated = sectionRes.assignmentsCreated;
+      if (sectionRes.flashcardsCreated) {
+        result.flashcardsCreated = (result.flashcardsCreated || 0) + sectionRes.flashcardsCreated;
+      }
+      if (sectionRes.mnemonicsCreated) {
+        result.mnemonicsCreated = (result.mnemonicsCreated || 0) + sectionRes.mnemonicsCreated;
+      }
       if (sectionRes.errors && sectionRes.errors.length > 0) {
         result.errors.push(...sectionRes.errors);
       }
@@ -560,6 +663,59 @@ export async function importSectionsToExistingCourse(courseId: string, rawSectio
             } else {
               result.assignmentsCreated++;
             }
+          } else if (item.type === "flashcards") {
+            const fcItem = item as any;
+            const res = importFlashcardsFromJson(fcItem.cards || fcItem, courseId);
+            if (res.success) {
+              result.flashcardsCreated = (result.flashcardsCreated || 0) + res.cardsCount;
+            }
+            const markdownSummary = `# 🗂️ Flashcard Deck: ${fcItem.title || 'Module Revision Flashcards'}\n\n` +
+              `**Subject**: ${fcItem.subject || 'Course Topic'}\n\n` +
+              `${fcItem.description || 'Practice high-yield concepts using active recall and spaced repetition.'}\n\n` +
+              `This interactive deck contains **${res.cardsCount || (fcItem.cards?.length || 0)} cards**. Open the **Flashcards Studio** from the navigation menu to review these cards in 3D flip study mode!`;
+
+            const { error: contentError } = await supabase
+              .from("section_contents")
+              .insert([{
+                section_id: sectionData.id,
+                title: fcItem.title || "Interactive Flashcards Hub",
+                type: "text",
+                content_text: markdownSummary,
+                duration_minutes: fcItem.duration_minutes || 20,
+                order_index: ii,
+              }]);
+
+            if (contentError) {
+              result.errors.push(`Flashcards Content "${fcItem.title}": ${contentError.message}`);
+            } else {
+              result.contentsCreated++;
+            }
+          } else if (item.type === "mnemonics") {
+            const mneItem = item as any;
+            const res = importMnemonicsFromJson(mneItem.mnemonics || mneItem, courseId);
+            if (res.success) {
+              result.mnemonicsCreated = (result.mnemonicsCreated || 0) + res.mnemonicsCount;
+            }
+            const markdownSummary = `# 🧠 Mnemonics & Memory Studio: ${mneItem.title || 'Cognitive Recall Anchors'}\n\n` +
+              `${mneItem.description || 'Accelerate retention using phonetic and acronym memory hooks.'}\n\n` +
+              `Open the **Mnemonics Hub** from the student portal to test your active recall and acronym breakdowns!`;
+
+            const { error: contentError } = await supabase
+              .from("section_contents")
+              .insert([{
+                section_id: sectionData.id,
+                title: mneItem.title || "Cognitive Mnemonics Hub",
+                type: "text",
+                content_text: markdownSummary,
+                duration_minutes: mneItem.duration_minutes || 15,
+                order_index: ii,
+              }]);
+
+            if (contentError) {
+              result.errors.push(`Mnemonics Content "${mneItem.title}": ${contentError.message}`);
+            } else {
+              result.contentsCreated++;
+            }
           } else {
             const contentItem = item as JsonContentItem;
             const contentPayload: any = {
@@ -643,6 +799,9 @@ export interface CoursePreviewStats {
   quizCount: number;
   assignmentCount: number;
   questionCount: number;
+  flashcardCount: number;
+  mnemonicCount: number;
+  hasAttendancePolicy: boolean;
   totalDurationMinutes: number;
   totalDurationHours: number;
 }
@@ -657,15 +816,36 @@ export function computePreviewStats(payload: JsonCoursePayload): CoursePreviewSt
     quizCount: 0,
     assignmentCount: 0,
     questionCount: 0,
+    flashcardCount: 0,
+    mnemonicCount: 0,
+    hasAttendancePolicy: !!payload.attendance_policy,
     totalDurationMinutes: 0,
     totalDurationHours: 0,
   };
+
+  // Top-level flashcards
+  if (payload.flashcard_decks) {
+    for (const d of payload.flashcard_decks) {
+      stats.flashcardCount += d.cards?.length || 0;
+    }
+  }
+  if (payload.flashcards) {
+    stats.flashcardCount += payload.flashcards.length;
+  }
+
+  // Top-level mnemonics
+  if (payload.mnemonics) {
+    stats.mnemonicCount += payload.mnemonics.length;
+  }
 
   if (!payload.sections) return stats;
 
   stats.sectionCount = payload.sections.length;
 
   for (const section of payload.sections) {
+    if (section.flashcards) stats.flashcardCount += section.flashcards.length;
+    if (section.mnemonics) stats.mnemonicCount += section.mnemonics.length;
+
     let sectionMins = 0;
     if (section.items) {
       for (const item of section.items) {
@@ -698,6 +878,16 @@ export function computePreviewStats(payload: JsonCoursePayload): CoursePreviewSt
           case "assignment":
             stats.assignmentCount++;
             sectionMins += 45;
+            break;
+          case "flashcards":
+          case "flashcard_deck":
+            stats.flashcardCount += (item as any).flashcards?.length || (item as any).cards?.length || 5;
+            sectionMins += 20;
+            break;
+          case "mnemonic":
+          case "mnemonics":
+            stats.mnemonicCount += (item as any).mnemonics?.length || 1;
+            sectionMins += 15;
             break;
         }
       }
@@ -836,6 +1026,54 @@ export const SAMPLE_COURSE_JSON: JsonCoursePayload = {
   organization_name: "Orbit AI Academy",
   organization_logo_url: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80",
   is_published: true,
+  attendance_policy: {
+    mandatory_percentage: 75,
+    exam_clearance_required: true,
+    total_planned_sessions: 40,
+    condonation_rules: "Students with attendance between 65%-74% require Dean condonation clearance to sit for examinations."
+  },
+  flashcard_decks: [
+    {
+      title: "Agentic AI & LLM High-Yield Flashcards",
+      subject: "Artificial Intelligence",
+      description: "Active recall deck covering attention mechanisms, prompting strategies, and tool calling.",
+      icon: "⚡",
+      color: "from-blue-600 to-indigo-700",
+      cards: [
+        {
+          front: "What is the primary difference between Zero-Shot and Few-Shot Prompting?",
+          back: "Zero-Shot asks the model to execute a task without exemplars. Few-Shot provides 2 to 5 demonstration exemplars inside the prompt context.",
+          hint: "Exemplars vs no exemplars.",
+          category: "Prompt Engineering",
+          difficulty: "easy"
+        },
+        {
+          front: "What is the computational complexity of standard Self-Attention with respect to sequence length N?",
+          back: "O(N²) quadratic time and memory complexity, because each token attends to all other tokens via Q·K^T dot-product matrix.",
+          hint: "Pairwise dot-product matrix.",
+          category: "Transformers",
+          difficulty: "hard"
+        }
+      ]
+    }
+  ],
+  mnemonics: [
+    {
+      title: "RAG Pipeline Phases (Retrieval-Augmented Generation)",
+      acronym: "C-I-R-G",
+      phrase: "Clean Indexing Retrieves Genius",
+      subject: "AI Engineering",
+      category: "Architectures",
+      explanation: "The four core stages of building an end-to-end production RAG system.",
+      breakdown: [
+        { letter: "C", word: "Chunking", meaning: "Splitting raw source documents into semantic text units." },
+        { letter: "I", word: "Indexing", meaning: "Generating vector embeddings and inserting into vector database index." },
+        { letter: "R", word: "Retrieval", meaning: "Approximate nearest neighbor vector search based on user prompt query." },
+        { letter: "G", word: "Generation", meaning: "Passing retrieved documents into LLM context window to synthesize answer." }
+      ],
+      examTip: "Always mention chunk overlap (e.g. 10-20%) when discussing Chunking in RAG pipelines!"
+    }
+  ],
   sections: [
     {
       title: "Module 1: AI & LLM Foundations",
@@ -1094,3 +1332,600 @@ export const SAMPLE_QUIZ_JSON: JsonQuiz = {
     }
   ]
 };
+
+// ─── Standalone Flashcards Template JSON ───
+export const SAMPLE_FLASHCARDS_JSON: JsonFlashcardDeck = {
+  title: "Computer Science & Engineering High-Yield Flashcards",
+  description: "Active recall deck covering core algorithms, operating systems, and web architecture.",
+  subject: "Computer Science",
+  icon: "⚡",
+  color: "from-blue-600 to-indigo-700",
+  cards: [
+    {
+      front: "What is the average and worst-case time complexity of QuickSort?",
+      back: "Average: O(N log N)\nWorst-Case: O(N²) when naive pivot selection divides into 1 and N-1 elements repeatedly.",
+      hint: "Balanced vs unbalanced recursion tree.",
+      category: "Algorithms",
+      difficulty: "medium"
+    },
+    {
+      front: "What are the four ACID properties in Database Transactions?",
+      back: "• Atomicity: All or nothing execution.\n• Consistency: Valid state transitions obeying constraints.\n• Isolation: Concurrent transactions do not cross-contaminate.\n• Durability: Committed updates survive system crashes.",
+      hint: "A-C-I-D acronym.",
+      category: "Databases",
+      difficulty: "easy"
+    },
+    {
+      front: "What is a JavaScript Closure?",
+      back: "A closure is a function bundled together with references to its surrounding lexical environment, allowing it to remember outer variables even after the outer function has returned.",
+      hint: "Lexical scoping retention.",
+      category: "Web Development",
+      difficulty: "medium"
+    }
+  ]
+};
+
+// ─── Standalone Mnemonics Template JSON ───
+export const SAMPLE_MNEMONICS_JSON: JsonMnemonic[] = [
+  {
+    title: "OSI 7 Layers Protocol Stack",
+    acronym: "PDNTSPA",
+    phrase: "Please Do Not Throw Sausage Pizza Away",
+    subject: "Computer Networks",
+    category: "Network Architecture",
+    explanation: "Memorizes the 7 Open Systems Interconnection layers from Layer 1 (Physical) to Layer 7 (Application).",
+    breakdown: [
+      { letter: "P", word: "Physical (Layer 1)", meaning: "Transmits raw bitstream over physical cables/radio.", example: "Ethernet, RJ45" },
+      { letter: "D", word: "Data Link (Layer 2)", meaning: "Node-to-node framing and MAC addressing.", example: "Switches, MAC" },
+      { letter: "N", word: "Network (Layer 3)", meaning: "Routing packets across networks via IP.", example: "IPv4/IPv6, Routers" },
+      { letter: "T", word: "Transport (Layer 4)", meaning: "End-to-end delivery and reliability.", example: "TCP, UDP" },
+      { letter: "S", word: "Session (Layer 5)", meaning: "Manages dialogues and connections.", example: "Sockets, RPC" },
+      { letter: "P", word: "Presentation (Layer 6)", meaning: "Data translation, compression, and encryption.", example: "SSL/TLS, JSON" },
+      { letter: "A", word: "Application (Layer 7)", meaning: "User interface protocols.", example: "HTTP, DNS, SSH" }
+    ],
+    examTip: "Top-to-bottom mnemonic: 'All People Seem To Need Data Processing'!"
+  },
+  {
+    title: "SOLID Object-Oriented Principles",
+    acronym: "SOLID",
+    phrase: "Software Organizes Logical Interfaces Dependably",
+    subject: "Software Engineering",
+    category: "Design Patterns",
+    explanation: "Five fundamental design principles for maintainable object-oriented software.",
+    breakdown: [
+      { letter: "S", word: "Single Responsibility", meaning: "A class should have one, and only one, reason to change." },
+      { letter: "O", word: "Open / Closed", meaning: "Open for extension, closed for modification." },
+      { letter: "L", word: "Liskov Substitution", meaning: "Subtypes must be substitutable for their base types." },
+      { letter: "I", word: "Interface Segregation", meaning: "Do not force clients to depend on interfaces they do not use." },
+      { letter: "D", word: "Dependency Inversion", meaning: "Depend on abstractions, not on concrete implementations." }
+    ],
+    examTip: "Always connect Liskov substitution to behavioral subtyping in examinations."
+  }
+];
+
+// ─── Standalone Flashcards Deck JSON Importer ────────────────────────
+export interface FlashcardImportResult {
+  success: boolean;
+  deckId?: string;
+  deckTitle?: string;
+  cardsCount: number;
+  error?: string;
+}
+
+export function importFlashcardsFromJson(payload: any, courseId?: string, courseTitle?: string): FlashcardImportResult {
+  try {
+    let deckTitle = "Course Flashcard Deck";
+    let deckSubject = "Computer Science & Engineering";
+    let deckDescription = "Active recall spaced repetition deck.";
+    let rawCards: any[] = [];
+    let icon = "⚡";
+    let color = "from-blue-600 to-indigo-700";
+
+    if (Array.isArray(payload)) {
+      rawCards = payload;
+    } else if (payload && typeof payload === "object") {
+      deckTitle = payload.title || payload.deck_title || deckTitle;
+      deckSubject = payload.subject || payload.category || deckSubject;
+      deckDescription = payload.description || deckDescription;
+      icon = payload.icon || icon;
+      color = payload.color || color;
+      rawCards = Array.isArray(payload.cards) ? payload.cards : (Array.isArray(payload.flashcards) ? payload.flashcards : []);
+    }
+
+    if (!rawCards || rawCards.length === 0) {
+      return { success: false, cardsCount: 0, error: "No valid flashcards found in payload." };
+    }
+
+    const cards = rawCards.map((c, idx) => ({
+      id: c.id || `card-${Date.now()}-${idx}`,
+      front: c.front || c.question || c.term || `Concept ${idx + 1}`,
+      back: c.back || c.answer || c.definition || "Answer not provided.",
+      hint: c.hint || c.tip || "",
+      category: c.category || c.topic || "Core",
+      difficulty: (c.difficulty === "easy" || c.difficulty === "medium" || c.difficulty === "hard") ? c.difficulty : "medium",
+      mastered: Boolean(c.mastered)
+    }));
+
+    const deckId = `deck-${Date.now()}`;
+    const newDeck = {
+      id: deckId,
+      courseId: courseId || null,
+      course: courseTitle || deckSubject,
+      title: deckTitle,
+      description: deckDescription,
+      subject: deckSubject,
+      icon,
+      color,
+      cards,
+      cardCount: cards.length,
+      activeStudents: 1,
+      lastUpdated: "Just now"
+    };
+
+    // Store in localStorage
+    const stored = localStorage.getItem("orbit_flashcard_decks");
+    let existingDecks: any[] = [];
+    try {
+      if (stored) existingDecks = JSON.parse(stored);
+      if (!Array.isArray(existingDecks)) existingDecks = [];
+    } catch {
+      existingDecks = [];
+    }
+
+    const updatedDecks = [newDeck, ...existingDecks.filter((d: any) => d.id !== deckId)];
+    localStorage.setItem("orbit_flashcard_decks", JSON.stringify(updatedDecks));
+
+    return {
+      success: true,
+      deckId,
+      deckTitle,
+      cardsCount: cards.length
+    };
+  } catch (err: any) {
+    return { success: false, cardsCount: 0, error: err.message };
+  }
+}
+
+// ─── Standalone Mnemonics JSON Importer ──────────────────────────────
+export interface MnemonicImportResult {
+  success: boolean;
+  mnemonicsCount: number;
+  error?: string;
+}
+
+export function importMnemonicsFromJson(payload: any, courseId?: string, courseTitle?: string): MnemonicImportResult {
+  try {
+    let rawList: any[] = [];
+    if (Array.isArray(payload)) {
+      rawList = payload;
+    } else if (payload && typeof payload === "object") {
+      rawList = Array.isArray(payload.mnemonics) ? payload.mnemonics : (Array.isArray(payload.items) ? payload.items : [payload]);
+    }
+
+    if (!rawList || rawList.length === 0) {
+      return { success: false, mnemonicsCount: 0, error: "No valid mnemonics found in payload." };
+    }
+
+    const formattedMnemonics = rawList.map((m, idx) => ({
+      id: m.id || `mne-${Date.now()}-${idx}`,
+      courseId: courseId || null,
+      title: m.title || m.concept || `Mnemonic Concept ${idx + 1}`,
+      acronym: m.acronym || m.keyword || "MNE",
+      phrase: m.phrase || m.sentence || m.hook || "",
+      subject: m.subject || courseTitle || "Engineering & Science",
+      category: m.category || "General",
+      explanation: m.explanation || m.description || "",
+      breakdown: Array.isArray(m.breakdown) ? m.breakdown : [],
+      examTip: m.examTip || m.exam_tip || m.tip || "",
+      termsCount: Array.isArray(m.breakdown) ? m.breakdown.length : (m.acronym?.length || 4),
+      verified: true
+    }));
+
+    const stored = localStorage.getItem("orbit_mnemonics");
+    let existingMnemonics: any[] = [];
+    try {
+      if (stored) existingMnemonics = JSON.parse(stored);
+      if (!Array.isArray(existingMnemonics)) existingMnemonics = [];
+    } catch {
+      existingMnemonics = [];
+    }
+
+    const updated = [...formattedMnemonics, ...existingMnemonics];
+    localStorage.setItem("orbit_mnemonics", JSON.stringify(updated));
+
+    return {
+      success: true,
+      mnemonicsCount: formattedMnemonics.length
+    };
+  } catch (err: any) {
+    return { success: false, mnemonicsCount: 0, error: err.message };
+  }
+}
+
+// ─── Universal JSON Download & Clipboard Utilities ──────────────────
+
+export function downloadJsonFile(data: any, defaultFilename: string = "orbit_course_export.json") {
+  try {
+    const jsonString = typeof data === "string" ? data : JSON.stringify(data, null, 2);
+    const blob = new Blob([jsonString], { type: "application/json;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", defaultFilename.endsWith(".json") ? defaultFilename : `${defaultFilename}.json`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    return true;
+  } catch (err) {
+    console.error("Failed to download JSON file:", err);
+    return false;
+  }
+}
+
+export async function copyJsonToClipboard(data: any): Promise<boolean> {
+  try {
+    const jsonString = typeof data === "string" ? data : JSON.stringify(data, null, 2);
+    await navigator.clipboard.writeText(jsonString);
+    return true;
+  } catch (err) {
+    console.error("Failed to copy JSON to clipboard:", err);
+    return false;
+  }
+}
+
+// ─── Course to JSON Exporter ────────────────────────────────────────
+
+export async function exportCourseToJson(courseId: string): Promise<JsonCoursePayload> {
+  // 1. Fetch Course Core Metadata
+  const { data: course, error: cErr } = await supabase
+    .from("courses")
+    .select("*")
+    .eq("id", courseId)
+    .single();
+
+  if (cErr || !course) {
+    throw new Error(`Failed to load course for JSON export: ${cErr?.message || "Course not found"}`);
+  }
+
+  // 2. Fetch Course Sections / Weekly Modules
+  const { data: sections, error: sErr } = await supabase
+    .from("course_sections")
+    .select("*")
+    .eq("course_id", courseId)
+    .order("order_index", { ascending: true });
+
+  if (sErr) throw sErr;
+
+  const sectionIds = (sections || []).map(s => s.id);
+
+  // 3. Fetch Section Contents (videos, pdfs, texts, live sessions)
+  let allContents: any[] = [];
+  if (sectionIds.length > 0) {
+    const { data: contents } = await supabase
+      .from("section_contents")
+      .select("*")
+      .in("section_id", sectionIds)
+      .order("order_index", { ascending: true });
+    allContents = contents || [];
+  }
+
+  // 4. Fetch Assignments & Quizzes for this Course
+  const { data: assignments } = await supabase
+    .from("assignments")
+    .select("*")
+    .eq("course_id", courseId);
+
+  const quizIds = (assignments || []).filter(a => a.type === "quiz").map(a => a.id);
+
+  // 5. Fetch Quiz Questions
+  let allQuestions: any[] = [];
+  if (quizIds.length > 0) {
+    const { data: questions } = await supabase
+      .from("assignment_questions")
+      .select("*")
+      .in("assignment_id", quizIds)
+      .order("order_index", { ascending: true });
+    allQuestions = questions || [];
+  }
+
+  // 6. Check for Cached Attendance Policy
+  let attendancePolicy: JsonAttendancePolicy | undefined = undefined;
+  try {
+    const rawPolicy = localStorage.getItem(`orbit_attendance_policy_${courseId}`);
+    if (rawPolicy) {
+      attendancePolicy = JSON.parse(rawPolicy);
+    } else {
+      const allPoliciesRaw = localStorage.getItem("orbit_attendance_policies");
+      if (allPoliciesRaw) {
+        const allPolicies = JSON.parse(allPoliciesRaw);
+        if (allPolicies[courseId]) attendancePolicy = allPolicies[courseId];
+      }
+    }
+  } catch (e) {
+    console.warn("Could not retrieve attendance policy for export:", e);
+  }
+
+  if (!attendancePolicy) {
+    attendancePolicy = {
+      minimum_attendance_percentage: 75,
+      hall_ticket_clearance_required: true,
+      attendance_weightage_percentage: 10,
+      policy_rules: [
+        "Minimum 75% verified biometric/session attendance is mandatory for semester end examination clearance.",
+        "Students below 75% must obtain written Dean clearance.",
+        "Institutional examination clearance slip must be printed with verified QR code."
+      ]
+    };
+  }
+
+  // 7. Check for Course-Associated Flashcard Decks
+  let flashcardDecks: JsonFlashcardDeck[] | undefined = undefined;
+  try {
+    const storedDecks = localStorage.getItem("orbit_flashcard_decks");
+    if (storedDecks) {
+      const parsedDecks = JSON.parse(storedDecks);
+      if (Array.isArray(parsedDecks)) {
+        const matched = parsedDecks.filter((d: any) => d.courseId === courseId || d.course === course.title);
+        if (matched.length > 0) {
+          flashcardDecks = matched.map((d: any) => ({
+            title: d.title,
+            description: d.description || "Active recall deck.",
+            subject: d.subject || course.domain || "Engineering",
+            icon: d.icon || "⚡",
+            color: d.color || "from-blue-600 to-indigo-700",
+            cards: Array.isArray(d.cards) ? d.cards.map((c: any) => ({
+              front: c.front,
+              back: c.back,
+              hint: c.hint,
+              category: c.category,
+              difficulty: c.difficulty || "medium"
+            })) : []
+          }));
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("Could not retrieve flashcard decks for export:", e);
+  }
+
+  // 8. Check for Course-Associated Mnemonics
+  let mnemonics: JsonMnemonic[] | undefined = undefined;
+  try {
+    const storedMnemonics = localStorage.getItem("orbit_mnemonics");
+    if (storedMnemonics) {
+      const parsedMne = JSON.parse(storedMnemonics);
+      if (Array.isArray(parsedMne)) {
+        const matched = parsedMne.filter((m: any) => m.courseId === courseId || m.course === course.title || m.subject === course.domain);
+        if (matched.length > 0) {
+          mnemonics = matched.map((m: any) => ({
+            title: m.title,
+            acronym: m.acronym,
+            phrase: m.phrase,
+            subject: m.subject || course.domain || "Computer Science",
+            category: m.category || "General",
+            explanation: m.explanation || "",
+            breakdown: m.breakdown || [],
+            examTip: m.examTip || m.exam_tip || ""
+          }));
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("Could not retrieve mnemonics for export:", e);
+  }
+
+  // 9. Map and Reconstruct Structured Sections
+  const exportSections: JsonSection[] = (sections || []).map((sec, secIdx) => {
+    const sectionContents = allContents.filter(c => c.section_id === sec.id);
+    const sectionAssignments = (assignments || []).filter(a => a.section_id === sec.id);
+
+    const items: (JsonContentItem | JsonQuiz | JsonAssignment)[] = [];
+
+    // Map Section Content Items
+    sectionContents.forEach(c => {
+      let itemType: any = c.type || "text";
+      if (itemType === "video" && (c.live_class_id || c.title?.includes("🔴"))) {
+        itemType = "live";
+      }
+
+      const itemPayload: any = {
+        title: c.title,
+        type: itemType,
+        duration_minutes: c.duration_minutes || 30
+      };
+
+      if (c.content_url || c.video_url || c.pdf_url) {
+        itemPayload.url = c.content_url || c.video_url || c.pdf_url;
+      }
+      if (c.content_text) {
+        itemPayload.content_text = c.content_text;
+      }
+
+      items.push(itemPayload);
+    });
+
+    // Map Section Assignments & Quizzes
+    sectionAssignments.forEach(a => {
+      if (a.type === "quiz") {
+        const quizQuestions = allQuestions.filter(q => q.assignment_id === a.id);
+        const quizItem: JsonQuiz = {
+          title: a.title,
+          description: a.description || "Module quiz assessment.",
+          type: "quiz",
+          is_graded: a.is_graded !== false,
+          time_limit_minutes: a.time_limit_minutes || 20,
+          points: a.points || 50,
+          questions: quizQuestions.map(q => ({
+            question_text: q.question_text,
+            type: q.type || "mcq",
+            options: q.options || ["Option 1", "Option 2"],
+            correct_answer: q.correct_answer,
+            points: q.points || 10
+          }))
+        };
+        items.push(quizItem);
+      } else {
+        const assignItem: JsonAssignment = {
+          title: a.title,
+          description: a.description || "Practical assignment task.",
+          type: "assignment",
+          points: a.points || 100,
+          due_date: a.due_date || undefined
+        };
+        items.push(assignItem);
+      }
+    });
+
+    const isWeekly = Boolean(sec.week_number || sec.allocated_hours || sec.title?.toLowerCase().includes("week"));
+
+    return {
+      title: sec.title,
+      week_number: sec.week_number || (isWeekly ? secIdx + 1 : undefined),
+      allocated_hours: sec.allocated_hours ? String(sec.allocated_hours) : undefined,
+      topic_name: sec.topic_name || undefined,
+      aura_points: sec.aura_points || 15,
+      items
+    };
+  });
+
+  // 10. Assemble Master JSON Payload
+  const fullPayload: JsonCoursePayload = {
+    title: course.title,
+    description: course.description || "Course curriculum and modules.",
+    domain: course.domain || "Software Engineering",
+    credit_points: course.credit_points || 4,
+    instructor_intro: course.instructor_intro || undefined,
+    instructor_video_url: course.instructor_video_url || undefined,
+    instructor_qualifications: course.instructor_qualifications || undefined,
+    exam_policy: course.exam_policy || undefined,
+    price: course.price || 0,
+    original_price: course.original_price || undefined,
+    organization_name: course.organization_name || undefined,
+    organization_logo_url: course.organization_logo_url || undefined,
+    thumbnail_url: course.thumbnail_url || undefined,
+    is_published: course.is_published ?? true,
+    structuring_approach: exportSections.some(s => s.week_number !== undefined) ? "weekly" : "section",
+    attendance_policy: attendancePolicy,
+    flashcard_decks: flashcardDecks,
+    mnemonics: mnemonics,
+    sections: exportSections
+  };
+
+  return fullPayload;
+}
+
+// ─── Single Section / Weekly Module to JSON Exporter ────────────────
+
+export async function exportSectionToJson(sectionId: string): Promise<JsonSection> {
+  const { data: section, error: sErr } = await supabase
+    .from("course_sections")
+    .select("*")
+    .eq("id", sectionId)
+    .single();
+
+  if (sErr || !section) throw new Error("Section not found");
+
+  const { data: contents } = await supabase
+    .from("section_contents")
+    .select("*")
+    .eq("section_id", sectionId)
+    .order("order_index", { ascending: true });
+
+  const { data: assignments } = await supabase
+    .from("assignments")
+    .select("*")
+    .eq("section_id", sectionId);
+
+  const quizIds = (assignments || []).filter(a => a.type === "quiz").map(a => a.id);
+  let questions: any[] = [];
+  if (quizIds.length > 0) {
+    const { data: qData } = await supabase
+      .from("assignment_questions")
+      .select("*")
+      .in("assignment_id", quizIds)
+      .order("order_index", { ascending: true });
+    questions = qData || [];
+  }
+
+  const items: (JsonContentItem | JsonQuiz | JsonAssignment)[] = [];
+
+  (contents || []).forEach(c => {
+    let itemType: any = c.type || "text";
+    if (itemType === "video" && (c.live_class_id || c.title?.includes("🔴"))) itemType = "live";
+    const item: any = {
+      title: c.title,
+      type: itemType,
+      duration_minutes: c.duration_minutes || 30
+    };
+    if (c.content_url || c.video_url || c.pdf_url) item.url = c.content_url || c.video_url || c.pdf_url;
+    if (c.content_text) item.content_text = c.content_text;
+    items.push(item);
+  });
+
+  (assignments || []).forEach(a => {
+    if (a.type === "quiz") {
+      const qList = questions.filter(q => q.assignment_id === a.id);
+      items.push({
+        title: a.title,
+        description: a.description || "Section quiz assessment.",
+        type: "quiz",
+        is_graded: a.is_graded !== false,
+        time_limit_minutes: a.time_limit_minutes || 20,
+        points: a.points || 50,
+        questions: qList.map(q => ({
+          question_text: q.question_text,
+          type: q.type || "mcq",
+          options: q.options || ["Option 1", "Option 2"],
+          correct_answer: q.correct_answer,
+          points: q.points || 10
+        }))
+      });
+    } else {
+      items.push({
+        title: a.title,
+        description: a.description || "Practical task.",
+        type: "assignment",
+        points: a.points || 100,
+        due_date: a.due_date || undefined
+      });
+    }
+  });
+
+  return {
+    title: section.title,
+    week_number: section.week_number || undefined,
+    allocated_hours: section.allocated_hours ? String(section.allocated_hours) : undefined,
+    topic_name: section.topic_name || undefined,
+    aura_points: section.aura_points || 15,
+    items
+  };
+}
+
+// ─── Flashcards Decks Export Utility ────────────────────────────────
+
+export function exportAllFlashcardDecksToJson(): JsonFlashcardDeck[] {
+  try {
+    const stored = localStorage.getItem("orbit_flashcard_decks");
+    if (!stored) return [SAMPLE_FLASHCARDS_JSON];
+    const parsed = JSON.parse(stored);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : [SAMPLE_FLASHCARDS_JSON];
+  } catch {
+    return [SAMPLE_FLASHCARDS_JSON];
+  }
+}
+
+// ─── Mnemonics Hub Export Utility ───────────────────────────────────
+
+export function exportAllMnemonicsToJson(): JsonMnemonic[] {
+  try {
+    const stored = localStorage.getItem("orbit_mnemonics");
+    if (!stored) return SAMPLE_MNEMONICS_JSON;
+    const parsed = JSON.parse(stored);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : SAMPLE_MNEMONICS_JSON;
+  } catch {
+    return SAMPLE_MNEMONICS_JSON;
+  }
+}
+
+

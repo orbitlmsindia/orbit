@@ -335,81 +335,155 @@ export default function AdminBilling() {
             </div>
           </CardHeader>
           <CardContent className="pt-0 px-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="pl-6">Invoice #</TableHead>
-                  <TableHead>Billing Date</TableHead>
-                  <TableHead>Service Scope</TableHead>
-                  <TableHead className="text-center">Seats</TableHead>
-                  <TableHead className="text-right">Total Demand</TableHead>
-                  <TableHead>Payment Status</TableHead>
-                  <TableHead className="text-right pr-6">Receipt & Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
+            {/* Desktop Table View */}
+            <div className="overflow-x-auto hidden md:block">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-10 text-muted-foreground text-sm">
-                      <RefreshCw className="h-4 w-4 animate-spin inline mr-2" />
-                      Loading institutional invoices...
-                    </TableCell>
+                    <TableHead className="pl-6">Invoice #</TableHead>
+                    <TableHead>Billing Date</TableHead>
+                    <TableHead>Service Scope</TableHead>
+                    <TableHead className="text-center">Seats</TableHead>
+                    <TableHead className="text-right">Total Demand</TableHead>
+                    <TableHead>Payment Status</TableHead>
+                    <TableHead className="text-right pr-6">Receipt & Actions</TableHead>
                   </TableRow>
-                ) : invoices.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-10 text-muted-foreground text-sm">
-                      No invoices have been issued to this institution yet.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  invoices.map((inv) => (
-                    <TableRow key={inv.id}>
-                      <TableCell className="font-mono text-xs font-semibold pl-6 text-foreground">
-                        {inv.invoice_number}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {new Date(inv.created_at).toLocaleDateString("en-IN", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric"
-                        })}
-                      </TableCell>
-                      <TableCell className="text-xs text-foreground font-medium">
-                        {inv.courses?.title || "Full Institutional Platform Access"}
-                      </TableCell>
-                      <TableCell className="text-center font-mono text-xs text-muted-foreground">
-                        {inv.student_count} Seats
-                      </TableCell>
-                      <TableCell className="text-right font-mono font-bold text-foreground">
-                        ₹{inv.total_amount?.toLocaleString("en-IN")}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={inv.status === "paid" ? "default" : "outline"}
-                          className={
-                            inv.status === "paid"
-                              ? "bg-emerald-600 text-white font-mono text-xs"
-                              : "border-amber-500/50 text-amber-500 font-mono text-xs"
-                          }
-                        >
-                          {inv.status?.toUpperCase()}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right pr-6">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => openReceipt(inv)}
-                          className="h-8 text-xs gap-1.5 font-medium border-primary/30 text-primary hover:bg-primary/10"
-                        >
-                          <FileText className="h-3.5 w-3.5" /> View / Download
-                        </Button>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-10 text-muted-foreground text-sm">
+                        <RefreshCw className="h-4 w-4 animate-spin inline mr-2" />
+                        Loading institutional invoices...
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : invoices.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-10 text-muted-foreground text-sm">
+                        No invoices have been issued to this institution yet.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    invoices.map((inv) => (
+                      <TableRow key={inv.id}>
+                        <TableCell className="font-mono text-xs font-semibold pl-6 text-foreground">
+                          {inv.invoice_number}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {new Date(inv.created_at).toLocaleDateString("en-IN", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric"
+                          })}
+                        </TableCell>
+                        <TableCell className="text-xs text-foreground font-medium">
+                          {inv.courses?.title || "Full Institutional Platform Access"}
+                        </TableCell>
+                        <TableCell className="text-center font-mono text-xs text-muted-foreground">
+                          {inv.student_count} Seats
+                        </TableCell>
+                        <TableCell className="text-right font-mono font-bold text-foreground">
+                          ₹{inv.total_amount?.toLocaleString("en-IN")}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={inv.status === "paid" ? "default" : "outline"}
+                            className={
+                              inv.status === "paid"
+                                ? "bg-emerald-600 text-white font-mono text-xs"
+                                : "border-amber-500/50 text-amber-500 font-mono text-xs"
+                            }
+                          >
+                            {inv.status?.toUpperCase()}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right pr-6">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openReceipt(inv)}
+                            className="h-8 text-xs gap-1.5 font-medium border-primary/30 text-primary hover:bg-primary/10"
+                          >
+                            <FileText className="h-3.5 w-3.5" /> View / Download
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Mobile Cards View */}
+            <div className="md:hidden divide-y divide-border">
+              {loading ? (
+                <div className="text-center py-10 text-muted-foreground text-sm">
+                  <RefreshCw className="h-4 w-4 animate-spin inline mr-2" />
+                  Loading institutional invoices...
+                </div>
+              ) : invoices.length === 0 ? (
+                <div className="text-center py-10 text-muted-foreground text-sm px-4">
+                  No invoices have been issued to this institution yet.
+                </div>
+              ) : (
+                invoices.map((inv) => (
+                  <div key={inv.id} className="p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="font-mono text-sm font-bold text-foreground">
+                          {inv.invoice_number}
+                        </span>
+                        <div className="text-[11px] text-muted-foreground mt-0.5">
+                          {new Date(inv.created_at).toLocaleDateString("en-IN", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric"
+                          })}
+                        </div>
+                      </div>
+                      <Badge
+                        variant={inv.status === "paid" ? "default" : "outline"}
+                        className={
+                          inv.status === "paid"
+                            ? "bg-emerald-600 text-white font-mono text-xs"
+                            : "border-amber-500/50 text-amber-500 font-mono text-xs"
+                        }
+                      >
+                        {inv.status?.toUpperCase()}
+                      </Badge>
+                    </div>
+
+                    <div className="text-xs text-foreground font-medium">
+                      {inv.courses?.title || "Full Institutional Platform Access"}
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs pt-2 border-t border-border/60">
+                      <div>
+                        <span className="text-[11px] text-muted-foreground block">Seats Quota</span>
+                        <span className="font-mono font-semibold">{inv.student_count} Seats</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[11px] text-muted-foreground block">Total Demand</span>
+                        <span className="font-mono font-bold text-base text-foreground">
+                          ₹{inv.total_amount?.toLocaleString("en-IN")}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="pt-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openReceipt(inv)}
+                        className="w-full h-8 text-xs gap-1.5 font-medium border-primary/30 text-primary hover:bg-primary/10"
+                      >
+                        <FileText className="h-3.5 w-3.5" /> View / Download Tax Receipt
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </CardContent>
         </Card>
 

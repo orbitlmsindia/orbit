@@ -269,7 +269,7 @@ export default function ServiceMaintenance() {
                     Send Message to Customer Care
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="bg-slate-900 border-slate-800 text-white sm:max-w-md">
+                <DialogContent className="bg-slate-900 border-slate-800 text-white w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                   <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-base">
                       <HelpCircle className="h-5 w-5 text-amber-400" />

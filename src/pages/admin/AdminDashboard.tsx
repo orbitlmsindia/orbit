@@ -884,13 +884,13 @@ export default function AdminDashboard() {
 
       {/* 📋 Official Enrollment Details & Payment Verification Modal */}
       <Dialog open={enrollmentModalOpen} onOpenChange={(open) => { setEnrollmentModalOpen(open); if (!open) setSelectedEnrollmentForView(null); }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold flex items-center gap-2">
               <SearchCode className="h-5 w-5 text-primary" /> 
               {selectedEnrollmentForView ? "Enrollment Record Details" : "All Enrolled Students & Payment Status"}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-xs">
               {selectedEnrollmentForView 
                 ? "Review student submission details, course enrollment status, and transaction reference."
                 : "Manage and verify course admissions and student transaction receipts."}
@@ -899,7 +899,7 @@ export default function AdminDashboard() {
 
           {selectedEnrollmentForView ? (
             <div className="space-y-4 pt-2">
-              <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-muted/40 border text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-xl bg-muted/40 border text-sm">
                 <div>
                   <span className="text-xs text-muted-foreground uppercase font-semibold block">Student Name</span>
                   <span className="font-bold text-foreground text-base">{selectedEnrollmentForView.users?.full_name || "Student"}</span>
@@ -930,7 +930,7 @@ export default function AdminDashboard() {
                     {selectedEnrollmentForView.status || "Pending"}
                   </Badge>
                 </div>
-                <div className="col-span-2">
+                <div className="sm:col-span-2">
                   <span className="text-xs text-muted-foreground uppercase font-semibold block">Enrolled / Submitted Timestamp</span>
                   <span className="text-xs text-muted-foreground">
                     {selectedEnrollmentForView.enrolled_at ? new Date(selectedEnrollmentForView.enrolled_at).toLocaleString() : "Recently"}
@@ -938,15 +938,15 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              <div className="flex justify-between items-center pt-2 border-t">
-                <Button variant="ghost" onClick={() => setSelectedEnrollmentForView(null)}>
+              <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2 pt-2 border-t">
+                <Button variant="ghost" size="sm" onClick={() => setSelectedEnrollmentForView(null)} className="text-xs">
                   View All Enrollments
                 </Button>
                 <div className="flex gap-2">
-                  <Button variant="outline" className="text-red-500 border-red-200" onClick={() => { handleRejectEnrollment(selectedEnrollmentForView.id); setEnrollmentModalOpen(false); }}>
+                  <Button variant="outline" size="sm" className="flex-1 sm:flex-none text-red-500 border-red-200 text-xs" onClick={() => { handleRejectEnrollment(selectedEnrollmentForView.id); setEnrollmentModalOpen(false); }}>
                     <XCircle className="h-4 w-4 mr-1" /> Reject
                   </Button>
-                  <Button className="bg-green-600 hover:bg-green-700 text-white font-semibold" onClick={() => { handleApproveEnrollment(selectedEnrollmentForView.id, selectedEnrollmentForView.users?.email); setEnrollmentModalOpen(false); }}>
+                  <Button size="sm" className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 text-white font-semibold text-xs" onClick={() => { handleApproveEnrollment(selectedEnrollmentForView.id, selectedEnrollmentForView.users?.email); setEnrollmentModalOpen(false); }}>
                     <CheckCircle className="h-4 w-4 mr-1" /> Approve Payment
                   </Button>
                 </div>

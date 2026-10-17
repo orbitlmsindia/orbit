@@ -374,26 +374,28 @@ export default function AdminInquiries() {
 
         {/* Main Tabs */}
         <Tabs value={activeMainTab} onValueChange={setActiveMainTab} className="space-y-6">
-          <TabsList className="bg-muted/60 p-1 border">
-            <TabsTrigger value="contact" className="gap-2 text-xs font-semibold">
-              <Inbox className="h-4 w-4" />
-              Public Inquiries
-              {pendingCount > 0 && (
-                <Badge variant="secondary" className="ml-1 text-[10px] bg-amber-500/20 text-amber-600 px-1.5 py-0">
-                  {pendingCount}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="admissions" className="gap-2 text-xs font-semibold">
-              <GraduationCap className="h-4 w-4" />
-              Student Registration & Admissions
-              {pendingStudents > 0 && (
-                <Badge variant="secondary" className="ml-1 text-[10px] bg-amber-500/20 text-amber-600 px-1.5 py-0">
-                  {pendingStudents}
-                </Badge>
-              )}
-            </TabsTrigger>
-          </TabsList>
+          <div className="w-full overflow-x-auto scrollbar-none pb-1">
+            <TabsList className="bg-muted/60 p-1 border inline-flex min-w-max">
+              <TabsTrigger value="contact" className="gap-2 text-xs font-semibold">
+                <Inbox className="h-4 w-4" />
+                Public Inquiries
+                {pendingCount > 0 && (
+                  <Badge variant="secondary" className="ml-1 text-[10px] bg-amber-500/20 text-amber-600 px-1.5 py-0">
+                    {pendingCount}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="admissions" className="gap-2 text-xs font-semibold">
+                <GraduationCap className="h-4 w-4" />
+                Student Registration & Admissions
+                {pendingStudents > 0 && (
+                  <Badge variant="secondary" className="ml-1 text-[10px] bg-amber-500/20 text-amber-600 px-1.5 py-0">
+                    {pendingStudents}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* TAB 1: Public Contact Inquiries */}
           <TabsContent value="contact" className="space-y-6">
@@ -515,7 +517,8 @@ export default function AdminInquiries() {
                     </p>
                   </div>
                 ) : (
-                  <Table>
+                  <div className="overflow-x-auto">
+                    <Table className="min-w-[700px]">
                     <TableHeader className="bg-muted/40">
                       <TableRow>
                         <TableHead className="text-xs">Contact Person</TableHead>
@@ -614,6 +617,7 @@ export default function AdminInquiries() {
                       ))}
                     </TableBody>
                   </Table>
+                </div>
                 )}
               </CardContent>
             </Card>
@@ -739,7 +743,8 @@ export default function AdminInquiries() {
                     </p>
                   </div>
                 ) : (
-                  <Table>
+                  <div className="overflow-x-auto">
+                    <Table className="min-w-[750px]">
                     <TableHeader className="bg-muted/40">
                       <TableRow>
                         <TableHead className="text-xs">Student Name</TableHead>
@@ -849,6 +854,7 @@ export default function AdminInquiries() {
                       ))}
                     </TableBody>
                   </Table>
+                </div>
                 )}
               </CardContent>
             </Card>
@@ -857,7 +863,7 @@ export default function AdminInquiries() {
 
         {/* Message Detail Modal */}
         <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-          <DialogContent className="sm:max-w-lg">
+          <DialogContent className="w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
             {selectedMessage && (
               <>
                 <DialogHeader>
@@ -953,7 +959,7 @@ export default function AdminInquiries() {
 
         {/* Student Admission Application Modal */}
         <Dialog open={isStudentModalOpen} onOpenChange={setIsStudentModalOpen}>
-          <DialogContent className="sm:max-w-lg">
+          <DialogContent className="w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
             {selectedStudent && (
               <>
                 <DialogHeader>

@@ -30,12 +30,16 @@ import {
     UserCheck,
     UserX,
     Filter,
-    Sparkles
+    Sparkles,
+    Paperclip,
+    Link as LinkIcon
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate, Link } from "react-router-dom";
 import { LetterheadNoticeModal } from "@/components/notice/LetterheadNoticeModal";
+import { formatMessageWithAttachment, parseAnnouncementAttachment } from "@/lib/announcementUtils";
+import { AnnouncementAttachmentCard } from "@/components/notifications/AnnouncementAttachmentCard";
 
 export default function TeacherNotifications() {
     const { toast } = useToast();
@@ -57,6 +61,8 @@ export default function TeacherNotifications() {
     const [notificationType, setNotificationType] = useState("course");
     const [title, setTitle] = useState("");
     const [message, setMessage] = useState("");
+    const [attachmentUrl, setAttachmentUrl] = useState("");
+    const [attachmentLabel, setAttachmentLabel] = useState("");
 
     const [receivedNotifications, setReceivedNotifications] = useState<any[]>([]);
     const [sentNotifications, setSentNotifications] = useState<any[]>([]);
@@ -356,7 +362,7 @@ export default function TeacherNotifications() {
         }
     };
 
-    // Send course notification to enrolled students
+    // Send course notification to enrolled students with optional attachment link
     const handleSendNotification = async () => {
         if (!title || !message) {
             toast({ variant: "destructive", title: "Missing fields", description: "Please enter title and message." });
@@ -381,10 +387,14 @@ export default function TeacherNotifications() {
                 .eq('course_id', selectedCourse);
 
             if (enrollments && enrollments.length > 0) {
-                const insertPayload = enrollments.map(e => ({
+                // Format message to carry attachment metadata & markdown fallback
+                const formattedMessage = formatMessageWithAttachment(message, attachmentUrl, attachmentLabel);
+
+                const richPayload = enrollments.map(e => ({
                     user_id: e.student_id,
                     title: title,
-                    message: message,
+                    message: formattedMessage,
+                    link_url: attachmentUrl.trim() || undefined,
                     notification_type: notificationType || 'course',
                     sender_role: 'teacher',
                     course_id: selectedCourse,
@@ -393,20 +403,37 @@ export default function TeacherNotifications() {
 
                 const { error: insertErr } = await supabase
                     .from('notifications')
-                    .insert(insertPayload);
+                    .insert(richPayload);
 
-                if (insertErr) throw insertErr;
+                if (insertErr) {
+                    console.warn("Rich notification insert failed, falling back to standard payload:", insertErr);
+                    const standardPayload = enrollments.map(e => ({
+                        user_id: e.student_id,
+                        title: title,
+                        message: formattedMessage,
+                        notification_type: notificationType || 'course',
+                        sender_role: 'teacher',
+                        course_id: selectedCourse,
+                        is_read: false
+                    }));
+                    const { error: stdErr } = await supabase
+                        .from('notifications')
+                        .insert(standardPayload);
+                    if (stdErr) throw stdErr;
+                }
                 notifiedCount = enrollments.length;
             }
 
             toast({
-                title: "Notification Sent! 🔔",
-                description: `Notification delivered to ${notifiedCount} enrolled students.`
+                title: "Announcement Broadcasted! 🔔",
+                description: `Delivered to ${notifiedCount} enrolled students${attachmentUrl ? ' with attached link' : ''}.`
             });
 
             setCreateModalOpen(false);
             setTitle("");
             setMessage("");
+            setAttachmentUrl("");
+            setAttachmentLabel("");
             setSelectedCourse("");
             fetchData();
 
@@ -474,7 +501,7 @@ export default function TeacherNotifications() {
                                     Send Announcement
                                 </Button>
                             </DialogTrigger>
-                            <DialogContent className="sm:max-w-xl">
+                            <DialogContent className="w-[95vw] sm:max-w-xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                                 <DialogHeader>
                                     <DialogTitle>Send Course Announcement</DialogTitle>
                                     <DialogDescription>
@@ -536,6 +563,38 @@ export default function TeacherNotifications() {
                                             value={message}
                                             onChange={(e) => setMessage(e.target.value)}
                                         />
+                                    </div>
+
+                                    {/* Attachment Link */}
+                                    <div className="space-y-3 p-3.5 rounded-xl border border-primary/20 bg-primary/5">
+                                        <div className="flex items-center gap-2">
+                                            <Paperclip className="h-4 w-4 text-primary" />
+                                            <Label htmlFor="attachment-url" className="text-xs font-bold text-foreground">
+                                                Attach Link (Google Meet, Drive, Slides, PDF, External URL)
+                                            </Label>
+                                        </div>
+                                        <Input
+                                            id="attachment-url"
+                                            placeholder="https://meet.google.com/xyz or https://drive.google.com/..."
+                                            value={attachmentUrl}
+                                            onChange={(e) => setAttachmentUrl(e.target.value)}
+                                            className="text-xs bg-background"
+                                        />
+                                        <div className="space-y-1">
+                                            <Label htmlFor="attachment-label" className="text-[11px] text-muted-foreground">
+                                                Button Label (Optional)
+                                            </Label>
+                                            <Input
+                                                id="attachment-label"
+                                                placeholder="e.g. Join Google Meet / View Lecture Slides"
+                                                value={attachmentLabel}
+                                                onChange={(e) => setAttachmentLabel(e.target.value)}
+                                                className="text-xs bg-background"
+                                            />
+                                        </div>
+                                        <p className="text-[11px] text-muted-foreground">
+                                            Students will see a prominent 1-click button to open this resource directly from their announcements hub.
+                                        </p>
                                     </div>
                                 </div>
                                 <DialogFooter>
@@ -856,20 +915,28 @@ export default function TeacherNotifications() {
                                     </div>
                                 ) : (
                                     <div className="space-y-3">
-                                        {sentNotifications.map((notif) => (
-                                            <div key={notif.id} className="flex items-start gap-3 p-3.5 rounded-xl border bg-card hover:bg-muted/20">
-                                                <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600">
-                                                    <CheckCircle className="h-4 w-4" />
+                                        {sentNotifications.map((notif) => {
+                                            const attachment = parseAnnouncementAttachment(notif.message, notif.link_url);
+                                            return (
+                                                <div key={notif.id} className="flex items-start gap-3 p-3.5 rounded-xl border bg-card hover:bg-muted/20">
+                                                    <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600 shrink-0 mt-0.5">
+                                                        <CheckCircle className="h-4 w-4" />
+                                                    </div>
+                                                    <div className="flex-1 space-y-1.5 min-w-0">
+                                                        <p className="font-semibold text-sm text-foreground">{notif.title}</p>
+                                                        <p className="text-xs text-muted-foreground leading-relaxed">{attachment.cleanMessage}</p>
+                                                        {attachment.hasAttachment && (
+                                                            <div className="pt-1 max-w-lg">
+                                                                <AnnouncementAttachmentCard attachment={attachment} compact />
+                                                            </div>
+                                                        )}
+                                                        <p className="text-[11px] font-mono text-muted-foreground/70 pt-0.5">
+                                                            {new Date(notif.created_at).toLocaleDateString()} at {new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                        </p>
+                                                    </div>
                                                 </div>
-                                                <div className="flex-1 space-y-1">
-                                                    <p className="font-semibold text-sm text-foreground">{notif.title}</p>
-                                                    <p className="text-xs text-muted-foreground line-clamp-2">{notif.message}</p>
-                                                    <p className="text-[11px] font-mono text-muted-foreground/70 pt-0.5">
-                                                        {new Date(notif.created_at).toLocaleDateString()} at {new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 )}
                             </CardContent>

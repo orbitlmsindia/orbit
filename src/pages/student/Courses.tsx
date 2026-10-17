@@ -39,7 +39,8 @@ import {
     IndianRupee,
     Ticket,
     Tag,
-    Trophy
+    Trophy,
+    Lightbulb
 } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
@@ -1395,29 +1396,51 @@ export default function StudentCourses() {
                                             </div>
 
                                             {isApproved ? (
-                                                <div className="flex items-center gap-2 w-full">
-                                                    <Link 
-                                                        to={`/student/courses/${course.id}/learn`} 
-                                                        className="flex-1"
-                                                        onClick={(e) => e.stopPropagation()}
-                                                    >
-                                                        <Button className="w-full gap-2 font-semibold" variant="secondary">
-                                                            <PlayCircle className="h-4 w-4 text-primary" /> Continue Learning
+                                                <div className="flex flex-col gap-2 w-full">
+                                                    <div className="flex items-center gap-2 w-full">
+                                                        <Link 
+                                                            to={`/student/courses/${course.id}/learn`} 
+                                                            className="flex-1"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            <Button className="w-full gap-2 font-semibold" variant="secondary">
+                                                                <PlayCircle className="h-4 w-4 text-primary" /> Continue Learning
+                                                            </Button>
+                                                        </Link>
+                                                        <Button 
+                                                            size="sm" 
+                                                            variant="outline" 
+                                                            className="h-10 px-3 gap-1.5 shrink-0 border-amber-500/30 text-amber-500 hover:bg-amber-500/10 hover:text-amber-400 font-semibold"
+                                                            title="Course Achievements & Aura Leaderboard"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setSelectedAchievementCourse({ id: course.id, title: course.title });
+                                                            }}
+                                                        >
+                                                            <Trophy className="h-4 w-4" />
+                                                            <span className="text-xs">Aura</span>
                                                         </Button>
-                                                    </Link>
-                                                    <Button 
-                                                        size="sm" 
-                                                        variant="outline" 
-                                                        className="h-10 px-3 gap-1.5 shrink-0 border-amber-500/30 text-amber-500 hover:bg-amber-500/10 hover:text-amber-400 font-semibold"
-                                                        title="Course Achievements & Aura Leaderboard"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setSelectedAchievementCourse({ id: course.id, title: course.title });
-                                                        }}
-                                                    >
-                                                        <Trophy className="h-4 w-4" />
-                                                        <span className="text-xs">Aura</span>
-                                                    </Button>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 pt-1 border-t border-border/40">
+                                                        <Link 
+                                                            to={`/student/flashcards`} 
+                                                            className="flex-1"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            <Button size="sm" variant="ghost" className="w-full h-7 text-[11px] gap-1 text-muted-foreground hover:text-indigo-500 font-medium">
+                                                                <Layers className="h-3 w-3 text-indigo-500" /> Flashcards
+                                                            </Button>
+                                                        </Link>
+                                                        <Link 
+                                                            to={`/student/mnemonics`} 
+                                                            className="flex-1"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            <Button size="sm" variant="ghost" className="w-full h-7 text-[11px] gap-1 text-muted-foreground hover:text-amber-500 font-medium">
+                                                                <Lightbulb className="h-3 w-3 text-amber-500" /> Mnemonics
+                                                            </Button>
+                                                        </Link>
+                                                    </div>
                                                 </div>
                                             ) : isPending ? (
                                                 <Button 
@@ -1553,7 +1576,7 @@ export default function StudentCourses() {
                 open={!!selectedProgramForPreview}
                 onOpenChange={(open) => !open && setSelectedProgramForPreview(null)}
             >
-                <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+                <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
                     {selectedProgramForPreview && (
                         <>
                             <div className="relative h-44 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white p-6 flex flex-col justify-end shrink-0">
@@ -1674,7 +1697,7 @@ export default function StudentCourses() {
 
             {/* ENROLLMENT / PAYMENT DIALOG */}
             <Dialog open={enrollmentDialog.isOpen} onOpenChange={(open) => { setEnrollmentDialog(prev => ({ ...prev, isOpen: open })); if (!open) { setCouponApplied(null); setCouponCode(""); setCouponError(""); } }}>
-                <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col p-0 overflow-hidden shadow-2xl border border-border/80">
+                <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] flex flex-col p-0 overflow-hidden shadow-2xl border border-border/80">
                     <DialogHeader className="p-5 sm:p-6 pb-3 border-b bg-card shrink-0">
                         <DialogTitle className="text-lg sm:text-xl font-bold">Enroll in {enrollmentDialog.courseName}</DialogTitle>
                         <DialogDescription className="text-xs sm:text-sm">

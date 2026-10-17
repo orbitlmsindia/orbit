@@ -189,7 +189,7 @@ _Please reply with payment confirmation screenshot to reconcile license renewal 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-slate-950 border-slate-800 text-white max-w-2xl max-h-[92vh] overflow-y-auto p-0">
+      <DialogContent className="bg-slate-950 border-slate-800 text-white w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto p-0">
         <DialogHeader className="p-4 sm:p-6 border-b border-slate-800 bg-slate-900/60 sticky top-0 z-10 backdrop-blur-md">
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-2 text-base font-semibold text-slate-100">
@@ -289,8 +289,8 @@ _Please reply with payment confirmation screenshot to reconcile license renewal 
           </div>
 
           {/* Line Items Table */}
-          <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-900/40">
-            <table className="w-full text-xs text-left">
+          <div className="border border-slate-800 rounded-xl overflow-x-auto bg-slate-900/40">
+            <table className="w-full min-w-[420px] text-xs text-left">
               <thead className="bg-slate-900 border-b border-slate-800 text-slate-400 font-medium">
                 <tr>
                   <th className="py-2.5 px-4">Description / Platform Service</th>

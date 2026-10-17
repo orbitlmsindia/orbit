@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, Search, Menu, User, Command, Sparkles, Award, Trophy, X, CheckCheck, Trash2, GraduationCap, FileText, CheckCircle2, Ticket } from "lucide-react";
+import { Bell, Search, Menu, User, Command, Sparkles, Award, Trophy, X, CheckCheck, Trash2, GraduationCap, FileText, CheckCircle2, Ticket, Palette, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,7 @@ import { useNotifications } from "@/contexts/NotificationContext";
 import { SpotlightSearch } from "@/components/search/SpotlightSearch";
 import { JsonCalendarUpdaterModal } from "@/components/calendar/JsonCalendarUpdaterModal";
 import { AuraLedgerSheet } from "@/components/ledger/AuraLedgerSheet";
+import { ThemeStudioModal } from "@/components/theme/ThemeStudioModal";
 
 interface TopBarProps {
   userName?: string;
@@ -43,6 +44,7 @@ export function TopBar({
   const [totalCredits, setTotalCredits] = useState(0);
   const [userRole, setUserRole] = useState("student");
   const [ledgerSheetOpen, setLedgerSheetOpen] = useState(false);
+  const [themeStudioOpen, setThemeStudioOpen] = useState(false);
 
   useEffect(() => {
     const getUser = async () => {
@@ -223,7 +225,7 @@ export function TopBar({
       </div>
 
       {/* Center Search Bar - Native mobile rounded capsule */}
-      <div className="flex-1 max-w-md mx-1 sm:mx-4">
+      <div className="flex-1 max-w-md mx-1 sm:mx-4 min-w-0">
         <button
           type="button"
           onClick={() => setSpotlightOpen(true)}
@@ -259,10 +261,21 @@ export function TopBar({
             </span>
           </button>
         )}
+        {/* Theme Studio Trigger Button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setThemeStudioOpen(true)}
+          className="relative cursor-pointer hover:bg-accent rounded-full h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-primary transition-colors touch-press"
+          title="Orbit Theme Studio & Flux Store (10 Themes)"
+        >
+          <Palette className="h-4 w-4 sm:h-5 sm:w-5" />
+        </Button>
+
         {/* Notifications Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative cursor-pointer hover:bg-accent rounded-full h-8 w-8 sm:h-9 sm:w-9">
+            <Button variant="ghost" size="icon" className="relative cursor-pointer hover:bg-accent rounded-full h-8 w-8 sm:h-9 sm:w-9 touch-press">
               <Bell className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
               {unreadCount > 0 && (
                 <Badge className="absolute -top-1 -right-1 h-4 w-4 sm:h-5 sm:w-5 p-0 flex items-center justify-center bg-primary text-primary-foreground text-[9px] sm:text-[10px] font-bold rounded-full shadow-sm animate-pulse">
@@ -389,7 +402,7 @@ export function TopBar({
         {/* User Profile Avatar Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+            <Button variant="ghost" className="relative h-9 w-9 rounded-full touch-press cursor-pointer">
               <Avatar className="h-9 w-9 border border-border">
                 <AvatarImage src={avatar} alt={name} />
                 <AvatarFallback className="bg-primary/10 text-primary font-bold">
@@ -410,6 +423,10 @@ export function TopBar({
               <User className="mr-2 h-4 w-4" />
               Profile
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setThemeStudioOpen(true)} className="cursor-pointer">
+              <Palette className="mr-2 h-4 w-4 text-primary" />
+              Theme Studio (10 Themes)
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="text-destructive" onClick={handleLogout}>Log out</DropdownMenuItem>
           </DropdownMenuContent>
@@ -419,6 +436,7 @@ export function TopBar({
       <SpotlightSearch open={spotlightOpen} onOpenChange={setSpotlightOpen} />
       <JsonCalendarUpdaterModal />
       <AuraLedgerSheet open={ledgerSheetOpen} onOpenChange={setLedgerSheetOpen} userRole={userRole} />
+      <ThemeStudioModal open={themeStudioOpen} onOpenChange={setThemeStudioOpen} userRole={userRole} />
     </header>
   );
 }

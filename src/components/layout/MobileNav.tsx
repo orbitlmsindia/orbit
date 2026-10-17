@@ -56,13 +56,19 @@ export function MobileNav() {
       { title: "Blogs", url: "/master/blogs", icon: ClipboardList },
       { title: "Analytics", url: "/master/analytics", icon: PieChart },
     ];
+  } else if (path.startsWith("/finance")) {
+    navItems = [
+      { title: "Dashboard", url: "/finance", icon: Home },
+      { title: "Invoices", url: "/finance/invoices", icon: CreditCard },
+      { title: "Ledger", url: "/finance/transactions", icon: BarChart3 },
+    ];
   } else {
     // Student navigation (default)
     navItems = [
       { title: "Home", url: "/student", icon: Home },
       { title: "Courses", url: "/student/courses", icon: BookOpen },
-      { title: "Tasks", url: "/student/assignments", icon: CheckSquare },
-      { title: "Aura XP", url: "/student/leaderboard", icon: Trophy },
+      { title: "Attendance", url: "/student/attendance", icon: CheckSquare },
+      { title: "Updates", url: "/student/notifications", icon: Bell, badge: unreadCount },
       { title: "Schedule", url: "/student/calendar", icon: Calendar },
     ];
   }

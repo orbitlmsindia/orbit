@@ -190,6 +190,377 @@
     --shadow-md: 0 4px 12px -1px hsl(155 100% 45% / 0.25);
     --shadow-lg: 0 10px 25px -3px hsl(155 100% 45% / 0.35);
   }
+
+  .cyberpunk {
+    /* Cyberpunk Neon 2077 - Fuchsia & Electric Cyan */
+    --primary: 326 100% 55%;
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 275 30% 14%;
+    --secondary-foreground: 180 100% 90%;
+    
+    --accent: 180 100% 50%;
+    --accent-foreground: 275 40% 6%;
+    
+    --success: 142 71% 50%;
+    --success-foreground: 0 0% 100%;
+    
+    --warning: 45 100% 50%;
+    --warning-foreground: 0 0% 10%;
+    
+    --destructive: 0 85% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --background: 275 40% 6%;
+    --foreground: 0 0% 100%;
+    
+    --card: 275 35% 9%;
+    --card-foreground: 0 0% 100%;
+    
+    --popover: 275 35% 9%;
+    --popover-foreground: 0 0% 100%;
+    
+    --muted: 275 25% 15%;
+    --muted-foreground: 275 20% 70%;
+    
+    --border: 326 60% 25%;
+    --input: 326 60% 25%;
+    --ring: 326 100% 55%;
+    
+    --sidebar-background: 275 45% 5%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 326 100% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 275 30% 13%;
+    --sidebar-accent-foreground: 180 100% 90%;
+    --sidebar-border: 326 50% 20%;
+    --sidebar-ring: 180 100% 50%;
+    
+    --gradient-primary: linear-gradient(135deg, hsl(326 100% 55%) 0%, hsl(270 90% 55%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(275 35% 9%) 0%, hsl(275 40% 6%) 100%);
+    
+    --shadow-sm: 0 1px 2px 0 hsl(326 100% 55% / 0.15);
+    --shadow-md: 0 4px 12px -1px hsl(326 100% 55% / 0.25);
+    --shadow-lg: 0 10px 25px -3px hsl(326 100% 55% / 0.35);
+  }
+
+  .sapphire {
+    /* Midnight Sapphire Theme - Oceanic Deep Royal & Ice Blue */
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 222 35% 16%;
+    --secondary-foreground: 210 40% 92%;
+    
+    --accent: 199 89% 48%;
+    --accent-foreground: 0 0% 100%;
+    
+    --success: 142 71% 50%;
+    --success-foreground: 0 0% 100%;
+    
+    --warning: 38 92% 55%;
+    --warning-foreground: 0 0% 10%;
+    
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --background: 222 47% 7%;
+    --foreground: 210 40% 98%;
+    
+    --card: 222 45% 10%;
+    --card-foreground: 210 40% 98%;
+    
+    --popover: 222 45% 10%;
+    --popover-foreground: 210 40% 98%;
+    
+    --muted: 222 30% 16%;
+    --muted-foreground: 215 25% 68%;
+    
+    --border: 222 35% 22%;
+    --input: 222 35% 22%;
+    --ring: 217 91% 60%;
+    
+    --sidebar-background: 224 55% 5%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 222 35% 14%;
+    --sidebar-accent-foreground: 210 40% 95%;
+    --sidebar-border: 222 35% 18%;
+    --sidebar-ring: 217 91% 60%;
+    
+    --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%) 0%, hsl(230 85% 55%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(222 45% 10%) 0%, hsl(222 47% 7%) 100%);
+    
+    --shadow-sm: 0 1px 2px 0 hsl(217 91% 60% / 0.15);
+    --shadow-md: 0 4px 12px -1px hsl(217 91% 60% / 0.25);
+    --shadow-lg: 0 10px 25px -3px hsl(217 91% 60% / 0.35);
+  }
+
+  .amethyst {
+    /* Amethyst Royal Theme - Velvet Purple & Lavender Glow */
+    --primary: 271 91% 65%;
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 268 30% 16%;
+    --secondary-foreground: 270 30% 92%;
+    
+    --accent: 290 85% 60%;
+    --accent-foreground: 0 0% 100%;
+    
+    --success: 142 71% 50%;
+    --success-foreground: 0 0% 100%;
+    
+    --warning: 40 95% 55%;
+    --warning-foreground: 0 0% 10%;
+    
+    --destructive: 0 75% 58%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --background: 268 45% 7%;
+    --foreground: 270 30% 98%;
+    
+    --card: 268 40% 11%;
+    --card-foreground: 270 30% 98%;
+    
+    --popover: 268 40% 11%;
+    --popover-foreground: 270 30% 98%;
+    
+    --muted: 268 25% 16%;
+    --muted-foreground: 268 20% 70%;
+    
+    --border: 268 35% 23%;
+    --input: 268 35% 23%;
+    --ring: 271 91% 65%;
+    
+    --sidebar-background: 270 50% 5%;
+    --sidebar-foreground: 270 30% 98%;
+    --sidebar-primary: 271 91% 65%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 268 30% 14%;
+    --sidebar-accent-foreground: 270 30% 95%;
+    --sidebar-border: 268 35% 18%;
+    --sidebar-ring: 271 91% 65%;
+    
+    --gradient-primary: linear-gradient(135deg, hsl(271 91% 65%) 0%, hsl(295 80% 55%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(268 40% 11%) 0%, hsl(268 45% 7%) 100%);
+    
+    --shadow-sm: 0 1px 2px 0 hsl(271 91% 65% / 0.15);
+    --shadow-md: 0 4px 12px -1px hsl(271 91% 65% / 0.25);
+    --shadow-lg: 0 10px 25px -3px hsl(271 91% 65% / 0.35);
+  }
+
+  .solar-flare {
+    /* Solar Flare Theme - Radiant Amber Gold & Warm Obsidian */
+    --primary: 38 95% 52%;
+    --primary-foreground: 28 40% 6%;
+    
+    --secondary: 28 30% 14%;
+    --secondary-foreground: 40 30% 92%;
+    
+    --accent: 20 95% 55%;
+    --accent-foreground: 0 0% 100%;
+    
+    --success: 142 71% 50%;
+    --success-foreground: 0 0% 100%;
+    
+    --warning: 45 100% 50%;
+    --warning-foreground: 0 0% 10%;
+    
+    --destructive: 0 85% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --background: 28 40% 6%;
+    --foreground: 40 40% 98%;
+    
+    --card: 28 35% 9%;
+    --card-foreground: 40 40% 98%;
+    
+    --popover: 28 35% 9%;
+    --popover-foreground: 40 40% 98%;
+    
+    --muted: 28 25% 14%;
+    --muted-foreground: 32 20% 70%;
+    
+    --border: 38 50% 22%;
+    --input: 38 50% 22%;
+    --ring: 38 95% 52%;
+    
+    --sidebar-background: 28 45% 4%;
+    --sidebar-foreground: 40 40% 98%;
+    --sidebar-primary: 38 95% 52%;
+    --sidebar-primary-foreground: 28 40% 6%;
+    --sidebar-accent: 28 30% 12%;
+    --sidebar-accent-foreground: 40 40% 95%;
+    --sidebar-border: 38 40% 18%;
+    --sidebar-ring: 38 95% 52%;
+    
+    --gradient-primary: linear-gradient(135deg, hsl(38 95% 52%) 0%, hsl(20 95% 55%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(28 35% 9%) 0%, hsl(28 40% 6%) 100%);
+    
+    --shadow-sm: 0 1px 2px 0 hsl(38 95% 52% / 0.15);
+    --shadow-md: 0 4px 12px -1px hsl(38 95% 52% / 0.25);
+    --shadow-lg: 0 10px 25px -3px hsl(38 95% 52% / 0.35);
+  }
+
+  .crimson {
+    /* Crimson Dynasty Theme - Deep Blood Red & Burgundy Noir */
+    --primary: 350 89% 60%;
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 350 30% 14%;
+    --secondary-foreground: 350 30% 92%;
+    
+    --accent: 340 85% 50%;
+    --accent-foreground: 0 0% 100%;
+    
+    --success: 142 71% 50%;
+    --success-foreground: 0 0% 100%;
+    
+    --warning: 38 92% 55%;
+    --warning-foreground: 0 0% 10%;
+    
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --background: 350 40% 6%;
+    --foreground: 0 0% 98%;
+    
+    --card: 350 35% 9%;
+    --card-foreground: 0 0% 98%;
+    
+    --popover: 350 35% 9%;
+    --popover-foreground: 0 0% 98%;
+    
+    --muted: 350 25% 14%;
+    --muted-foreground: 350 20% 70%;
+    
+    --border: 350 45% 22%;
+    --input: 350 45% 22%;
+    --ring: 350 89% 60%;
+    
+    --sidebar-background: 350 45% 4%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 350 89% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 350 30% 12%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 350 40% 18%;
+    --sidebar-ring: 350 89% 60%;
+    
+    --gradient-primary: linear-gradient(135deg, hsl(350 89% 60%) 0%, hsl(330 85% 50%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(350 35% 9%) 0%, hsl(350 40% 6%) 100%);
+    
+    --shadow-sm: 0 1px 2px 0 hsl(350 89% 60% / 0.15);
+    --shadow-md: 0 4px 12px -1px hsl(350 89% 60% / 0.25);
+    --shadow-lg: 0 10px 25px -3px hsl(350 89% 60% / 0.35);
+  }
+
+  .emerald-nordic {
+    /* Emerald Nordic Theme - Nordic Pine Teal & Mint Forest */
+    --primary: 160 84% 45%;
+    --primary-foreground: 170 35% 6%;
+    
+    --secondary: 170 25% 14%;
+    --secondary-foreground: 160 25% 92%;
+    
+    --accent: 175 75% 45%;
+    --accent-foreground: 0 0% 100%;
+    
+    --success: 150 80% 45%;
+    --success-foreground: 0 0% 100%;
+    
+    --warning: 40 95% 50%;
+    --warning-foreground: 0 0% 10%;
+    
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --background: 170 35% 6%;
+    --foreground: 160 30% 98%;
+    
+    --card: 170 30% 9%;
+    --card-foreground: 160 30% 98%;
+    
+    --popover: 170 30% 9%;
+    --popover-foreground: 160 30% 98%;
+    
+    --muted: 170 20% 14%;
+    --muted-foreground: 165 20% 70%;
+    
+    --border: 165 40% 22%;
+    --input: 165 40% 22%;
+    --ring: 160 84% 45%;
+    
+    --sidebar-background: 170 40% 4%;
+    --sidebar-foreground: 160 30% 98%;
+    --sidebar-primary: 160 84% 45%;
+    --sidebar-primary-foreground: 170 35% 6%;
+    --sidebar-accent: 170 25% 12%;
+    --sidebar-accent-foreground: 160 30% 95%;
+    --sidebar-border: 165 35% 18%;
+    --sidebar-ring: 160 84% 45%;
+    
+    --gradient-primary: linear-gradient(135deg, hsl(160 84% 45%) 0%, hsl(175 75% 45%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(170 30% 9%) 0%, hsl(170 35% 6%) 100%);
+    
+    --shadow-sm: 0 1px 2px 0 hsl(160 84% 45% / 0.15);
+    --shadow-md: 0 4px 12px -1px hsl(160 84% 45% / 0.25);
+    --shadow-lg: 0 10px 25px -3px hsl(160 84% 45% / 0.35);
+  }
+
+  .cosmic-aurora {
+    /* Cosmic Aurora Theme - Mystic Aurora Magenta-Teal Dual Tone & Deep Space */
+    --primary: 280 85% 65%;
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 240 25% 15%;
+    --secondary-foreground: 190 80% 92%;
+    
+    --accent: 190 95% 50%;
+    --accent-foreground: 240 35% 6%;
+    
+    --success: 142 71% 50%;
+    --success-foreground: 0 0% 100%;
+    
+    --warning: 42 95% 55%;
+    --warning-foreground: 0 0% 10%;
+    
+    --destructive: 0 75% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --background: 240 35% 6%;
+    --foreground: 0 0% 98%;
+    
+    --card: 240 30% 9%;
+    --card-foreground: 0 0% 98%;
+    
+    --popover: 240 30% 9%;
+    --popover-foreground: 0 0% 98%;
+    
+    --muted: 240 20% 15%;
+    --muted-foreground: 240 20% 70%;
+    
+    --border: 270 40% 25%;
+    --input: 270 40% 25%;
+    --ring: 280 85% 65%;
+    
+    --sidebar-background: 240 40% 4%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 280 85% 65%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 25% 12%;
+    --sidebar-accent-foreground: 190 80% 95%;
+    --sidebar-border: 270 35% 20%;
+    --sidebar-ring: 190 95% 50%;
+    
+    --gradient-primary: linear-gradient(135deg, hsl(280 85% 65%) 0%, hsl(190 95% 50%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(240 30% 9%) 0%, hsl(240 35% 6%) 100%);
+    
+    --shadow-sm: 0 1px 2px 0 hsl(280 85% 65% / 0.15);
+    --shadow-md: 0 4px 12px -1px hsl(280 85% 65% / 0.25);
+    --shadow-lg: 0 10px 25px -3px hsl(280 85% 65% / 0.35);
+  }
 }
 
 @layer base {
@@ -268,6 +639,14 @@
   /* Tactile feedback for mobile buttons */
   .touch-press {
     @apply active:scale-[0.96] transition-transform duration-150 ease-out;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 
   .touch-pan-smooth {

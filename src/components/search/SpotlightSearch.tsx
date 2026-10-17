@@ -15,7 +15,12 @@ import {
   Command,
   Loader2,
   Receipt,
-  Award
+  Award,
+  Palette,
+  Trophy,
+  HardDrive,
+  MonitorPlay,
+  FileCheck
 } from "lucide-react";
 import {
   Dialog,
@@ -309,20 +314,27 @@ export function SpotlightSearch({ open: externalOpen, onOpenChange }: SpotlightS
     userRole === "teacher"
       ? [
           { title: "My Courses", path: "/teacher/courses", icon: BookOpen },
-          { title: "JSON Course Builder", path: "/teacher/courses/json-builder", icon: Sparkles },
+          { title: "AI JSON Course Builder", path: "/teacher/courses/json-builder", icon: Sparkles },
+          { title: "Global Leaderboard", path: "/teacher/leaderboard", icon: Trophy },
           { title: "Mark Attendance", path: "/teacher/attendance", icon: CheckSquare },
-          { title: "Analytics & Performance", path: "/teacher/analytics", icon: BarChart2 },
+          { title: "Reviews & Grading", path: "/teacher/reviews", icon: FileCheck },
+          { title: "Public Presentation Deck", path: "/presentation", icon: MonitorPlay },
         ]
       : userRole === "admin"
       ? [
           { title: "Admin Dashboard", path: "/admin", icon: BarChart2 },
           { title: "Manage Courses", path: "/admin/courses", icon: BookOpen },
           { title: "Manage Users", path: "/admin/users", icon: Users },
+          { title: "Billing & Plans", path: "/admin/billing", icon: Receipt },
+          { title: "Global Leaderboard", path: "/admin/leaderboard", icon: Trophy },
+          { title: "Letterhead & Backup Settings", path: "/admin/settings", icon: HardDrive },
         ]
       : [
           { title: "Course Catalog", path: "/student/courses", icon: BookOpen },
+          { title: "Global Leaderboard & Ranks", path: "/student/leaderboard", icon: Trophy },
+          { title: "Orbit 10 Themes & Flux", path: "/profile", icon: Palette },
           { title: "Certification Programs", path: "/student/courses?tab=programs", icon: Award },
-          { title: "My Attendance", path: "/student/attendance", icon: CheckSquare },
+          { title: "Academic Grades & Transcript", path: "/student/grades", icon: FileCheck },
           { title: "Schedule / Calendar", path: "/student/calendar", icon: Calendar },
         ];
 

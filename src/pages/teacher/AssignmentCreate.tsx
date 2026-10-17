@@ -298,7 +298,7 @@ export default function AssignmentCreate() {
 
             {/* Preview Modal */}
             <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-                <DialogContent className="sm:max-w-2xl">
+                <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                     <DialogHeader>
                         <DialogTitle>Student Preview</DialogTitle>
                         <DialogDescription>This is how the assignment will appear to your students.</DialogDescription>

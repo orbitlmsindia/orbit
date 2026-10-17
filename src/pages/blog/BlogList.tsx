@@ -315,12 +315,12 @@ export default function BlogList() {
 
         {/* Regular Articles Grid */}
         <div className="space-y-6">
-          <div className="flex items-center justify-between border-b pb-3">
-            <h3 className="text-lg font-bold font-display text-foreground flex items-center gap-2">
+          <div className="flex items-center justify-between border-b pb-3 gap-2">
+            <h3 className="text-base sm:text-lg font-bold font-display text-foreground flex items-center gap-2">
               <BookOpen className="h-4 w-4 text-primary" />
               Latest Articles ({filteredBlogs.length})
             </h3>
-            <span className="text-xs text-muted-foreground font-mono">
+            <span className="text-[10px] sm:text-xs text-muted-foreground font-mono text-right hidden sm:inline-block">
               Search Engine Indexed & Accredited
             </span>
           </div>

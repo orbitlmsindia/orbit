@@ -236,7 +236,7 @@ export default function MasterMonitoring() {
                         ) : (
                             <ul className="space-y-2.5">
                                 {recentAudits.map((log) => (
-                                    <li key={log.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-950/70 border border-slate-800 font-mono text-xs text-slate-200">
+                                    <li key={log.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-lg bg-slate-950/70 border border-slate-800 font-mono text-xs text-slate-200">
                                         <div className="flex items-center gap-3">
                                             <span className="text-slate-500 text-[11px]">
                                                 {format(new Date(log.created_at), "HH:mm:ss")}
@@ -325,16 +325,16 @@ export default function MasterMonitoring() {
                                 Create instant full-database snapshots or restore system state across colleges, courses, questions, marks, and student aura points with zero data loss.
                             </CardDescription>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
                             <Button
                                 onClick={handleDownloadBackup}
                                 disabled={isExporting}
-                                className="bg-indigo-600 hover:bg-indigo-500 text-white gap-2 font-semibold shadow-md"
+                                className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white gap-2 font-semibold shadow-md text-xs sm:text-sm"
                             >
                                 {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                                 Download System Backup (.json)
                             </Button>
-                            <label className="cursor-pointer">
+                            <label className="cursor-pointer w-full sm:w-auto">
                                 <input
                                     type="file"
                                     accept=".json"
@@ -345,7 +345,7 @@ export default function MasterMonitoring() {
                                 <Button
                                     variant="outline"
                                     disabled={isRestoring}
-                                    className="border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 gap-2 font-semibold pointer-events-none"
+                                    className="w-full sm:w-auto border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 gap-2 font-semibold pointer-events-none text-xs sm:text-sm"
                                 >
                                     {isRestoring ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                                     Upload & Restore Backup

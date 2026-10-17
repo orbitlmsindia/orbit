@@ -35,21 +35,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DispatchBillingReminderModal, CollegeReminderTarget } from "@/components/billing/DispatchBillingReminderModal";
 import { InvoiceReceiptModal, InvoiceData } from "@/components/billing/InvoiceReceiptModal";
-
-const ALL_FEATURES = [
-  { id: "live_classes", label: "Live Online Classes & Video Streams" },
-  { id: "certificates", label: "20-Credit Domain Certificates" },
-  { id: "gamification", label: "Daily Streaks & Aura XP Points" },
-  { id: "quizzes", label: "Interactive Timed Quizzes" },
-  { id: "assignments", label: "Assignment Submission Portal" },
-  { id: "ai_json_builder", label: "AI & JSON Bulk Course Importer" },
-  { id: "leaderboard", label: "Student & Faculty Leaderboards" },
-  { id: "ticket_raising", label: "Help Center Ticket Support Desk" },
-  { id: "coupon_engine", label: "Coupon Engine & UPI Payment QR" },
-  { id: "attendance_tracker", label: "Student Live Session Attendance" },
-];
+import { getRegisteredFeatures } from "@/services/featuresService";
 
 export default function MasterColleges() {
+  const allFeatures = getRegisteredFeatures().map((f) => ({ id: f.id, label: f.name }));
   const [colleges, setColleges] = useState<any[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -64,7 +53,7 @@ export default function MasterColleges() {
     name: "",
     currency: "INR",
     maxStudents: 1000,
-    features: ALL_FEATURES.map(f => f.id)
+    features: allFeatures.map(f => f.id)
   });
 
   // Dedicated Invoices & Billing Modal per College
@@ -179,7 +168,7 @@ _Orbit LMS Enterprise Cloud Services_`;
         max_students: 1000,
         activation_status: true,
         subscription_status: 'active',
-        enabled_features: ALL_FEATURES.map(f => f.id)
+        enabled_features: allFeatures.map(f => f.id)
       }]).select().single();
 
       if (error) throw error;
@@ -314,7 +303,7 @@ _Orbit LMS Enterprise Cloud Services_`;
     setSelectedCollege(college);
     const existingFeatures = Array.isArray(college.enabled_features) 
       ? college.enabled_features 
-      : ALL_FEATURES.map(f => f.id);
+      : allFeatures.map(f => f.id);
 
     setEditForm({
       name: college.name || "",
@@ -370,7 +359,7 @@ _Orbit LMS Enterprise Cloud Services_`;
               <Plus className="w-4 h-4 mr-1.5" /> Provision New College
             </Button>
           </DialogTrigger>
-          <DialogContent className="bg-slate-900 border-slate-800 text-white">
+          <DialogContent className="bg-slate-900 border-slate-800 text-white w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle>Provision SaaS Tenant Instance</DialogTitle>
             </DialogHeader>
@@ -405,7 +394,7 @@ _Orbit LMS Enterprise Cloud Services_`;
       {/* Mobile Responsive Tenant Cards */}
       <div className="grid grid-cols-1 gap-4 md:hidden">
         {colleges.filter(c => c.subscription_status !== 'deleted').map((college) => {
-          const activeCount = Array.isArray(college.enabled_features) ? college.enabled_features.length : ALL_FEATURES.length;
+          const activeCount = Array.isArray(college.enabled_features) ? college.enabled_features.length : allFeatures.length;
           const collegeSubdomain = college.email?.split('@')[0] || `${college.name.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
           const isTurnedOn = college.activation_status === true;
 
@@ -452,7 +441,7 @@ _Orbit LMS Enterprise Cloud Services_`;
                 </div>
                 <div className="bg-slate-950 p-2 rounded">
                   <div className="text-slate-400 text-[10px]">MODULES</div>
-                  <div className="font-bold text-indigo-400 mt-0.5">{activeCount} / {ALL_FEATURES.length}</div>
+                  <div className="font-bold text-indigo-400 mt-0.5">{activeCount} / {allFeatures.length}</div>
                 </div>
               </div>
 
@@ -500,7 +489,7 @@ _Orbit LMS Enterprise Cloud Services_`;
                 </TableCell>
               </TableRow>
             ) : colleges.filter(c => c.subscription_status !== 'deleted').map((college) => {
-              const activeCount = Array.isArray(college.enabled_features) ? college.enabled_features.length : ALL_FEATURES.length;
+              const activeCount = Array.isArray(college.enabled_features) ? college.enabled_features.length : allFeatures.length;
               const collegeSubdomain = college.email?.split('@')[0] || `${college.name.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
               const isTurnedOn = college.activation_status === true;
 
@@ -572,7 +561,7 @@ _Orbit LMS Enterprise Cloud Services_`;
 
                   <TableCell className="text-center">
                     <Badge className="bg-slate-800 text-slate-300 font-mono">
-                      {activeCount} / {ALL_FEATURES.length} Modules
+                      {activeCount} / {allFeatures.length} Modules
                     </Badge>
                   </TableCell>
 
@@ -669,7 +658,7 @@ _Orbit LMS Enterprise Cloud Services_`;
 
       {/* DEDICATED BILLING & INVOICES DIALOG PER COLLEGE */}
       <Dialog open={billingModalOpen} onOpenChange={setBillingModalOpen}>
-        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-slate-900 border-slate-800 text-white w-[95vw] sm:max-w-3xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base text-slate-100">
               <Receipt className="h-5 w-5 text-indigo-400" />
@@ -835,7 +824,7 @@ _Orbit LMS Enterprise Cloud Services_`;
 
       {/* College Features & Settings Customization Dialog */}
       <Dialog open={editCollegeModalOpen} onOpenChange={setEditCollegeModalOpen}>
-        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-slate-900 border-slate-800 text-white w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Building2 className="h-5 w-5 text-emerald-400" />
@@ -887,7 +876,7 @@ _Orbit LMS Enterprise Cloud Services_`;
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {ALL_FEATURES.map((feature) => {
+                {allFeatures.map((feature) => {
                   const isChecked = editForm.features.includes(feature.id);
                   return (
                     <div 

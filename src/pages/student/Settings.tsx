@@ -25,6 +25,7 @@ import { useNavigate } from "react-router-dom";
 
 import { StudentIdCardModal } from "@/components/idcard/StudentIdCardModal";
 import { ShieldCheck } from "lucide-react";
+import { ThemeSelectorGrid } from "@/components/theme/ThemeSelectorGrid";
 
 export default function StudentSettings() {
     const navigate = useNavigate();
@@ -33,9 +34,9 @@ export default function StudentSettings() {
     const [idCardOpen, setIdCardOpen] = useState(false);
     const [currentUserObj, setCurrentUserObj] = useState<any>(null);
     const [profile, setProfile] = useState({
-        name: "Student User",
-        email: "student@example.com",
-        bio: "Computer Science Student",
+        name: "",
+        email: "",
+        bio: "",
     });
 
     useEffect(() => {
@@ -43,14 +44,27 @@ export default function StudentSettings() {
     }, []);
 
     const fetchCurrentUser = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-            setCurrentUserObj({
-                id: user.id,
-                name: user.user_metadata?.full_name || "Student User",
-                email: user.email || "",
-                avatar: user.user_metadata?.avatar_url || ""
-            });
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data: dbUser } = await supabase.from('users').select('*').eq('id', user.id).maybeSingle();
+                const fullName = dbUser?.full_name || user.user_metadata?.full_name || "";
+                const email = user.email || dbUser?.email || "";
+                const bio = dbUser?.bio || user.user_metadata?.bio || "";
+                setCurrentUserObj({
+                    id: user.id,
+                    name: fullName,
+                    email: email,
+                    avatar: user.user_metadata?.avatar_url || ""
+                });
+                setProfile({
+                    name: fullName,
+                    email: email,
+                    bio: bio
+                });
+            }
+        } catch (e) {
+            console.error("Error fetching current user profile:", e);
         }
     };
 
@@ -71,13 +85,22 @@ export default function StudentSettings() {
     });
     const [loadingSecurity, setLoadingSecurity] = useState(false);
 
-    const handleSave = () => {
+    const handleSave = async () => {
         setLoading(true);
-        // Simulate API call
-        setTimeout(() => {
-            setLoading(false);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                await supabase.from('users').update({
+                    full_name: profile.name,
+                    bio: profile.bio
+                }).eq('id', user.id);
+            }
             toast({ title: "Settings saved", description: "Your profile has been updated." });
-        }, 1000);
+        } catch (err: any) {
+            toast({ variant: "destructive", title: "Error", description: err.message || "Failed to update profile." });
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleChangePassword = async () => {
@@ -206,55 +229,16 @@ export default function StudentSettings() {
                     <TabsContent value="appearance">
                         <Card>
                             <CardHeader>
-                                <CardTitle>Theme Settings</CardTitle>
-                                <CardDescription>Select the theme for your dashboard.</CardDescription>
+                                <CardTitle className="text-xl font-bold flex items-center gap-2">
+                                    <Palette className="h-5 w-5 text-primary" />
+                                    Orbit Theme Studio & 10 Visual Themes
+                                </CardTitle>
+                                <CardDescription>
+                                    Select and unlock bespoke themes with ⚡ Orbit Flux. Your selected theme applies instantly across all courses, headers, and dashboards.
+                                </CardDescription>
                             </CardHeader>
-                            <CardContent>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div
-                                        className={`border-2 rounded-xl p-4 cursor-pointer flex items-center gap-4 transition-all hover:bg-muted/50 ${theme === 'light' ? 'border-primary bg-primary/5' : 'border-border'}`}
-                                        onClick={() => setTheme("light")}
-                                    >
-                                        <div className="h-10 w-10 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-600">
-                                            <Sun className="h-6 w-6" />
-                                        </div>
-                                        <div>
-                                            <div className="font-bold">Uranus Island</div>
-                                            <div className="text-sm text-muted-foreground">Light Mode</div>
-                                        </div>
-                                        {theme === 'light' && <div className="ml-auto w-3 h-3 rounded-full bg-primary" />}
-                                    </div>
-
-                                    <div
-                                        className={`border-2 rounded-xl p-4 cursor-pointer flex items-center gap-4 transition-all hover:bg-muted/50 ${theme === 'dark' ? 'border-primary bg-primary/5' : 'border-border'}`}
-                                        onClick={() => setTheme("dark")}
-                                    >
-                                        <div className="h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-200">
-                                            <Moon className="h-6 w-6" />
-                                        </div>
-                                        <div>
-                                            <div className="font-bold">Cosmic Ring</div>
-                                            <div className="text-sm text-muted-foreground">Dark Mode</div>
-                                        </div>
-                                        {theme === 'dark' && <div className="ml-auto w-3 h-3 rounded-full bg-primary" />}
-                                    </div>
-
-                                    <div
-                                        className={`border-2 rounded-xl p-4 cursor-pointer flex items-center gap-4 transition-all hover:bg-muted/50 ${theme === 'doomsday' ? 'border-emerald-500 bg-emerald-500/10 shadow-lg shadow-emerald-500/20' : 'border-border'}`}
-                                        onClick={() => setTheme("doomsday")}
-                                    >
-                                        <div className="h-10 w-10 rounded-full bg-emerald-950 border border-emerald-500 flex items-center justify-center text-emerald-400 font-bold">
-                                            <Sparkles className="h-6 w-6" />
-                                        </div>
-                                        <div>
-                                            <div className="font-bold flex items-center gap-1.5 text-foreground">
-                                                Doomsday Matrix <Badge variant="outline" className="bg-emerald-500/20 text-emerald-400 border-emerald-500/40 text-[10px]">EPIC</Badge>
-                                            </div>
-                                            <div className="text-xs text-emerald-500 dark:text-emerald-400 font-mono">Bio-Green Matrix & Crisp White</div>
-                                        </div>
-                                        {theme === 'doomsday' && <div className="ml-auto w-3.5 h-3.5 rounded-full bg-emerald-500 shadow-sm" />}
-                                    </div>
-                                </div>
+                            <CardContent className="pt-2">
+                                <ThemeSelectorGrid userRole="student" />
                             </CardContent>
                         </Card>
                     </TabsContent>

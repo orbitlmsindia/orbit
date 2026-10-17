@@ -165,7 +165,7 @@ export default function FinanceDashboard() {
             </Badge>
           </CardHeader>
           <CardContent className="overflow-x-auto">
-            <Table>
+            <Table className="min-w-[750px]">
               <TableHeader className="bg-slate-950/60">
                 <TableRow className="border-slate-800">
                   <TableHead className="text-slate-300">Transaction ID</TableHead>

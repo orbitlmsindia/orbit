@@ -72,7 +72,7 @@ export default function StudentGrades() {
                 </div>
                 <Button
                     onClick={() => setReportModalOpen(true)}
-                    className="gap-2 bg-slate-900 text-white font-bold shrink-0 shadow-md"
+                    className="gap-2 bg-primary text-primary-foreground font-bold shrink-0 shadow-md touch-press"
                 >
                     <Award className="h-4 w-4 text-amber-400" /> View Orbit Academic Transcript & Report Card
                 </Button>

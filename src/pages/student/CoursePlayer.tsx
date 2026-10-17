@@ -26,7 +26,9 @@ import {
     FileCheck,
     Clock,
     BookOpen,
-    X
+    X,
+    Layers,
+    Lightbulb
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useParams, Link, useNavigate } from "react-router-dom";
@@ -39,6 +41,7 @@ import { CourseAchievementsModal } from "@/components/gamification/CourseAchieve
 import { Trophy, ShieldAlert, ShieldCheck } from "lucide-react";
 import { DynamicWatermark } from "@/components/security/DynamicWatermark";
 import { getEmbeddablePresentationUrl, getEmbeddableDocUrl, isGoogleDriveUrl } from "@/lib/googleDriveUtils";
+import { CourseCelebrationModal } from "@/components/courses/CourseCelebrationModal";
 
 export default function CoursePlayer() {
     const { id } = useParams();
@@ -64,6 +67,7 @@ export default function CoursePlayer() {
     const [watchProgressMap, setWatchProgressMap] = useState<Record<string, number>>({});
     const [streakModalOpen, setStreakModalOpen] = useState(false);
     const [achievementsModalOpen, setAchievementsModalOpen] = useState(false);
+    const [celebrationModalOpen, setCelebrationModalOpen] = useState(false);
     const [streakCount, setStreakCount] = useState(3);
 
     useEffect(() => {
@@ -368,8 +372,23 @@ export default function CoursePlayer() {
             const newSet = new Set([...completedContents, currentContent.id]);
             setCompletedContents(newSet);
 
-            // 🔥 3-Section Module Streak Trigger Check
-            if (newSet.size > 0 && newSet.size % 3 === 0) {
+            const allItems = sections.flatMap(s => s.items || []);
+            // Check if course is 100% complete
+            if (allItems.length > 0 && newSet.size >= allItems.length) {
+                setCelebrationModalOpen(true);
+                if (userId && id) {
+                    supabase.from('enrollments')
+                        .update({ completed: true, status: 'approved' })
+                        .eq('course_id', id)
+                        .eq('student_id', userId);
+                    supabase.from('users').select('aura_points').eq('id', userId).maybeSingle().then(({ data: userProf }) => {
+                        if (userProf) {
+                            const newAura = (userProf.aura_points || 0) + 200;
+                            supabase.from('users').update({ aura_points: newAura }).eq('id', userId);
+                        }
+                    });
+                }
+            } else if (newSet.size > 0 && newSet.size % 3 === 0) {
                 setStreakCount(newSet.size);
                 setStreakModalOpen(true);
 
@@ -513,6 +532,32 @@ export default function CoursePlayer() {
                         >
                             <Trophy className="h-4 w-4 text-amber-500" />
                             <span className="hidden md:inline">Achievements & Aura</span>
+                        </Button>
+
+                        {/* 🗂️ Flashcards & Mnemonics Study Buttons */}
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            asChild
+                            className="hidden lg:flex gap-1.5 font-bold border-indigo-500/30 text-indigo-500 hover:bg-indigo-500/10 text-xs px-2.5 h-9"
+                            title="Study Course Flashcards"
+                        >
+                            <Link to="/student/flashcards">
+                                <Layers className="h-4 w-4 text-indigo-500" />
+                                <span>Flashcards</span>
+                            </Link>
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            asChild
+                            className="hidden lg:flex gap-1.5 font-bold border-amber-500/30 text-amber-500 hover:bg-amber-500/10 text-xs px-2.5 h-9"
+                            title="Course Mnemonics & Memory Aids"
+                        >
+                            <Link to="/student/mnemonics">
+                                <Lightbulb className="h-4 w-4 text-amber-500" />
+                                <span>Mnemonics</span>
+                            </Link>
                         </Button>
                         {/* Sidebar Toggle Button (Visible on both Desktop & Mobile) */}
                         <Button 
@@ -924,7 +969,7 @@ export default function CoursePlayer() {
 
             {/* 🔥 3-SECTION MODULE STREAK UNLOCKED DIALOG */}
             <Dialog open={streakModalOpen} onOpenChange={setStreakModalOpen}>
-                <DialogContent className="sm:max-w-md text-center bg-slate-950 border-orange-500/50 text-white shadow-2xl">
+                <DialogContent className="w-[95vw] sm:max-w-md text-center bg-slate-950 border-orange-500/50 text-white shadow-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                     <DialogHeader className="items-center text-center">
                         <div className="mx-auto h-20 w-20 rounded-full bg-gradient-to-tr from-orange-600 via-amber-500 to-yellow-400 flex items-center justify-center shadow-lg animate-bounce my-2">
                             <Flame className="h-10 w-10 text-slate-950 fill-slate-950" />
@@ -962,6 +1007,16 @@ export default function CoursePlayer() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* 🎉 COURSE COMPLETION CELEBRATION MODAL */}
+            <CourseCelebrationModal
+                open={celebrationModalOpen}
+                onOpenChange={setCelebrationModalOpen}
+                courseTitle={course?.title || "Accredited Course"}
+                creditsEarned={course?.credit_points || 3}
+                auraBonus={200}
+                fluxBonus={100}
+            />
         </>
     );
 }

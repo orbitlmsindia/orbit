@@ -140,22 +140,22 @@ export default function AdminCalendar() {
     return (
         <AdminLayout>
             <div className="space-y-6">
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                         <h1 className="text-3xl font-display font-bold">Calendar Management</h1>
-                        <p className="text-muted-foreground mt-1">Manage events, holidays, and announcements.</p>
+                        <p className="text-muted-foreground mt-1 text-sm">Manage events, holidays, and announcements.</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <Button variant="outline" onClick={() => setJsonModalOpen(true)} className="gap-2 border-primary/30 hover:bg-primary/5 text-primary">
-                            <FileJson className="h-4 w-4" /> JSON Schedule Updater (⌘K / Ctrl+K)
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setJsonModalOpen(true)} className="gap-2 border-primary/30 hover:bg-primary/5 text-primary text-xs">
+                            <FileJson className="h-4 w-4" /> JSON Schedule Updater (⌘K)
                         </Button>
                         <Dialog open={open} onOpenChange={setOpen}>
                             <DialogTrigger asChild>
-                                <Button className="gap-2">
+                                <Button size="sm" className="gap-2 text-xs">
                                     <Plus className="h-4 w-4" /> Add Event
                                 </Button>
                             </DialogTrigger>
-                            <DialogContent>
+                            <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                             <DialogHeader>
                                 <DialogTitle>Add New Event</DialogTitle>
                             </DialogHeader>
