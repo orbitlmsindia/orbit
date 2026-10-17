@@ -25,8 +25,10 @@ import {
   Phone,
   Sparkles,
   ExternalLink,
-  FileText
+  FileText,
+  UserPlus
 } from "lucide-react";
+import { MasterCreateAccountModal } from "@/components/master/MasterCreateAccountModal";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
@@ -58,6 +60,7 @@ export default function MasterAccounts() {
   const [selectedDossierData, setSelectedDossierData] = useState<StudentDossierData | null>(null);
 
   // Examination Hall Ticket & Admit Slip
+  const [createModalOpen, setCreateModalOpen] = useState(false);
   const [examSlipModalOpen, setExamSlipModalOpen] = useState(false);
   const [selectedExamSlipData, setSelectedExamSlipData] = useState<ExamSlipData | null>(null);
 
@@ -74,20 +77,7 @@ export default function MasterAccounts() {
 
       // 2. Fetch all user accounts
       const { data: usersData, error } = await supabase
-        .from("users")
-        .select(`
-          id,
-          full_name,
-          email,
-          phone,
-          role,
-          college_id,
-          department,
-          status,
-          aura_points,
-          bonus_credits,
-          created_at
-        `)
+        .from("users").select("*")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -267,6 +257,13 @@ export default function MasterAccounts() {
             className="w-full sm:w-auto border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs"
           >
             <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} /> Refresh Registry
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => setCreateModalOpen(true)}
+            className="w-full sm:w-auto bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold shadow-md gap-1.5"
+          >
+            <UserPlus className="h-3.5 w-3.5" /> Provision Institutional ID
           </Button>
           <Button
             size="sm"
@@ -856,6 +853,12 @@ export default function MasterAccounts() {
         onOpenChange={setExamSlipModalOpen}
         slipData={selectedExamSlipData}
         userRole="master"
+      />
+      {/* 🚀 Provision Institutional ID & Account Modal */}
+      <MasterCreateAccountModal
+        open={createModalOpen}
+        onOpenChange={setCreateModalOpen}
+        onSuccess={fetchAccountsData}
       />
     </MasterLayout>
   );

@@ -28,12 +28,15 @@ import {
   CheckCircle2,
   XCircle,
   Sparkles,
-  Save
+  Save,
+  UserPlus
 } from "lucide-react";
+import { MasterCreateAccountModal } from "@/components/master/MasterCreateAccountModal";
 import { useToast } from "@/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getRegisteredFeatures, getRegisteredPlans, updateCollegeCustomFeatures } from "@/services/featuresService";
+import { DEFAULT_PLANS } from "@/types/plans";
 
 export default function MasterCollegeDetail() {
     const { id } = useParams();
@@ -59,6 +62,8 @@ export default function MasterCollegeDetail() {
     const [selectedPlanPreset, setSelectedPlanPreset] = useState<string>("");
     const [customMaxStudents, setCustomMaxStudents] = useState<number>(1000);
     const [savingFeatures, setSavingFeatures] = useState(false);
+    const [createAccountModalOpen, setCreateAccountModalOpen] = useState(false);
+    const [createAccountRole, setCreateAccountRole] = useState<"admin" | "teacher" | "student" | "finance">("student");
 
     const fetchDetails = async () => {
         try {
@@ -304,7 +309,15 @@ export default function MasterCollegeDetail() {
         return (
             <MasterLayout headerTitle="Loading Institution..." headerDescription="Retrieving tenant database mapping.">
                 <div className="py-20 text-center text-slate-400">Loading tenant details...</div>
-            </MasterLayout>
+                {/* 🚀 Provision Institutional ID & Account Modal */}
+            <MasterCreateAccountModal
+                open={createAccountModalOpen}
+                onOpenChange={setCreateAccountModalOpen}
+                initialCollegeId={id}
+                initialRole={createAccountRole}
+                onSuccess={fetchDetails}
+            />
+        </MasterLayout>
         );
     }
 
@@ -333,8 +346,14 @@ export default function MasterCollegeDetail() {
                         )}
                     </Button>
 
-                    <Button onClick={handleImpersonate} className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold">
+                    <Button onClick={handleImpersonate} className="bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold border border-slate-700">
                         <ExternalLink className="w-3.5 h-3.5 mr-1.5" /> Campus Admin View
+                    </Button>
+                    <Button
+                        onClick={() => { setCreateAccountRole("admin"); setCreateAccountModalOpen(true); }}
+                        className="bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-semibold gap-1.5"
+                    >
+                        <UserPlus className="w-3.5 h-3.5" /> Provision College User
                     </Button>
                 </div>
             }
@@ -745,7 +764,7 @@ export default function MasterCollegeDetail() {
                                         </span>
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                                        {DEFAULT_PLANS.map(plan => (
+                                        {(allPlans?.length ? allPlans : DEFAULT_PLANS).map(plan => (
                                             <div
                                                 key={plan.id}
                                                 onClick={() => handleApplyPlanPreset(plan.id)}
