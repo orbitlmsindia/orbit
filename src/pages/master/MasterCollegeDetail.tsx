@@ -29,9 +29,11 @@ import {
   XCircle,
   Sparkles,
   Save,
-  UserPlus
+  UserPlus,
+  Trash2
 } from "lucide-react";
 import { MasterCreateAccountModal } from "@/components/master/MasterCreateAccountModal";
+import { MasterDeleteUserModal } from "@/components/master/MasterDeleteUserModal";
 import { useToast } from "@/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -64,6 +66,8 @@ export default function MasterCollegeDetail() {
     const [savingFeatures, setSavingFeatures] = useState(false);
     const [createAccountModalOpen, setCreateAccountModalOpen] = useState(false);
     const [createAccountRole, setCreateAccountRole] = useState<"admin" | "teacher" | "student" | "finance">("student");
+    const [userToDelete, setUserToDelete] = useState<any | null>(null);
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
     const fetchDetails = async () => {
         try {
@@ -86,7 +90,7 @@ export default function MasterCollegeDetail() {
             const { data: usersData } = await supabase
                 .from('users')
                 .select('id, role, full_name, email, status, department, created_at')
-                .eq('college_id', id);
+                .eq('college_id', id).neq('status', 'deleted');
 
             if (usersData) {
                 setStudents(usersData.filter(u => u.role === 'student'));
@@ -317,6 +321,13 @@ export default function MasterCollegeDetail() {
                 initialRole={createAccountRole}
                 onSuccess={fetchDetails}
             />
+            {/* 🗑️ Permanent ID & Account Deletion Modal */}
+            <MasterDeleteUserModal
+                open={deleteModalOpen}
+                onOpenChange={setDeleteModalOpen}
+                user={userToDelete}
+                onSuccess={fetchDetails}
+            />
         </MasterLayout>
         );
     }
@@ -406,30 +417,40 @@ export default function MasterCollegeDetail() {
                                     <CardTitle className="text-base text-slate-100">Enrolled Student Directory</CardTitle>
                                     <CardDescription className="text-slate-400 text-xs">Active learner accounts associated with this institution.</CardDescription>
                                 </div>
-                                <Button 
-                                    size="sm" 
-                                    variant="outline" 
-                                    onClick={handleDownloadStudents} 
-                                    className="border-slate-700 bg-slate-950 hover:bg-slate-800 text-slate-200 text-xs h-8 gap-1.5"
-                                >
-                                    <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-400" /> Download Students ({students.length})
-                                </Button>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <Button 
+                                        size="sm" 
+                                        onClick={() => { setCreateAccountRole("student"); setCreateAccountModalOpen(true); }}
+                                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 gap-1.5 font-semibold shadow-sm"
+                                    >
+                                        <UserPlus className="h-3.5 w-3.5" /> Provision Student ID
+                                    </Button>
+                                    <Button 
+                                        size="sm" 
+                                        variant="outline" 
+                                        onClick={handleDownloadStudents} 
+                                        className="border-slate-700 bg-slate-950 hover:bg-slate-800 text-slate-200 text-xs h-8 gap-1.5"
+                                    >
+                                        <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-400" /> Download Students ({students.length})
+                                    </Button>
+                                </div>
                             </CardHeader>
                             <CardContent className="pt-2 px-0">
                                 <div className="overflow-x-auto w-full">
-                                    <Table className="min-w-[600px]">
+                                    <Table className="min-w-[650px]">
                                         <TableHeader>
                                             <TableRow className="border-slate-800 hover:bg-transparent">
                                                 <TableHead className="text-slate-400 pl-6">Student Name</TableHead>
                                                 <TableHead className="text-slate-400">Email Address</TableHead>
                                                 <TableHead className="text-slate-400">Department</TableHead>
-                                                <TableHead className="text-slate-400 text-right pr-6">Status</TableHead>
+                                                <TableHead className="text-slate-400 text-center">Status</TableHead>
+                                                <TableHead className="text-slate-400 text-right pr-6">Action</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {students.length === 0 ? (
                                                 <TableRow>
-                                                    <TableCell colSpan={4} className="text-center py-8 text-slate-400">
+                                                    <TableCell colSpan={5} className="text-center py-8 text-slate-400">
                                                         No students enrolled in this college yet.
                                                     </TableCell>
                                                 </TableRow>
@@ -438,10 +459,21 @@ export default function MasterCollegeDetail() {
                                                     <TableCell className="font-semibold text-slate-100 pl-6">{s.full_name}</TableCell>
                                                     <TableCell className="font-mono text-xs text-slate-300">{s.email}</TableCell>
                                                     <TableCell className="text-xs text-slate-400">{s.department || 'General'}</TableCell>
-                                                    <TableCell className="text-right pr-6">
-                                                        <Badge variant={s.status === 'active' ? 'default' : 'outline'} className={s.status === 'active' ? 'bg-emerald-600' : ''}>
+                                                    <TableCell className="text-center">
+                                                        <Badge variant={s.status === 'active' ? 'default' : 'outline'} className={s.status === 'active' ? 'bg-emerald-600 text-white' : ''}>
                                                             {s.status || 'Active'}
                                                         </Badge>
+                                                    </TableCell>
+                                                    <TableCell className="text-right pr-6">
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            onClick={() => { setUserToDelete(s); setDeleteModalOpen(true); }}
+                                                            className="h-7 px-2 text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 text-xs gap-1 border border-rose-900/40"
+                                                            title="Delete Student ID"
+                                                        >
+                                                            <Trash2 className="h-3.5 w-3.5" /> Delete ID
+                                                        </Button>
                                                     </TableCell>
                                                 </TableRow>
                                             ))}
@@ -460,30 +492,40 @@ export default function MasterCollegeDetail() {
                                     <CardTitle className="text-base text-slate-100">Faculty & Administrators Directory</CardTitle>
                                     <CardDescription className="text-slate-400 text-xs">Assigned teachers, institutional admins, and finance officers.</CardDescription>
                                 </div>
-                                <Button 
-                                    size="sm" 
-                                    variant="outline" 
-                                    onClick={handleDownloadFaculty} 
-                                    className="border-slate-700 bg-slate-950 hover:bg-slate-800 text-slate-200 text-xs h-8 gap-1.5"
-                                >
-                                    <FileSpreadsheet className="h-3.5 w-3.5 text-indigo-400" /> Download Faculty ({teachers.length})
-                                </Button>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <Button 
+                                        size="sm" 
+                                        onClick={() => { setCreateAccountRole("teacher"); setCreateAccountModalOpen(true); }}
+                                        className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs h-8 gap-1.5 font-semibold shadow-sm"
+                                    >
+                                        <UserPlus className="h-3.5 w-3.5" /> Provision Faculty / Admin ID
+                                    </Button>
+                                    <Button 
+                                        size="sm" 
+                                        variant="outline" 
+                                        onClick={handleDownloadFaculty} 
+                                        className="border-slate-700 bg-slate-950 hover:bg-slate-800 text-slate-200 text-xs h-8 gap-1.5"
+                                    >
+                                        <FileSpreadsheet className="h-3.5 w-3.5 text-indigo-400" /> Download Faculty ({teachers.length})
+                                    </Button>
+                                </div>
                             </CardHeader>
                             <CardContent className="pt-2 px-0">
                                 <div className="overflow-x-auto w-full">
-                                    <Table className="min-w-[600px]">
+                                    <Table className="min-w-[650px]">
                                         <TableHeader>
                                             <TableRow className="border-slate-800 hover:bg-transparent">
                                                 <TableHead className="text-slate-400 pl-6">Role Privilege</TableHead>
                                                 <TableHead className="text-slate-400">Staff Member</TableHead>
                                                 <TableHead className="text-slate-400">Official Email</TableHead>
-                                                <TableHead className="text-slate-400 text-right pr-6">Department</TableHead>
+                                                <TableHead className="text-slate-400">Department</TableHead>
+                                                <TableHead className="text-slate-400 text-right pr-6">Action</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {teachers.length === 0 ? (
                                                 <TableRow>
-                                                    <TableCell colSpan={4} className="text-center py-8 text-slate-400">
+                                                    <TableCell colSpan={5} className="text-center py-8 text-slate-400">
                                                         No faculty members mapped to this college yet.
                                                     </TableCell>
                                                 </TableRow>
@@ -496,7 +538,18 @@ export default function MasterCollegeDetail() {
                                                     </TableCell>
                                                     <TableCell className="font-semibold text-slate-100">{t.full_name}</TableCell>
                                                     <TableCell className="font-mono text-xs text-slate-300">{t.email}</TableCell>
-                                                    <TableCell className="text-right text-xs text-slate-400 pr-6">{t.department || 'Academic Affairs'}</TableCell>
+                                                    <TableCell className="text-xs text-slate-400">{t.department || 'Academic Affairs'}</TableCell>
+                                                    <TableCell className="text-right pr-6">
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            onClick={() => { setUserToDelete(t); setDeleteModalOpen(true); }}
+                                                            className="h-7 px-2 text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 text-xs gap-1 border border-rose-900/40"
+                                                            title="Delete Institutional ID"
+                                                        >
+                                                            <Trash2 className="h-3.5 w-3.5" /> Delete ID
+                                                        </Button>
+                                                    </TableCell>
                                                 </TableRow>
                                             ))}
                                         </TableBody>

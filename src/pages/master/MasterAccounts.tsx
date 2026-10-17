@@ -26,9 +26,11 @@ import {
   Sparkles,
   ExternalLink,
   FileText,
-  UserPlus
+  UserPlus,
+  Trash2
 } from "lucide-react";
 import { MasterCreateAccountModal } from "@/components/master/MasterCreateAccountModal";
+import { MasterDeleteUserModal } from "@/components/master/MasterDeleteUserModal";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
@@ -61,6 +63,8 @@ export default function MasterAccounts() {
 
   // Examination Hall Ticket & Admit Slip
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<any | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [examSlipModalOpen, setExamSlipModalOpen] = useState(false);
   const [selectedExamSlipData, setSelectedExamSlipData] = useState<ExamSlipData | null>(null);
 
@@ -77,7 +81,7 @@ export default function MasterAccounts() {
 
       // 2. Fetch all user accounts
       const { data: usersData, error } = await supabase
-        .from("users").select("*")
+        .from("users").select("*").neq("status", "deleted")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -554,6 +558,15 @@ export default function MasterAccounts() {
                               >
                                 <ExternalLink className="h-3 w-3" />
                               </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => { setUserToDelete(u); setDeleteModalOpen(true); }}
+                                className="h-7 w-7 p-0 text-slate-400 hover:text-rose-400 hover:bg-rose-950/40"
+                                title="Permanently Delete Account"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -819,13 +832,27 @@ export default function MasterAccounts() {
               </div>
 
               <DialogFooter className="pt-2 flex justify-between gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => handleImpersonateUser(selectedUser)}
-                  className="border-indigo-500/40 text-indigo-300 hover:bg-indigo-950/30 text-xs h-8"
-                >
-                  <ExternalLink className="h-3.5 w-3.5 mr-1" /> Log in as this User
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => handleImpersonateUser(selectedUser)}
+                    className="border-indigo-500/40 text-indigo-300 hover:bg-indigo-950/30 text-xs h-8"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5 mr-1" /> Log in as this User
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() => {
+                      const u = selectedUser;
+                      setModalOpen(false);
+                      setUserToDelete(u);
+                      setDeleteModalOpen(true);
+                    }}
+                    className="bg-rose-600 hover:bg-rose-700 text-white text-xs h-8 gap-1.5"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> Delete ID
+                  </Button>
+                </div>
                 <Button
                   variant="ghost"
                   onClick={() => setModalOpen(false)}
@@ -858,6 +885,13 @@ export default function MasterAccounts() {
       <MasterCreateAccountModal
         open={createModalOpen}
         onOpenChange={setCreateModalOpen}
+        onSuccess={fetchAccountsData}
+      />
+      {/* 🗑️ Permanent Account Deletion Modal */}
+      <MasterDeleteUserModal
+        open={deleteModalOpen}
+        onOpenChange={setDeleteModalOpen}
+        user={userToDelete}
         onSuccess={fetchAccountsData}
       />
     </MasterLayout>
