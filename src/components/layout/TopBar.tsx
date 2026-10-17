@@ -20,6 +20,7 @@ import { SpotlightSearch } from "@/components/search/SpotlightSearch";
 import { JsonCalendarUpdaterModal } from "@/components/calendar/JsonCalendarUpdaterModal";
 import { AuraLedgerSheet } from "@/components/ledger/AuraLedgerSheet";
 import { ThemeStudioModal } from "@/components/theme/ThemeStudioModal";
+import { getFluxBalance } from "@/services/themeService";
 
 interface TopBarProps {
   userName?: string;
@@ -45,6 +46,15 @@ export function TopBar({
   const [userRole, setUserRole] = useState("student");
   const [ledgerSheetOpen, setLedgerSheetOpen] = useState(false);
   const [themeStudioOpen, setThemeStudioOpen] = useState(false);
+  const [fluxBalance, setFluxBalance] = useState<number>(() => getFluxBalance());
+
+  useEffect(() => {
+    const handleFluxUpdate = (e: any) => {
+      setFluxBalance(e?.detail ?? getFluxBalance());
+    };
+    window.addEventListener("orbit_flux_updated", handleFluxUpdate);
+    return () => window.removeEventListener("orbit_flux_updated", handleFluxUpdate);
+  }, []);
 
   useEffect(() => {
     const getUser = async () => {
@@ -261,6 +271,18 @@ export function TopBar({
             </span>
           </button>
         )}
+
+        {/* Orbit Flux Balance Pill (Click to open Theme Studio) */}
+        <button
+          type="button"
+          onClick={() => setThemeStudioOpen(true)}
+          className="h-8 sm:h-9 px-2 sm:px-2.5 rounded-full border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-foreground transition-all flex items-center gap-1.5 cursor-pointer text-[11px] sm:text-xs font-mono font-bold shadow-2xs touch-press"
+          title="Orbit Flux Theme Currency • Click to open Theme Studio"
+        >
+          <Zap className="h-3.5 w-3.5 text-amber-500 fill-amber-500 shrink-0" />
+          <span className="text-amber-500 font-bold">{fluxBalance.toLocaleString()}</span>
+          <span className="text-[10px] text-muted-foreground hidden sm:inline">FLUX</span>
+        </button>
         {/* Theme Studio Trigger Button */}
         <Button
           variant="ghost"

@@ -18,7 +18,7 @@ import {
   ChevronUp,
   Award
 } from "lucide-react";
-import { claimDailyFlux, getFluxBalance } from "@/services/themeService";
+import { claimDailyFlux, getFluxBalance, hasClaimedFluxToday } from "@/services/themeService";
 import { useToast } from "@/hooks/use-toast";
 
 interface ScholarMilestoneCardProps {
@@ -42,38 +42,59 @@ export function ScholarMilestoneCard({
   });
   const [collapsed, setCollapsed] = useState(false);
   const [fluxBalance, setFluxBalance] = useState(getFluxBalance());
-  const [dailyClaimed, setDailyClaimed] = useState(() => {
-    const lastClaim = localStorage.getItem("orbit_flux_last_claim");
-    if (!lastClaim) return false;
-    const today = new Date().toDateString();
-    return new Date(lastClaim).toDateString() === today;
-  });
+  const [dailyClaimed, setDailyClaimed] = useState(() => hasClaimedFluxToday());
+
+  useEffect(() => {
+    const handleFluxUpdate = () => {
+      setFluxBalance(getFluxBalance());
+      setDailyClaimed(hasClaimedFluxToday());
+    };
+    window.addEventListener("orbit_flux_updated", handleFluxUpdate);
+    return () => window.removeEventListener("orbit_flux_updated", handleFluxUpdate);
+  }, []);
 
   const handleClaim = () => {
-    const updated = claimDailyFlux();
-    setFluxBalance(updated);
-    setDailyClaimed(true);
-    toast({
-      title: "⚡ +250 Orbit Flux Claimed!",
-      description: `Your balance is now ${updated.toLocaleString()} Flux. Check the Theme Studio to unlock new palettes!`,
-    });
+    const res = claimDailyFlux(10);
+    if (res.success) {
+      setFluxBalance(res.newBalance);
+      setDailyClaimed(true);
+      toast({
+        title: "⚡ +10 Orbit Flux Claimed!",
+        description: `Your balance is now ${res.newBalance.toLocaleString()} Flux. Check back tomorrow for your next daily reward!`,
+      });
+    } else {
+      toast({
+        title: "Already Claimed Today",
+        description: res.message || "Daily reward is strictly 10 Flux once per day.",
+        variant: "destructive",
+      });
+    }
   };
 
   const milestones = [
     {
       id: "claim_flux",
-      title: "Claim Daily Orbit Flux (+250 ⚡)",
-      description: "Build your theme wallet to unlock exclusive palettes.",
+      title: "Claim Daily Orbit Flux (+10 ⚡)",
+      description: dailyClaimed
+        ? "Daily reward claimed! Resets at midnight (max 10 ⚡/day)."
+        : "Build your theme wallet to unlock exclusive palettes.",
       completed: dailyClaimed,
       action: !dailyClaimed ? (
         <Button
           size="sm"
           onClick={handleClaim}
-          className="h-7 px-2.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs gap-1 shadow-xs touch-press"
+          className="h-7 px-2.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs gap-1 shadow-xs touch-press cursor-pointer"
         >
-          <Gift className="h-3.5 w-3.5" /> Claim +250 Flux
+          <Gift className="h-3.5 w-3.5" /> Claim +10 Flux
         </Button>
-      ) : null,
+      ) : (
+        <Badge
+          variant="outline"
+          className="h-7 px-2.5 border-emerald-500/30 text-emerald-500 bg-emerald-500/10 text-[11px] font-semibold gap-1"
+        >
+          <CheckCircle2 className="h-3.5 w-3.5" /> Claimed Today (10 ⚡)
+        </Badge>
+      ),
     },
     {
       id: "equip_theme",

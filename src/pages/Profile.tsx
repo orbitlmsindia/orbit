@@ -247,8 +247,12 @@ export default function Profile() {
   };
 
   const handleClaimFlux = () => {
-    const res = claimDailyFlux(250);
-    toast.success(`⚡ +250 Orbit Flux Claimed! Balance: ⚡ ${res.newBalance} Flux.`);
+    const res = claimDailyFlux(10);
+    if (!res.success) {
+      toast.error(res.message || "Daily Orbit Flux already claimed today (max 10 ⚡ daily).");
+      return;
+    }
+    toast.success(`⚡ +10 Orbit Flux Claimed! Balance: ⚡ ${res.newBalance} Flux.`);
     if (themeData) {
       setThemeData({
         ...themeData,

@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { MasterCreateAccountModal } from "@/components/master/MasterCreateAccountModal";
 import { MasterDeleteUserModal } from "@/components/master/MasterDeleteUserModal";
+import { MasterDeleteCourseModal } from "@/components/master/MasterDeleteCourseModal";
 import { useToast } from "@/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -68,6 +69,8 @@ export default function MasterCollegeDetail() {
     const [createAccountRole, setCreateAccountRole] = useState<"admin" | "teacher" | "student" | "finance">("student");
     const [userToDelete, setUserToDelete] = useState<any | null>(null);
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [courseToDelete, setCourseToDelete] = useState<any | null>(null);
+    const [deleteCourseModalOpen, setDeleteCourseModalOpen] = useState(false);
 
     const fetchDetails = async () => {
         try {
@@ -103,7 +106,16 @@ export default function MasterCollegeDetail() {
                 .select('id, title, is_published, created_at')
                 .eq('college_id', id);
 
-            if (coursesData) setCourses(coursesData);
+            if (coursesData) {
+                try {
+                    const deletedCourseIds: string[] = JSON.parse(
+                        localStorage.getItem("orbit_deleted_course_ids") || "[]"
+                    );
+                    setCourses(coursesData.filter(c => !deletedCourseIds.includes(c.id)));
+                } catch {
+                    setCourses(coursesData);
+                }
+            }
 
             // Load Enrollments for this tenant
             const { data: enrData } = await supabase
@@ -326,6 +338,13 @@ export default function MasterCollegeDetail() {
                 open={deleteModalOpen}
                 onOpenChange={setDeleteModalOpen}
                 user={userToDelete}
+                onSuccess={fetchDetails}
+            />
+            {/* 🗑️ Course Deletion Modal */}
+            <MasterDeleteCourseModal
+                open={deleteCourseModalOpen}
+                onOpenChange={setDeleteCourseModalOpen}
+                course={courseToDelete}
                 onSuccess={fetchDetails}
             />
         </MasterLayout>
@@ -583,13 +602,14 @@ export default function MasterCollegeDetail() {
                                             <TableRow className="border-slate-800 hover:bg-transparent">
                                                 <TableHead className="text-slate-400 pl-6">Curriculum Title</TableHead>
                                                 <TableHead className="text-slate-400">Status</TableHead>
-                                                <TableHead className="text-slate-400 text-right pr-6">Deployed On</TableHead>
+                                                <TableHead className="text-slate-400">Deployed On</TableHead>
+                                                <TableHead className="text-slate-400 text-right pr-6">Action</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {courses.length === 0 ? (
                                                 <TableRow>
-                                                    <TableCell colSpan={3} className="text-center py-8 text-slate-400">
+                                                    <TableCell colSpan={4} className="text-center py-8 text-slate-400">
                                                         No courses currently provisioned under this college ID.
                                                     </TableCell>
                                                 </TableRow>
@@ -601,8 +621,19 @@ export default function MasterCollegeDetail() {
                                                             {c.is_published ? 'Published' : 'Draft'}
                                                         </Badge>
                                                     </TableCell>
-                                                    <TableCell className="text-right font-mono text-xs text-slate-400 pr-6">
+                                                    <TableCell className="font-mono text-xs text-slate-400">
                                                         {c.created_at ? new Date(c.created_at).toLocaleDateString() : 'Active'}
+                                                    </TableCell>
+                                                    <TableCell className="text-right pr-6">
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            onClick={() => { setCourseToDelete(c); setDeleteCourseModalOpen(true); }}
+                                                            className="h-7 px-2 text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 text-xs gap-1 border border-rose-900/40 cursor-pointer"
+                                                            title="Delete Course Curriculum"
+                                                        >
+                                                            <Trash2 className="h-3.5 w-3.5" /> Delete Course
+                                                        </Button>
                                                     </TableCell>
                                                 </TableRow>
                                             ))}
@@ -941,6 +972,14 @@ export default function MasterCollegeDetail() {
                 open={deleteModalOpen}
                 onOpenChange={setDeleteModalOpen}
                 user={userToDelete}
+                onSuccess={fetchDetails}
+            />
+
+            {/* 🗑️ Course Deletion Modal */}
+            <MasterDeleteCourseModal
+                open={deleteCourseModalOpen}
+                onOpenChange={setDeleteCourseModalOpen}
+                course={courseToDelete}
                 onSuccess={fetchDetails}
             />
         </MasterLayout>

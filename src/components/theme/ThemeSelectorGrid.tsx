@@ -6,7 +6,8 @@ import {
   claimDailyFlux,
   getUnlockedThemeIds,
   purchaseTheme,
-  isUserAdminOrMaster
+  isUserAdminOrMaster,
+  hasClaimedFluxToday,
 } from "@/services/themeService";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,7 @@ export function ThemeSelectorGrid({ userRole, onThemeEquipped }: ThemeSelectorGr
 
   const [fluxBalance, setFluxState] = useState<number>(getFluxBalance());
   const [unlockedIds, setUnlockedIds] = useState<ThemeId[]>(getUnlockedThemeIds(userRole));
+  const [hasClaimedToday, setHasClaimedToday] = useState<boolean>(() => hasClaimedFluxToday());
   const [claiming, setClaiming] = useState(false);
   const [purchasingId, setPurchasingId] = useState<ThemeId | null>(null);
 
@@ -42,6 +44,7 @@ export function ThemeSelectorGrid({ userRole, onThemeEquipped }: ThemeSelectorGr
   useEffect(() => {
     const handleFluxUpdated = (e: CustomEvent<number>) => {
       setFluxState(e.detail ?? getFluxBalance());
+      setHasClaimedToday(hasClaimedFluxToday());
     };
     const handleThemesUpdated = (e: CustomEvent<ThemeId[]>) => {
       setUnlockedIds(e.detail ?? getUnlockedThemeIds(userRole));
@@ -57,16 +60,34 @@ export function ThemeSelectorGrid({ userRole, onThemeEquipped }: ThemeSelectorGr
   }, [userRole]);
 
   const handleClaimReward = () => {
+    if (hasClaimedFluxToday()) {
+      toast({
+        title: "Daily Limit Reached",
+        description: "You have already claimed your 10 Orbit Flux for today. Resets at midnight!",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setClaiming(true);
     setTimeout(() => {
-      const res = claimDailyFlux(250);
+      const res = claimDailyFlux(10);
       setFluxState(res.newBalance);
+      setHasClaimedToday(true);
       setClaiming(false);
-      toast({
-        title: "⚡ +250 Orbit Flux Claimed!",
-        description: `Your new wallet balance is ⚡ ${res.newBalance} Flux. Enjoy testing and unlocking themes!`,
-      });
-    }, 300);
+      if (res.success) {
+        toast({
+          title: "⚡ +10 Orbit Flux Claimed!",
+          description: `Your new wallet balance is ⚡ ${res.newBalance.toLocaleString()} Flux. Enjoy unlocking themes!`,
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Already Claimed",
+          description: res.message,
+        });
+      }
+    }, 200);
   };
 
   const handleEquip = (themeId: ThemeId, themeName: string) => {
@@ -141,11 +162,17 @@ export function ThemeSelectorGrid({ userRole, onThemeEquipped }: ThemeSelectorGr
             type="button"
             size="sm"
             onClick={handleClaimReward}
-            disabled={claiming}
-            className="h-10 px-3 sm:px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs sm:text-sm gap-1.5 shadow-md shadow-amber-500/20 cursor-pointer touch-press"
+            disabled={claiming || hasClaimedToday}
+            className={`h-10 px-3 sm:px-4 rounded-xl font-bold text-xs sm:text-sm gap-1.5 shadow-md touch-press transition-all ${
+              hasClaimedToday
+                ? "bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-80"
+                : "bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-amber-500/20 cursor-pointer"
+            }`}
           >
-            <Gift className="h-4 w-4" />
-            <span>{claiming ? "Claiming..." : "+250 Flux"}</span>
+            {hasClaimedToday ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <Gift className="h-4 w-4" />}
+            <span>
+              {claiming ? "Claiming..." : hasClaimedToday ? "Claimed (+10 Today)" : "+10 Flux"}
+            </span>
           </Button>
         </div>
       </div>

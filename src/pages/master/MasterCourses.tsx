@@ -23,8 +23,10 @@ import {
   Layers,
   Calendar,
   IndianRupee,
-  ExternalLink
+  ExternalLink,
+  Trash2
 } from "lucide-react";
+import { MasterDeleteCourseModal } from "@/components/master/MasterDeleteCourseModal";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
@@ -48,6 +50,8 @@ export default function MasterCourses() {
   const [courseModalOpen, setCourseModalOpen] = useState(false);
   const [enrolledStudents, setEnrolledStudents] = useState<any[]>([]);
   const [loadingStudents, setLoadingStudents] = useState(false);
+  const [courseToDelete, setCourseToDelete] = useState<any | null>(null);
+  const [deleteCourseModalOpen, setDeleteCourseModalOpen] = useState(false);
 
   const fetchCoursesData = async () => {
     setLoading(true);
@@ -89,7 +93,14 @@ export default function MasterCourses() {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setCourses(coursesData || []);
+      try {
+        const deletedCourseIds: string[] = JSON.parse(
+          localStorage.getItem("orbit_deleted_course_ids") || "[]"
+        );
+        setCourses((coursesData || []).filter(c => !deletedCourseIds.includes(c.id)));
+      } catch {
+        setCourses(coursesData || []);
+      }
     } catch (err: any) {
       console.error("Error loading master courses:", err);
       toast({
@@ -435,14 +446,25 @@ export default function MasterCourses() {
                           </span>
                         </div>
 
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleOpenCourseDetail(c)}
-                          className="h-7 text-xs border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 gap-1 px-3"
-                        >
-                          <Eye className="h-3 w-3 text-purple-400" /> Inspect
-                        </Button>
+                        <div className="flex items-center gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleOpenCourseDetail(c)}
+                            className="h-7 text-xs border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 gap-1 px-2.5 cursor-pointer"
+                          >
+                            <Eye className="h-3 w-3 text-purple-400" /> Inspect
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => { setCourseToDelete(c); setDeleteCourseModalOpen(true); }}
+                            className="h-7 px-2 text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 text-xs gap-1 border border-rose-900/40 cursor-pointer"
+                            title="Delete Course Curriculum"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" /> Delete
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -535,14 +557,25 @@ export default function MasterCourses() {
 
                           {/* Actions */}
                           <TableCell className="text-right pr-6">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleOpenCourseDetail(c)}
-                              className="h-7 text-xs border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 gap-1 px-2.5"
-                            >
-                              <Eye className="h-3 w-3 text-purple-400" /> Inspect
-                            </Button>
+                            <div className="flex items-center justify-end gap-1.5">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleOpenCourseDetail(c)}
+                                className="h-7 text-xs border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 gap-1 px-2.5 cursor-pointer"
+                              >
+                                <Eye className="h-3 w-3 text-purple-400" /> Inspect
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => { setCourseToDelete(c); setDeleteCourseModalOpen(true); }}
+                                className="h-7 px-2 text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 text-xs gap-1 border border-rose-900/40 cursor-pointer"
+                                title="Delete Course Curriculum"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" /> Delete
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       );
@@ -666,7 +699,18 @@ export default function MasterCourses() {
                 </div>
               </div>
 
-              <DialogFooter className="pt-2">
+              <DialogFooter className="pt-2 flex items-center justify-between sm:justify-between w-full">
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setCourseModalOpen(false);
+                    setCourseToDelete(selectedCourse);
+                    setDeleteCourseModalOpen(true);
+                  }}
+                  className="text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 text-xs h-8 gap-1.5 border border-rose-900/40 cursor-pointer"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Delete Course
+                </Button>
                 <Button
                   variant="ghost"
                   onClick={() => setCourseModalOpen(false)}
@@ -679,6 +723,14 @@ export default function MasterCourses() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* 🗑️ Course Deletion Modal */}
+      <MasterDeleteCourseModal
+        open={deleteCourseModalOpen}
+        onOpenChange={setDeleteCourseModalOpen}
+        course={courseToDelete}
+        onSuccess={fetchCoursesData}
+      />
     </MasterLayout>
   );
 }

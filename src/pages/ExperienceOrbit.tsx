@@ -176,14 +176,22 @@ export default function ExperienceOrbit() {
     const handleClaimFluxDemo = () => {
         setClaimingFlux(true);
         setTimeout(() => {
-            const updated = claimDailyFlux();
-            setFluxBalance(updated);
+            const res = claimDailyFlux(10);
+            setFluxBalance(res.newBalance);
             setClaimingFlux(false);
-            toast({
-                title: "⚡ +250 Orbit Flux Claimed!",
-                description: `New Wallet Balance: ${updated.toLocaleString()} Flux. Ready to unlock themes!`,
-            });
-        }, 300);
+            if (res.success) {
+                toast({
+                    title: "⚡ +10 Orbit Flux Claimed!",
+                    description: `New Wallet Balance: ${res.newBalance.toLocaleString()} Flux. Ready to unlock themes!`,
+                });
+            } else {
+                toast({
+                    variant: "destructive",
+                    title: "Daily Limit Reached",
+                    description: res.message,
+                });
+            }
+        }, 200);
     };
 
     const toggleThemeQuick = () => {

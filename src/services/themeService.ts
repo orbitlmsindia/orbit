@@ -1,8 +1,31 @@
 import { ThemeId, THEMES_CATALOG } from "@/types/theme";
 
 const FLUX_STORAGE_KEY = "orbit_flux_balance";
+const FLUX_LAST_CLAIM_KEY = "orbit_flux_last_claim";
 const UNLOCKED_THEMES_KEY = "orbit_unlocked_themes";
 const DEFAULT_FLUX_GRANT = 750; // Starter grant for learners
+export const DAILY_FLUX_REWARD = 10; // Strictly 10 Orbit Flux per day
+
+// Check if user has already claimed their daily Orbit Flux today
+export function hasClaimedFluxToday(): boolean {
+  try {
+    const lastClaim = localStorage.getItem(FLUX_LAST_CLAIM_KEY);
+    if (!lastClaim) return false;
+    const lastDate = new Date(lastClaim);
+    const today = new Date();
+    return (
+      lastDate.getFullYear() === today.getFullYear() &&
+      lastDate.getMonth() === today.getMonth() &&
+      lastDate.getDate() === today.getDate()
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function canClaimDailyFlux(): boolean {
+  return !hasClaimedFluxToday();
+}
 
 // Check if user has Master Admin or Admin VIP privileges
 export function isUserAdminOrMaster(role?: string | null): boolean {
@@ -51,12 +74,33 @@ export function setFluxBalance(amount: number): void {
   }
 }
 
-// 3. Claim Free Daily / Reward Flux
-export function claimDailyFlux(amount: number = 250): { success: boolean; newBalance: number } {
+// 3. Claim Free Daily / Reward Flux (Strictly 10 Flux once per day)
+export function claimDailyFlux(amount: number = DAILY_FLUX_REWARD): {
+  success: boolean;
+  newBalance: number;
+  message: string;
+} {
+  if (hasClaimedFluxToday()) {
+    return {
+      success: false,
+      newBalance: getFluxBalance(),
+      message: "Daily Orbit Flux already claimed for today. Resets at midnight (max 10 ⚡ daily)!",
+    };
+  }
+
+  // Enforce strictly 10 Flux maximum reward per day
+  const grantAmount = Math.min(amount, DAILY_FLUX_REWARD);
   const current = getFluxBalance();
-  const next = current + amount;
+  const next = current + grantAmount;
+
   setFluxBalance(next);
-  return { success: true, newBalance: next };
+  localStorage.setItem(FLUX_LAST_CLAIM_KEY, new Date().toISOString());
+
+  return {
+    success: true,
+    newBalance: next,
+    message: `Successfully claimed +${grantAmount} Daily Orbit Flux!`,
+  };
 }
 
 // 4. Get Unlocked Theme IDs for user
