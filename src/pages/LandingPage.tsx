@@ -49,7 +49,7 @@ export default function LandingPage() {
   const [landingBlogs, setLandingBlogs] = useState<BlogPost[]>([]);
   const [publishedCourses, setPublishedCourses] = useState<any[]>([]);
   const [activeLearnersCount, setActiveLearnersCount] = useState<number>(13);
-  const [certifiedCoursesCount, setCertifiedCoursesCount] = useState<number>(12);
+  const [certifiedCoursesCount, setCertifiedCoursesCount] = useState<number>(0);
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [platformFeatures, setPlatformFeatures] = useState(() => getRegisteredFeatures());
   const [billingInterval, setBillingInterval] = useState<"monthly" | "annual">("monthly");
@@ -306,7 +306,7 @@ export default function LandingPage() {
       }
 
       // 2. Fetch active courses safely without failing on complex joins
-      let totalPublishedCourses = 12;
+      let totalPublishedCourses = 0;
       const { data: rawCourses, count: courseCount } = await supabase
         .from("courses")
         .select(`
@@ -371,45 +371,7 @@ export default function LandingPage() {
 
         setPublishedCourses(formatted.slice(0, 6));
       } else {
-        // Fallback demo courses preview
-        setPublishedCourses([
-          {
-            id: "demo-1",
-            title: "Full-Stack Web Development & Cloud Computing",
-            description: "Master modern React, Node.js, Next.js, PostgreSQL, and cloud deployments with hands-on projects.",
-            credit_points: 4,
-            price: 2499,
-            original_price: 4999,
-            studentsCount: 142,
-            organization_name: defaultInst.name || "Orbit LMS Innovation Academy",
-            organization_logo_url: defaultInst.logoUrl || "https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=150&auto=format&fit=crop&q=80",
-            thumbnail_url: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=500&auto=format&fit=crop&q=80"
-          },
-          {
-            id: "demo-2",
-            title: "Data Science, AI & Machine Learning Specialization",
-            description: "Explore Python data analysis, neural networks, predictive modeling, and AI application engineering.",
-            credit_points: 5,
-            price: 3499,
-            original_price: 6999,
-            studentsCount: 98,
-            organization_name: defaultInst.name || "Orbit LMS Innovation Academy",
-            organization_logo_url: defaultInst.logoUrl || "https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=150&auto=format&fit=crop&q=80",
-            thumbnail_url: "https://images.unsplash.com/photo-1555949963-ff9fe0c870eb?w=500&auto=format&fit=crop&q=80"
-          },
-          {
-            id: "demo-3",
-            title: "Cybersecurity & Network Defense Fundamentals",
-            description: "Understand network security architecture, vulnerability assessment, ethical hacking, and encryption protocols.",
-            credit_points: 3,
-            price: 1999,
-            original_price: 3999,
-            studentsCount: 85,
-            organization_name: defaultInst.name || "Orbit LMS Innovation Academy",
-            organization_logo_url: defaultInst.logoUrl || "https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=150&auto=format&fit=crop&q=80",
-            thumbnail_url: "https://images.unsplash.com/photo-1563986768609-322da13575f3?w=500&auto=format&fit=crop&q=80"
-          }
-        ]);
+        setPublishedCourses([]);
       }
     } catch (e) {
       console.error("Error fetching landing page courses:", e);
@@ -669,7 +631,7 @@ export default function LandingPage() {
                 </div>
                 <div className="p-4 bg-card rounded-xl border shadow-xs space-y-1">
                   <div className="font-extrabold text-2xl sm:text-3xl text-amber-500 font-mono">
-                    {certifiedCoursesCount || 12}
+                    {certifiedCoursesCount}
                   </div>
                   <div className="text-xs text-muted-foreground">Certified Courses</div>
                 </div>
@@ -730,6 +692,7 @@ export default function LandingPage() {
             </p>
           </div>
 
+          {publishedCourses.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {publishedCourses.map((course) => (
               <motion.div
@@ -794,7 +757,15 @@ export default function LandingPage() {
                 </div>
               </motion.div>
             ))}
+          
           </div>
+        ) : (
+          <div className="text-center py-16 border border-dashed rounded-2xl bg-card/40 max-w-xl mx-auto space-y-3">
+            <BookOpen className="h-10 w-10 text-muted-foreground mx-auto opacity-50" />
+            <h3 className="font-semibold text-lg text-foreground">No Published Courses Yet</h3>
+            <p className="text-sm text-muted-foreground">New academic courses and curriculum will appear here as soon as instructors publish them.</p>
+          </div>
+        )}
         </div>
       </section>
 
