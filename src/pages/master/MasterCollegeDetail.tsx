@@ -926,6 +926,23 @@ export default function MasterCollegeDetail() {
                     </TabsContent>
                 </Tabs>
             </div>
+
+            {/* 🚀 Provision Institutional ID & Account Modal */}
+            <MasterCreateAccountModal
+                open={createAccountModalOpen}
+                onOpenChange={setCreateAccountModalOpen}
+                initialCollegeId={id}
+                initialRole={createAccountRole}
+                onSuccess={fetchDetails}
+            />
+
+            {/* 🗑️ Permanent ID & Account Deletion Modal */}
+            <MasterDeleteUserModal
+                open={deleteModalOpen}
+                onOpenChange={setDeleteModalOpen}
+                user={userToDelete}
+                onSuccess={fetchDetails}
+            />
         </MasterLayout>
     );
 }
