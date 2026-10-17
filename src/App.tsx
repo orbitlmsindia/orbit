@@ -157,6 +157,7 @@ const App = () => (
             <Route path="/student/mnemonics" element={<ProtectedRoute><StudentMnemonics /></ProtectedRoute>} />
             <Route path="/student/armory" element={<ProtectedRoute><StudentArmory /></ProtectedRoute>} />
             <Route path="/student/leaderboard" element={<ProtectedRoute><GatedFeatureRoute featureId="leaderboard"><Leaderboard userRole="student" /></GatedFeatureRoute></ProtectedRoute>} />
+            <Route path="/student/courses/:id" element={<ProtectedRoute><CoursePlayer /></ProtectedRoute>} />
             <Route path="/student/courses/:id/learn" element={<ProtectedRoute><CoursePlayer /></ProtectedRoute>} />
             <Route path="/student/assignments" element={<ProtectedRoute><GatedFeatureRoute featureId="assignments"><StudentAssignments /></GatedFeatureRoute></ProtectedRoute>} />
             <Route path="/student/assignments/:id" element={<ProtectedRoute><GatedFeatureRoute featureId="assignments"><AssignmentSubmit /></GatedFeatureRoute></ProtectedRoute>} />

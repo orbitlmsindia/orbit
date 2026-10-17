@@ -146,7 +146,7 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
                 }
             } else if (location.pathname.startsWith('/student')) {
                 if (isMounted) setRequiredRoleName("Student / Learner");
-                if (isStudentRole || isAdminRole) {
+                if (isStudentRole || isAdminRole || isTeacherRole) {
                     if (isMounted) setIsAuthorized(true);
                 } else {
                     if (isMounted) setIsAuthorized(false);

@@ -507,9 +507,9 @@ Exam Tip: ${m.examTip}
         <StudentLayout>
             <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 pb-20 animate-in fade-in duration-300">
                 {/* Course Context Header / Breadcrumb */}
-                {courseIdParam && (
+                {courseIdParam ? (
                     <div className="flex items-center justify-between pb-3 border-b border-border/50 flex-wrap gap-2">
-                        <Link to={`/student/courses/${courseIdParam}`}>
+                        <Link to={`/student/courses/${courseIdParam}/learn`}>
                             <Button variant="ghost" size="sm" className="gap-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400 hover:text-amber-700 -ml-2">
                                 <ChevronLeft className="h-4 w-4" /> Back to Course Player
                             </Button>
@@ -520,6 +520,14 @@ Exam Tip: ${m.examTip}
                                 {courseInfo?.title || "Enrolled Course"}
                             </Badge>
                         </div>
+                    </div>
+                ) : (
+                    <div className="flex items-center justify-between pb-2 border-b border-border/40">
+                        <Link to="/student/courses">
+                            <Button variant="ghost" size="sm" className="gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground -ml-2">
+                                <ChevronLeft className="h-4 w-4" /> Back to My Courses
+                            </Button>
+                        </Link>
                     </div>
                 )}
 
@@ -682,7 +690,7 @@ Exam Tip: ${m.examTip}
                                             : "No mnemonics available for your enrolled courses."}
                                     </p>
                                     {courseIdParam && (
-                                        <Link to={`/student/courses/${courseIdParam}`}>
+                                        <Link to={`/student/courses/${courseIdParam}/learn`}>
                                             <Button variant="outline" size="sm" className="text-xs mt-2">
                                                 Return to Course Player
                                             </Button>
@@ -762,7 +770,7 @@ Exam Tip: ${m.examTip}
                                 </p>
                                 <div className="flex items-center justify-center gap-2 flex-wrap">
                                     {courseIdParam && (
-                                        <Link to={`/student/courses/${courseIdParam}`}>
+                                        <Link to={`/student/courses/${courseIdParam}/learn`}>
                                             <Button variant="default" size="sm" className="gap-1.5 text-xs font-semibold">
                                                 <ChevronLeft className="h-4 w-4" /> Return to Course Player
                                             </Button>
