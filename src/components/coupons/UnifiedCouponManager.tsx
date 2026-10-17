@@ -70,7 +70,20 @@ interface UnifiedCouponManagerProps {
 export function UnifiedCouponManager({ scope, collegeId }: UnifiedCouponManagerProps) {
   const { toast } = useToast();
 
-  const [coupons, setCoupons] = useState<UnifiedCoupon[]>([]);
+  const effectiveCollegeId = useMemo(() => {
+    return collegeId || sessionStorage.getItem("collegeId") || localStorage.getItem("admin_college_id") || "00000000-0000-0000-0000-000000000001";
+  }, [collegeId]);
+
+  const [coupons, setCoupons] = useState<UnifiedCoupon[]>(() => {
+    try {
+      const saved = localStorage.getItem("orbit_coupons");
+      if (saved) {
+        const list: UnifiedCoupon[] = JSON.parse(saved);
+        if (Array.isArray(list)) return list;
+      }
+    } catch (e) {}
+    return [];
+  });
   const [colleges, setColleges] = useState<{ id: string; name: string }[]>([]);
   const [courses, setCourses] = useState<{ id: string; title: string; college_id?: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -100,7 +113,7 @@ export function UnifiedCouponManager({ scope, collegeId }: UnifiedCouponManagerP
     max_uses: "50",
     min_purchase: "0",
     valid_until: "",
-    target_college: scope === "admin" && collegeId ? collegeId : "all",
+    target_college: scope === "admin" ? effectiveCollegeId : "all",
     target_course: "all",
   });
 
@@ -118,42 +131,75 @@ export function UnifiedCouponManager({ scope, collegeId }: UnifiedCouponManagerP
 
       // 2. Fetch Courses
       let courseQuery = supabase.from("courses").select("id, title, college_id").order("title", { ascending: true });
-      if (scope === "admin" && collegeId) {
-        courseQuery = courseQuery.eq("college_id", collegeId);
+      if (scope === "admin" && effectiveCollegeId) {
+        courseQuery = courseQuery.eq("college_id", effectiveCollegeId);
       }
       const { data: crsData } = await courseQuery;
       const loadedCourses = crsData || [];
       setCourses(loadedCourses);
 
-      // 3. Fetch Coupons
-      let query = supabase.from("coupons").select("*").order("created_at", { ascending: false });
-      if (scope === "admin" && collegeId) {
-        query = query.or(`college_id.eq.${collegeId},college_id.is.null`);
-      }
-
-      const { data: dbCoupons, error } = await query;
-
-      let mergedList: UnifiedCoupon[] = [];
-      if (!error && dbCoupons) {
-        mergedList = dbCoupons;
-      }
-
-      // Check localStorage for offline/cached coupons
+      // 3. Fetch Coupons from Supabase
+      // NOTE: We query without college_id filter since remote DB schema stores tags in description
+      let dbCoupons: any[] = [];
       try {
-        const localSaved = localStorage.getItem("orbit_coupons");
-        if (localSaved) {
-          const localList: UnifiedCoupon[] = JSON.parse(localSaved);
+        const { data, error } = await supabase
+          .from("coupons")
+          .select("*")
+          .order("created_at", { ascending: false });
+        if (!error && Array.isArray(data)) {
+          dbCoupons = data;
+        }
+      } catch (e) {
+        console.warn("Supabase coupon fetch note:", e);
+      }
+
+      // Map to track coupons by uppercase code
+      const allCouponsMap = new Map<string, UnifiedCoupon>();
+
+      // A. Populate from DB
+      dbCoupons.forEach((c: any) => {
+        const instTagMatch = (c.description || "").match(/\[(INST|COLLEGE):([^\]]+)\]/);
+        const parsedCollegeId = c.college_id || (instTagMatch ? instTagMatch[2] : null);
+        const cleanDesc = (c.description || "").replace(/\[(INST|COLLEGE):[^\]]+\]\s*/, "");
+
+        const normalized: UnifiedCoupon = {
+          ...c,
+          college_id: parsedCollegeId,
+          description: cleanDesc,
+        };
+        allCouponsMap.set(c.code.toUpperCase().trim(), normalized);
+      });
+
+      // B. Merge with local storage
+      try {
+        const saved = localStorage.getItem("orbit_coupons");
+        if (saved) {
+          const localList: UnifiedCoupon[] = JSON.parse(saved);
           localList.forEach((lc) => {
-            if (!mergedList.some((c) => c.code.toUpperCase() === lc.code.toUpperCase())) {
-              if (scope === "master" || !lc.college_id || lc.college_id === collegeId) {
-                mergedList.push(lc);
+            const key = lc.code.toUpperCase().trim();
+            if (!allCouponsMap.has(key)) {
+              allCouponsMap.set(key, lc);
+            } else {
+              const existing = allCouponsMap.get(key)!;
+              if (!existing.college_id && lc.college_id) {
+                existing.college_id = lc.college_id;
               }
             }
           });
         }
       } catch (e) {}
 
-      // Map college and course names
+      let mergedList = Array.from(allCouponsMap.values());
+
+      // Institutional Admin scoping: show coupons for this college or global
+      if (scope === "admin" && effectiveCollegeId) {
+        mergedList = mergedList.filter((c) => {
+          if (!c.college_id) return true; // Global coupons accessible
+          return c.college_id === effectiveCollegeId;
+        });
+      }
+
+      // Map names
       const enriched: UnifiedCoupon[] = mergedList.map((c) => {
         const collegeMatch = loadedColleges.find((col) => col.id === c.college_id);
         const courseMatch = loadedCourses.find((crs) => crs.id === c.course_id);
@@ -165,9 +211,14 @@ export function UnifiedCouponManager({ scope, collegeId }: UnifiedCouponManagerP
       });
 
       setCoupons(enriched);
+
+      // Keep localStorage synchronized
+      try {
+        localStorage.setItem("orbit_coupons", JSON.stringify(enriched));
+      } catch (e) {}
+
     } catch (err: any) {
       console.error("Error loading coupons:", err);
-      toast({ variant: "destructive", title: "Load Failed", description: err.message });
     } finally {
       setLoading(false);
     }
@@ -175,7 +226,7 @@ export function UnifiedCouponManager({ scope, collegeId }: UnifiedCouponManagerP
 
   useEffect(() => {
     fetchData();
-  }, [scope, collegeId]);
+  }, [scope, effectiveCollegeId]);
 
   const generateCode = () => {
     const prefix = scope === "master" ? "ORBIT" : "CAMPUS";
@@ -216,7 +267,7 @@ export function UnifiedCouponManager({ scope, collegeId }: UnifiedCouponManagerP
 
     let assignedCollegeId: string | null = null;
     if (scope === "admin") {
-      assignedCollegeId = collegeId || null;
+      assignedCollegeId = effectiveCollegeId || null;
     } else {
       assignedCollegeId = newCoupon.target_college === "all" ? null : newCoupon.target_college;
     }
@@ -228,9 +279,46 @@ export function UnifiedCouponManager({ scope, collegeId }: UnifiedCouponManagerP
       setSaving(true);
       const { data: { user } } = await supabase.auth.getUser();
 
-      const payload = {
+      const cleanDesc = newCoupon.description.trim();
+      const encodedDesc = assignedCollegeId ? `[INST:${assignedCollegeId}] ${cleanDesc}` : cleanDesc;
+
+      const payloadForDb: any = {
         code: cleanCode,
-        description: newCoupon.description.trim() || null,
+        description: encodedDesc || null,
+        discount_type: newCoupon.discount_type,
+        discount_value: Number(newCoupon.discount_value),
+        max_uses: maxUsesLimit,
+        used_count: 0,
+        min_purchase: parseFloat(newCoupon.min_purchase) || 0,
+        valid_from: new Date().toISOString(),
+        valid_until: newCoupon.valid_until ? new Date(newCoupon.valid_until).toISOString() : null,
+        is_active: true,
+        course_id: assignedCourseId,
+      };
+
+      if (user?.id) {
+        payloadForDb.teacher_id = user.id;
+      }
+
+      let createdDbCoupon: any = null;
+      try {
+        const { data, error } = await supabase.from("coupons").insert([payloadForDb]).select().single();
+        if (!error && data) {
+          createdDbCoupon = data;
+        } else if (error) {
+          console.warn("Supabase coupon insert note:", error.message);
+        }
+      } catch (dbErr) {
+        console.warn("Supabase direct insert exception:", dbErr);
+      }
+
+      const collegeMatch = colleges.find((col) => col.id === assignedCollegeId);
+      const courseMatch = courses.find((crs) => crs.id === assignedCourseId);
+
+      const newCouponRecord: UnifiedCoupon = {
+        id: createdDbCoupon?.id || `coupon_${Date.now()}`,
+        code: cleanCode,
+        description: cleanDesc || null,
         discount_type: newCoupon.discount_type,
         discount_value: Number(newCoupon.discount_value),
         max_uses: maxUsesLimit,
@@ -241,31 +329,24 @@ export function UnifiedCouponManager({ scope, collegeId }: UnifiedCouponManagerP
         is_active: true,
         college_id: assignedCollegeId,
         course_id: assignedCourseId,
-        teacher_id: user?.id || null,
+        college_name: collegeMatch ? collegeMatch.name : assignedCollegeId ? "Current Institution" : "Global (All Institutions)",
+        course_title: courseMatch ? courseMatch.title : assignedCourseId ? "Specific Course" : "All Curriculums",
+        created_at: createdDbCoupon?.created_at || new Date().toISOString(),
       };
 
-      let created: any = null;
-      try {
-        const { data, error } = await supabase.from("coupons").insert([payload]).select().single();
-        if (!error && data) {
-          created = data;
-        }
-      } catch (dbErr) {
-        console.warn("Direct Supabase coupon insert note:", dbErr);
-      }
+      // 1. Immediately update React state to guarantee instant UI rendering with 0 disappearance
+      setCoupons((prev) => {
+        const withoutDup = prev.filter((c) => c.code.toUpperCase() !== cleanCode);
+        return [newCouponRecord, ...withoutDup];
+      });
 
-      const newCouponRecord: UnifiedCoupon = created || {
-        ...payload,
-        id: `coupon_${Date.now()}`,
-        created_at: new Date().toISOString(),
-      };
-
-      // Always update localStorage
+      // 2. Persist to localStorage
       try {
         const saved = localStorage.getItem("orbit_coupons");
         const list: UnifiedCoupon[] = saved ? JSON.parse(saved) : [];
-        list.unshift(newCouponRecord);
-        localStorage.setItem("orbit_coupons", JSON.stringify(list));
+        const withoutDup = list.filter((c) => c.code.toUpperCase() !== cleanCode);
+        withoutDup.unshift(newCouponRecord);
+        localStorage.setItem("orbit_coupons", JSON.stringify(withoutDup));
       } catch (e) {}
 
       toast({
@@ -285,11 +366,10 @@ export function UnifiedCouponManager({ scope, collegeId }: UnifiedCouponManagerP
         max_uses: "50",
         min_purchase: "0",
         valid_until: "",
-        target_college: scope === "admin" && collegeId ? collegeId : "all",
+        target_college: scope === "admin" && effectiveCollegeId ? effectiveCollegeId : "all",
         target_course: "all",
       });
 
-      fetchData();
     } catch (err: any) {
       toast({ variant: "destructive", title: "Error Creating Coupon", description: err.message });
     } finally {
@@ -916,10 +996,12 @@ export function UnifiedCouponManager({ scope, collegeId }: UnifiedCouponManagerP
               <div className="p-2.5 rounded-xl border bg-primary/5 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Building2 className="h-4 w-4 text-primary shrink-0" />
-                  <span className="text-xs font-semibold text-foreground">Institution Locked</span>
+                  <span className="text-xs font-semibold text-foreground">
+                    {colleges.find((c) => c.id === effectiveCollegeId)?.name || "Current Campus"}
+                  </span>
                 </div>
                 <Badge variant="outline" className="text-[10px] font-mono text-primary border-primary/30">
-                  Current Campus
+                  Institution Scoped
                 </Badge>
               </div>
             )}

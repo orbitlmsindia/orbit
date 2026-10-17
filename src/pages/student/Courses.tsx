@@ -725,6 +725,14 @@ export default function StudentCourses() {
                 return;
             }
 
+            // Extract institution scope if encoded in description
+            if (!coupon.college_id && coupon.description) {
+                const match = coupon.description.match(/\[(INST|COLLEGE):([^\]]+)\]/);
+                if (match) {
+                    coupon.college_id = match[2];
+                }
+            }
+
             // Check if coupon has been disabled by Administrator
             if (coupon.is_active === false) {
                 setCouponError("This coupon has been disabled by the administrator.");
