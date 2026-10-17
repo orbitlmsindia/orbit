@@ -16,9 +16,11 @@ import {
   X,
   ChevronDown,
   ChevronUp,
-  Award
+  Award,
+  Swords
 } from "lucide-react";
 import { claimDailyFlux, getFluxBalance, hasClaimedFluxToday } from "@/services/themeService";
+import { getEquippedWeapon } from "@/services/weaponService";
 import { useToast } from "@/hooks/use-toast";
 
 interface ScholarMilestoneCardProps {
@@ -144,6 +146,22 @@ export function ScholarMilestoneCard({
           className="h-7 px-2.5 rounded-lg text-xs font-semibold gap-1 text-amber-500 border-amber-500/30 hover:bg-amber-500/10 touch-press"
         >
           <Trophy className="h-3.5 w-3.5" /> Leaderboard
+        </Button>
+      ),
+    },
+    {
+      id: "equip_astra",
+      title: "Wield an Astra or Shastra (Armory)",
+      description: "Unlock ancient weapons & Nano-Banas with Flux.",
+      completed: getEquippedWeapon() !== null,
+      action: (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => navigate("/student/armory")}
+          className="h-7 px-2.5 rounded-lg text-xs font-semibold gap-1 text-purple-400 border-purple-500/30 hover:bg-purple-500/10 touch-press"
+        >
+          <Swords className="h-3.5 w-3.5" /> Armory
         </Button>
       ),
     },

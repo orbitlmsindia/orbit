@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams, Link } from "react-router-dom";
 import { StudentLayout } from "@/components/layout/StudentLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -25,13 +26,17 @@ import {
     Plus,
     Check,
     Quote,
-    Download
+    Download,
+    ChevronLeft
 } from "lucide-react";
 import { triggerConfetti } from "@/lib/confetti";
-import { downloadJsonFile, copyJsonToClipboard } from "@/lib/courseJsonImporter";
+import { supabase } from "@/lib/supabase";
+import { downloadJsonFile, copyJsonToClipboard, importMnemonicsFromJson } from "@/lib/courseJsonImporter";
 
 export interface MnemonicItem {
     id: string;
+    courseId?: string | null;
+    course?: string;
     phrase: string;
     acronym: string;
     title: string;
@@ -154,33 +159,176 @@ const PRESET_MNEMONICS: MnemonicItem[] = [
 
 export default function StudentMnemonics() {
     const { toast } = useToast();
-    const [mnemonics, setMnemonics] = useState<MnemonicItem[]>(PRESET_MNEMONICS);
-    const [selectedMnemonic, setSelectedMnemonic] = useState<MnemonicItem>(PRESET_MNEMONICS[0]);
+    const [searchParams] = useSearchParams();
+    const courseIdParam = searchParams.get("courseId");
+
+    const [mnemonics, setMnemonics] = useState<MnemonicItem[]>([]);
+    const [selectedMnemonic, setSelectedMnemonic] = useState<MnemonicItem | null>(null);
+    const [courseInfo, setCourseInfo] = useState<{ id: string; title: string; domain?: string } | null>(null);
+    const [enrolledCourses, setEnrolledCourses] = useState<{ id: string; title: string }[]>([]);
+    const [selectedCourseId, setSelectedCourseId] = useState<string>(courseIdParam || "all");
+    const [loading, setLoading] = useState(true);
+
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedCategory, setSelectedCategory] = useState("all");
     const [filterBookmarked, setFilterBookmarked] = useState(false);
     const [testMode, setTestMode] = useState(false);
     const [revealedLetters, setRevealedLetters] = useState<Record<number, boolean>>({});
 
+    // Sync selectedCourseId if courseIdParam changes
     useEffect(() => {
-        try {
-            const stored = localStorage.getItem("orbit_mnemonics");
-            if (stored) {
-                const parsed = JSON.parse(stored);
-                if (Array.isArray(parsed) && parsed.length > 0) {
-                    const presetIds = new Set(PRESET_MNEMONICS.map(p => p.id));
-                    const newCustom = parsed.filter((m: any) => !presetIds.has(m.id));
-                    if (newCustom.length > 0) {
-                        const merged = [...newCustom, ...PRESET_MNEMONICS];
-                        setMnemonics(merged);
-                        setSelectedMnemonic(merged[0]);
+        if (courseIdParam) {
+            setSelectedCourseId(courseIdParam);
+        }
+    }, [courseIdParam]);
+
+    // Load Mnemonics & Course Context
+    useEffect(() => {
+        let isMounted = true;
+
+        async function loadData() {
+            setLoading(true);
+            try {
+                let currentCourseTitle = "";
+                let userEnrolledIds: string[] = [];
+                let userEnrolledCoursesList: { id: string; title: string }[] = [];
+
+                // 1. If courseIdParam is present, fetch course metadata
+                if (courseIdParam) {
+                    const { data: cData } = await supabase
+                        .from("courses")
+                        .select("id, title, domain")
+                        .eq("id", courseIdParam)
+                        .maybeSingle();
+                    if (isMounted && cData) {
+                        setCourseInfo(cData);
+                        currentCourseTitle = cData.title;
+                    }
+
+                    // Check section_contents for embedded mnemonics
+                    try {
+                        const { data: sections } = await supabase
+                            .from("course_sections")
+                            .select("id")
+                            .eq("course_id", courseIdParam);
+                        if (sections && sections.length > 0) {
+                            const secIds = sections.map(s => s.id);
+                            const { data: contents } = await supabase
+                                .from("section_contents")
+                                .select("id, title, content_text")
+                                .in("section_id", secIds);
+                            if (contents) {
+                                for (const c of contents) {
+                                    if (c.content_text?.includes("<!-- ORBIT_MNEMONICS_JSON:")) {
+                                        const match = c.content_text.match(/<!-- ORBIT_MNEMONICS_JSON:\s*(.+?)\s*-->/s);
+                                        if (match && match[1]) {
+                                            try {
+                                                const parsed = JSON.parse(match[1]);
+                                                importMnemonicsFromJson(parsed, courseIdParam, cData?.title);
+                                            } catch (e) {
+                                                console.warn("Error parsing embedded mnemonics:", e);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } catch (secErr) {
+                        console.warn("Could not check section contents:", secErr);
+                    }
+                } else {
+                    // 2. No courseId in URL: fetch student's enrolled courses
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (user) {
+                        const { data: enrollments } = await supabase
+                            .from("enrollments")
+                            .select("course_id, courses(id, title)")
+                            .eq("student_id", user.id);
+                        if (enrollments && enrollments.length > 0) {
+                            userEnrolledCoursesList = enrollments
+                                .map((e: any) => e.courses ? { id: e.courses.id, title: e.courses.title } : null)
+                                .filter(Boolean) as { id: string; title: string }[];
+                            userEnrolledIds = userEnrolledCoursesList.map(c => c.id);
+                            if (isMounted) setEnrolledCourses(userEnrolledCoursesList);
+                        }
                     }
                 }
+
+                // 3. Load stored mnemonics from localStorage
+                const stored = localStorage.getItem("orbit_mnemonics");
+                let allStoredMnemonics: MnemonicItem[] = [];
+                if (stored) {
+                    try {
+                        const parsed = JSON.parse(stored);
+                        if (Array.isArray(parsed)) {
+                            allStoredMnemonics = parsed.map((m: any) => ({
+                                id: m.id,
+                                courseId: m.courseId || null,
+                                course: m.course || m.subject || "Course Mnemonic",
+                                title: m.title || "Concept",
+                                acronym: m.acronym || "MNE",
+                                phrase: m.phrase || "",
+                                subject: m.subject || m.course || "General",
+                                category: m.category || "General",
+                                explanation: m.explanation || "",
+                                breakdown: Array.isArray(m.breakdown) ? m.breakdown : [],
+                                examTip: m.examTip || m.exam_tip || "",
+                                isBookmarked: Boolean(m.isBookmarked)
+                            }));
+                        }
+                    } catch (err) {
+                        console.error("Error parsing stored mnemonics:", err);
+                    }
+                }
+
+                // 4. Strict Scoping Filter: NEVER show un-enrolled / un-scoped mock mnemonics
+                let scopedMnemonics: MnemonicItem[] = [];
+                if (courseIdParam) {
+                    const targetTitleNorm = (currentCourseTitle || "").trim().toLowerCase();
+                    scopedMnemonics = allStoredMnemonics.filter(m => {
+                        if (m.courseId === courseIdParam) return true;
+                        if (targetTitleNorm && m.course?.trim().toLowerCase() === targetTitleNorm) return true;
+                        if (targetTitleNorm && m.subject?.trim().toLowerCase() === targetTitleNorm) return true;
+                        return false;
+                    });
+                } else {
+                    // Filter by selectedCourseId or all enrolled courses
+                    scopedMnemonics = allStoredMnemonics.filter(m => {
+                        if (selectedCourseId !== "all") {
+                            return m.courseId === selectedCourseId;
+                        }
+                        if (userEnrolledIds.length > 0) {
+                            const enrolledIds = new Set(userEnrolledIds);
+                            const enrolledTitles = new Set(userEnrolledCoursesList.map(c => c.title.trim().toLowerCase()));
+                            if (m.courseId && enrolledIds.has(m.courseId)) return true;
+                            if (m.course && enrolledTitles.has(m.course.trim().toLowerCase())) return true;
+                            return false;
+                        }
+                        return false;
+                    });
+                }
+
+                if (isMounted) {
+                    setMnemonics(scopedMnemonics);
+                    if (scopedMnemonics.length > 0) {
+                        setSelectedMnemonic(scopedMnemonics[0]);
+                    } else {
+                        setSelectedMnemonic(null);
+                    }
+                }
+            } catch (e) {
+                console.error("Error loading mnemonics:", e);
+            } finally {
+                if (isMounted) setLoading(false);
             }
-        } catch (e) {
-            console.error("Error loading stored mnemonics:", e);
         }
-    }, []);
+
+        loadData();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [courseIdParam, selectedCourseId]);
 
     // Mnemonic Generator Modal State
     const [generatorOpen, setGeneratorOpen] = useState(false);
@@ -281,12 +429,19 @@ Exam Tip: ${m.examTip}
                 return list[idx % list.length];
             });
 
+            const effectiveCourseId = courseIdParam || (selectedCourseId !== "all" ? selectedCourseId : null);
+            const effectiveCourseTitle = courseInfo?.title || 
+                (effectiveCourseId ? enrolledCourses.find(c => c.id === effectiveCourseId)?.title : null) || 
+                genSubject;
+
             const newMne: MnemonicItem = {
                 id: `mne-gen-${Date.now()}`,
+                courseId: effectiveCourseId,
+                course: effectiveCourseTitle,
                 title: genTopic,
                 acronym: letters,
                 phrase: phraseWords.join(' '),
-                subject: genSubject,
+                subject: effectiveCourseTitle,
                 category: "Custom Student Mnemonic",
                 explanation: `Custom cognitive memory technique generated for ${genTopic}.`,
                 breakdown: rawList.map((item, idx) => ({
@@ -297,6 +452,16 @@ Exam Tip: ${m.examTip}
                 examTip: `Remember the rhythm: "${phraseWords.join(' ')}" during your exam!`,
                 isBookmarked: true
             };
+
+            // Save to localStorage
+            try {
+                const stored = localStorage.getItem("orbit_mnemonics");
+                const existing = stored ? JSON.parse(stored) : [];
+                const updated = [newMne, ...(Array.isArray(existing) ? existing : [])];
+                localStorage.setItem("orbit_mnemonics", JSON.stringify(updated));
+            } catch (e) {
+                console.error("Error saving mnemonic:", e);
+            }
 
             setMnemonics([newMne, ...mnemonics]);
             setSelectedMnemonic(newMne);
@@ -341,6 +506,44 @@ Exam Tip: ${m.examTip}
     return (
         <StudentLayout>
             <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 pb-20 animate-in fade-in duration-300">
+                {/* Course Context Header / Breadcrumb */}
+                {courseIdParam && (
+                    <div className="flex items-center justify-between pb-3 border-b border-border/50 flex-wrap gap-2">
+                        <Link to={`/student/courses/${courseIdParam}`}>
+                            <Button variant="ghost" size="sm" className="gap-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400 hover:text-amber-700 -ml-2">
+                                <ChevronLeft className="h-4 w-4" /> Back to Course Player
+                            </Button>
+                        </Link>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground font-medium">Viewing Course:</span>
+                            <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 text-xs font-semibold">
+                                {courseInfo?.title || "Enrolled Course"}
+                            </Badge>
+                        </div>
+                    </div>
+                )}
+
+                {/* Enrolled Course Filter (When accessed from main navigation) */}
+                {!courseIdParam && enrolledCourses.length > 0 && (
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-border/60 flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                            <BookOpen className="h-4 w-4 text-amber-500" />
+                            <span className="text-xs font-bold text-foreground">Filter by Enrolled Course:</span>
+                        </div>
+                        <select
+                            value={selectedCourseId}
+                            onChange={(e) => setSelectedCourseId(e.target.value)}
+                            aria-label="Filter by Enrolled Course"
+                            className="h-8 text-xs rounded-lg border border-border bg-background px-3 py-1 text-foreground font-medium focus:ring-1 focus:ring-amber-500 outline-none"
+                        >
+                            <option value="all">All Enrolled Courses ({enrolledCourses.length})</option>
+                            {enrolledCourses.map(c => (
+                                <option key={c.id} value={c.id}>{c.title}</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+
                 {/* Header Banner */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-5">
                     <div>
@@ -349,14 +552,16 @@ Exam Tip: ${m.examTip}
                                 <BrainCircuit className="h-5 w-5" />
                             </div>
                             <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground">
-                                Mnemonics & Memory Studio
+                                {courseIdParam ? `${courseInfo?.title || "Course"} Mnemonics` : "Mnemonics & Memory Studio"}
                             </h1>
                             <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 text-xs font-mono">
-                                Cognitive Learning Aids
+                                {courseIdParam ? "Course-Scoped" : "Cognitive Learning Aids"}
                             </Badge>
                         </div>
                         <p className="text-muted-foreground mt-1 text-xs sm:text-sm">
-                            Lock complex sequences, architectural layers, protocols, and formulas into long-term memory through catchy acronyms and mental hooks.
+                            {courseIdParam
+                                ? `Cognitive memory hooks and acronym breakdowns published for ${courseInfo?.title || "this course"}.`
+                                : "Lock complex sequences, architectural layers, protocols, and formulas into long-term memory through catchy acronyms and mental hooks."}
                         </p>
                     </div>
 
@@ -436,7 +641,7 @@ Exam Tip: ${m.examTip}
 
                 {/* Main Content Layout: Sidebar List & Deep Dive Card */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                    {/* Left Column: Mnemonics Catalog (4 cols) */}
+                    {/* Left Column: Mnemonics Catalog (5 cols) */}
                     <div className="lg:col-span-5 space-y-4">
                         {/* Search and Filters */}
                         <div className="space-y-2">
@@ -468,12 +673,25 @@ Exam Tip: ${m.examTip}
                         {/* List of Mnemonics */}
                         <div className="space-y-2 max-h-[640px] overflow-y-auto pr-1">
                             {filteredMnemonics.length === 0 ? (
-                                <div className="p-8 text-center border-2 border-dashed rounded-xl text-muted-foreground text-xs">
-                                    No mnemonics found. Try clearing your search or generate a custom one!
+                                <div className="p-8 text-center border-2 border-dashed rounded-xl text-muted-foreground text-xs space-y-3">
+                                    <BrainCircuit className="h-8 w-8 mx-auto text-muted-foreground/40" />
+                                    <p className="font-semibold text-foreground">No Mnemonics Found For This Course</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {courseIdParam
+                                            ? "This course does not have published mnemonics yet. Generate your own or check back later!"
+                                            : "No mnemonics available for your enrolled courses."}
+                                    </p>
+                                    {courseIdParam && (
+                                        <Link to={`/student/courses/${courseIdParam}`}>
+                                            <Button variant="outline" size="sm" className="text-xs mt-2">
+                                                Return to Course Player
+                                            </Button>
+                                        </Link>
+                                    )}
                                 </div>
                             ) : (
                                 filteredMnemonics.map(m => {
-                                    const isSelected = selectedMnemonic.id === m.id;
+                                    const isSelected = selectedMnemonic?.id === m.id;
                                     return (
                                         <Card
                                             key={m.id}
@@ -529,7 +747,39 @@ Exam Tip: ${m.examTip}
 
                     {/* Right Column: Deep Dive & Interactive Breakdown (7 cols) */}
                     <div className="lg:col-span-7 space-y-4">
-                        <Card className="border shadow-md overflow-hidden border-amber-500/30">
+                        {!selectedMnemonic ? (
+                            <Card className="border border-dashed p-12 text-center flex flex-col items-center justify-center min-h-[420px] bg-card/50">
+                                <div className="h-16 w-16 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto mb-4 shadow-inner">
+                                    <BrainCircuit className="h-8 w-8" />
+                                </div>
+                                <h3 className="font-bold text-lg text-foreground mb-1">
+                                    {courseIdParam ? `No Mnemonics for ${courseInfo?.title || "this Course"}` : "No Mnemonic Selected"}
+                                </h3>
+                                <p className="text-xs text-muted-foreground max-w-sm mb-4 leading-relaxed">
+                                    {courseIdParam
+                                        ? "This course curriculum does not currently include published mnemonics. You can generate a custom cognitive hook or return to course study modules."
+                                        : "Select a mnemonic from the left catalog or generate a brand new memory acronym hook."}
+                                </p>
+                                <div className="flex items-center justify-center gap-2 flex-wrap">
+                                    {courseIdParam && (
+                                        <Link to={`/student/courses/${courseIdParam}`}>
+                                            <Button variant="default" size="sm" className="gap-1.5 text-xs font-semibold">
+                                                <ChevronLeft className="h-4 w-4" /> Return to Course Player
+                                            </Button>
+                                        </Link>
+                                    )}
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => setGeneratorOpen(true)}
+                                        className="gap-1.5 text-xs font-semibold border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+                                    >
+                                        <Sparkles className="h-3.5 w-3.5" /> Generate Mnemonic
+                                    </Button>
+                                </div>
+                            </Card>
+                        ) : (
+                            <Card className="border shadow-md overflow-hidden border-amber-500/30">
                             {/* Card Header Banner */}
                             <div className="bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-transparent p-5 sm:p-6 border-b border-amber-500/20">
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -668,6 +918,7 @@ Exam Tip: ${m.examTip}
                                 </div>
                             </CardContent>
                         </Card>
+                        )}
                     </div>
                 </div>
             </div>

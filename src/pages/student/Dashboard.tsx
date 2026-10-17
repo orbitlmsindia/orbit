@@ -10,6 +10,7 @@ import { supabase } from "@/lib/supabase";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ScholarMilestoneCard } from "@/components/dashboard/ScholarMilestoneCard";
+import { DashboardWeaponWidget } from "@/components/weapon/DashboardWeaponWidget";
 import { ThemeStudioModal } from "@/components/theme/ThemeStudioModal";
 import { parseAnnouncementAttachment } from "@/lib/announcementUtils";
 
@@ -272,6 +273,9 @@ export default function StudentDashboard() {
                     enrolledCoursesCount={courses.length}
                     onOpenThemeStudio={() => setThemeStudioOpen(true)}
                 />
+
+                {/* Celestial Armory & Equipped Astra Showcase */}
+                <DashboardWeaponWidget />
 
                 {dailyQuote && (
                     <div className="bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 rounded-xl p-6 flex gap-4 items-start relative overflow-hidden">

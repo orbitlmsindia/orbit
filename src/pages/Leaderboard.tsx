@@ -1,15 +1,19 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { TeacherLayout } from "@/components/layout/TeacherLayout";
 import { StudentLayout } from "@/components/layout/StudentLayout";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Trophy, Sparkles, Award, Medal, Crown, Loader2, Flame, UserCheck, Zap, Palette, Eye } from "lucide-react";
+import { Trophy, Sparkles, Award, Medal, Crown, Loader2, Flame, UserCheck, Zap, Palette, Eye, Swords } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { FeatureGate } from "@/components/common/FeatureGate";
 import { PublicStudentProfileModal } from "@/components/profile/PublicStudentProfileModal";
+import { WeaponBadge } from "@/components/weapon/WeaponBadge";
+import { getStudentEquippedWeapon } from "@/services/weaponService";
 
 interface LeaderboardProps {
   userRole?: "teacher" | "student" | "admin";
@@ -178,17 +182,28 @@ export default function Leaderboard({ userRole = "student" }: LeaderboardProps) 
             </p>
           </div>
 
-          <Select value={selectedCourse} onValueChange={setSelectedCourse}>
-            <SelectTrigger className="w-full sm:w-[220px] bg-background text-xs h-9">
-              <SelectValue placeholder="Select Course" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">🌍 All Orbit Courses (Global)</SelectItem>
-              {courses.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Link to="/student/armory">
+              <Button
+                variant="outline"
+                className="h-9 rounded-xl border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 font-bold text-xs gap-1.5 shadow-2xs"
+              >
+                <Swords className="h-4 w-4" /> Celestial Armory
+              </Button>
+            </Link>
+
+            <Select value={selectedCourse} onValueChange={setSelectedCourse}>
+              <SelectTrigger className="w-full sm:w-[220px] bg-background text-xs h-9 rounded-xl">
+                <SelectValue placeholder="Select Course" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">🌍 All Orbit Courses (Global)</SelectItem>
+                {courses.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {loading ? (
@@ -230,13 +245,14 @@ export default function Leaderboard({ userRole = "student" }: LeaderboardProps) 
                       <CardDescription className="text-xs">{leaderboard[1].email}</CardDescription>
                     </CardHeader>
                     <CardContent className="text-center space-y-2">
-                      <div className="flex items-center justify-center gap-1.5">
+                      <div className="flex items-center justify-center gap-1.5 flex-wrap">
                         <Badge className={getBadgeForAura(leaderboard[1].auraPoints).color}>
                           {getBadgeForAura(leaderboard[1].auraPoints).label}
                         </Badge>
-                        <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-500 font-mono gap-1">
-                          <Zap className="h-3 w-3 fill-amber-500" /> Themes
-                        </Badge>
+                        <WeaponBadge
+                          weapon={getStudentEquippedWeapon(leaderboard[1].id, 2, leaderboard[1].auraPoints)}
+                          size="sm"
+                        />
                       </div>
                       <div className="flex items-center justify-center gap-4 text-xs font-mono pt-2 border-t">
                         <span className="font-bold text-amber-500">✨ {leaderboard[1].auraPoints} Aura</span>
@@ -270,13 +286,14 @@ export default function Leaderboard({ userRole = "student" }: LeaderboardProps) 
                       <CardDescription className="text-xs font-mono">{leaderboard[0].email}</CardDescription>
                     </CardHeader>
                     <CardContent className="text-center space-y-2">
-                      <div className="flex items-center justify-center gap-1.5">
+                      <div className="flex items-center justify-center gap-1.5 flex-wrap">
                         <Badge className="bg-amber-500 text-amber-950 font-bold border-amber-400">
                           {getBadgeForAura(leaderboard[0].auraPoints).label}
                         </Badge>
-                        <Badge className="bg-amber-500/20 text-amber-500 border border-amber-500/40 text-[10px] font-mono gap-1">
-                          <Zap className="h-3 w-3 fill-amber-500" /> Themes
-                        </Badge>
+                        <WeaponBadge
+                          weapon={getStudentEquippedWeapon(leaderboard[0].id, 1, leaderboard[0].auraPoints)}
+                          size="sm"
+                        />
                       </div>
                       <div className="flex items-center justify-center gap-4 text-xs font-mono pt-2 border-t border-amber-500/30">
                         <span className="font-extrabold text-amber-400 text-sm">✨ {leaderboard[0].auraPoints} Aura</span>
@@ -307,13 +324,14 @@ export default function Leaderboard({ userRole = "student" }: LeaderboardProps) 
                       <CardDescription className="text-xs">{leaderboard[2].email}</CardDescription>
                     </CardHeader>
                     <CardContent className="text-center space-y-2">
-                      <div className="flex items-center justify-center gap-1.5">
+                      <div className="flex items-center justify-center gap-1.5 flex-wrap">
                         <Badge className={getBadgeForAura(leaderboard[2].auraPoints).color}>
                           {getBadgeForAura(leaderboard[2].auraPoints).label}
                         </Badge>
-                        <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-500 font-mono gap-1">
-                          <Zap className="h-3 w-3 fill-amber-500" /> Themes
-                        </Badge>
+                        <WeaponBadge
+                          weapon={getStudentEquippedWeapon(leaderboard[2].id, 3, leaderboard[2].auraPoints)}
+                          size="sm"
+                        />
                       </div>
                       <div className="flex items-center justify-center gap-4 text-xs font-mono pt-2 border-t">
                         <span className="font-bold text-amber-500">✨ {leaderboard[2].auraPoints} Aura</span>
@@ -336,13 +354,14 @@ export default function Leaderboard({ userRole = "student" }: LeaderboardProps) 
                   <CardDescription>Click any student to view their public profile, points, and theme collection.</CardDescription>
                 </div>
                 <Badge variant="outline" className="text-xs font-mono self-start sm:self-auto">
-                  💡 Click row to inspect profile
+                  💡 Click row to inspect profile & equipped astra
                 </Badge>
               </CardHeader>
               <CardContent className="p-0 divide-y">
                 {leaderboard.map((st, idx) => {
                   const rank = idx + 1;
                   const badgeInfo = getBadgeForAura(st.auraPoints);
+                  const stWeapon = getStudentEquippedWeapon(st.id, rank, st.auraPoints);
 
                   return (
                     <div
@@ -379,7 +398,8 @@ export default function Leaderboard({ userRole = "student" }: LeaderboardProps) 
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 font-mono text-xs pl-11 sm:pl-0">
+                      <div className="flex items-center justify-between sm:justify-end gap-2.5 sm:gap-3 font-mono text-xs pl-11 sm:pl-0 flex-wrap">
+                        <WeaponBadge weapon={stWeapon} size="sm" />
                         {st.currentStreak > 0 && (
                           <Badge variant="outline" className="bg-orange-500/10 text-orange-500 border-orange-500/30 font-bold gap-1 text-[11px]">
                             <Flame className="h-3 w-3 fill-orange-500" /> {st.currentStreak} Streak

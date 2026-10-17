@@ -561,10 +561,10 @@ export default function CoursePlayer() {
                             variant="outline"
                             size="sm"
                             asChild
-                            className="hidden lg:flex gap-1.5 font-bold border-indigo-500/30 text-indigo-500 hover:bg-indigo-500/10 text-xs px-2.5 h-9"
+                            className="hidden sm:flex gap-1.5 font-bold border-indigo-500/30 text-indigo-500 hover:bg-indigo-500/10 text-xs px-2.5 h-9"
                             title="Study Course Flashcards"
                         >
-                            <Link to="/student/flashcards">
+                            <Link to={`/student/flashcards?courseId=${id}`}>
                                 <Layers className="h-4 w-4 text-indigo-500" />
                                 <span>Flashcards</span>
                             </Link>
@@ -573,10 +573,10 @@ export default function CoursePlayer() {
                             variant="outline"
                             size="sm"
                             asChild
-                            className="hidden lg:flex gap-1.5 font-bold border-amber-500/30 text-amber-500 hover:bg-amber-500/10 text-xs px-2.5 h-9"
+                            className="hidden sm:flex gap-1.5 font-bold border-amber-500/30 text-amber-500 hover:bg-amber-500/10 text-xs px-2.5 h-9"
                             title="Course Mnemonics & Memory Aids"
                         >
-                            <Link to="/student/mnemonics">
+                            <Link to={`/student/mnemonics?courseId=${id}`}>
                                 <Lightbulb className="h-4 w-4 text-amber-500" />
                                 <span>Mnemonics</span>
                             </Link>
@@ -715,6 +715,36 @@ export default function CoursePlayer() {
                                         </div>
                                         <div className="relative z-10">
                                             <MarkdownRenderer content={currentContent.content_text} />
+                                            {(currentContent.title.toLowerCase().includes("flashcard") || currentContent.content_text.includes("ORBIT_FLASHCARDS_JSON")) && (
+                                                <div className="mt-6 p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                                                    <div>
+                                                        <h4 className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                                                            <Layers className="h-4 w-4 text-indigo-500" /> Course Flashcards Studio
+                                                        </h4>
+                                                        <p className="text-xs text-muted-foreground mt-0.5">Practice high-yield active recall flashcards strictly for this course in 3D study mode.</p>
+                                                    </div>
+                                                    <Link to={`/student/flashcards?courseId=${id}`}>
+                                                        <Button size="sm" className="gap-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shrink-0">
+                                                            <Layers className="h-4 w-4" /> Open Flashcards
+                                                        </Button>
+                                                    </Link>
+                                                </div>
+                                            )}
+                                            {(currentContent.title.toLowerCase().includes("mnemonic") || currentContent.content_text.includes("ORBIT_MNEMONICS_JSON")) && (
+                                                <div className="mt-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                                                    <div>
+                                                        <h4 className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                                                            <Lightbulb className="h-4 w-4 text-amber-500" /> Course Mnemonics Studio
+                                                        </h4>
+                                                        <p className="text-xs text-muted-foreground mt-0.5">Lock architectural patterns and formulas into memory with interactive recall tests.</p>
+                                                    </div>
+                                                    <Link to={`/student/mnemonics?courseId=${id}`}>
+                                                        <Button size="sm" className="gap-1.5 text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white shrink-0">
+                                                            <Lightbulb className="h-4 w-4" /> Open Mnemonics
+                                                        </Button>
+                                                    </Link>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 )}
@@ -831,6 +861,20 @@ export default function CoursePlayer() {
                             <Button variant="ghost" size="icon" className="h-8 w-8 md:hidden text-muted-foreground hover:text-foreground" onClick={() => setSidebarOpen(false)}>
                                 <X className="h-4 w-4" />
                             </Button>
+                        </div>
+
+                        {/* Quick Course Study Aids */}
+                        <div className="grid grid-cols-2 gap-2 p-2.5 bg-muted/20 border-b shrink-0">
+                            <Link to={`/student/flashcards?courseId=${id}`}>
+                                <Button variant="outline" size="sm" className="w-full h-8 text-[11px] gap-1.5 border-indigo-500/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 font-medium">
+                                    <Layers className="h-3.5 w-3.5 text-indigo-500" /> Flashcards
+                                </Button>
+                            </Link>
+                            <Link to={`/student/mnemonics?courseId=${id}`}>
+                                <Button variant="outline" size="sm" className="w-full h-8 text-[11px] gap-1.5 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 font-medium">
+                                    <Lightbulb className="h-3.5 w-3.5 text-amber-500" /> Mnemonics
+                                </Button>
+                            </Link>
                         </div>
 
                         <ScrollArea className="flex-1">

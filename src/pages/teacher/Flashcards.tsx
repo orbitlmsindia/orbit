@@ -25,40 +25,40 @@ import {
     Upload
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { supabase } from "@/lib/supabase";
 import { exportAllFlashcardDecksToJson, downloadJsonFile, copyJsonToClipboard } from "@/lib/courseJsonImporter";
+
+interface TeacherDeckItem {
+    id: string;
+    courseId?: string | null;
+    title: string;
+    course: string;
+    cardCount: number;
+    activeStudents: number;
+    lastUpdated: string;
+}
 
 export default function TeacherFlashcards() {
     const { toast } = useToast();
     const [searchQuery, setSearchQuery] = useState("");
     const [createDeckOpen, setCreateDeckOpen] = useState(false);
     const [addCardOpen, setAddCardOpen] = useState(false);
+    const [courses, setCourses] = useState<{ id: string; title: string }[]>([]);
+    const [decks, setDecks] = useState<TeacherDeckItem[]>([]);
 
-    const [decks, setDecks] = useState([
-        {
-            id: "t-deck-1",
-            title: "Operating Systems: Concurrency & Virtual Memory",
-            course: "CS 301 - Operating Systems",
-            cardCount: 18,
-            activeStudents: 42,
-            lastUpdated: "Yesterday"
-        },
-        {
-            id: "t-deck-2",
-            title: "Database Engineering: ACID & Indexing",
-            course: "CS 304 - Database Systems",
-            cardCount: 24,
-            activeStudents: 56,
-            lastUpdated: "3 days ago"
-        },
-        {
-            id: "t-deck-3",
-            title: "Data Structures: Graphs & Dynamic Programming",
-            course: "CS 201 - Advanced DSA",
-            cardCount: 30,
-            activeStudents: 68,
-            lastUpdated: "Oct 12, 2026"
+    useEffect(() => {
+        async function fetchCourses() {
+            try {
+                const { data } = await supabase.from("courses").select("id, title").order("title");
+                if (data) {
+                    setCourses(data);
+                }
+            } catch (err) {
+                console.warn("Could not fetch courses:", err);
+            }
         }
-    ]);
+        fetchCourses();
+    }, []);
 
     useEffect(() => {
         try {
@@ -68,17 +68,14 @@ export default function TeacherFlashcards() {
                 if (Array.isArray(parsed) && parsed.length > 0) {
                     const formatted = parsed.map((d: any) => ({
                         id: d.id,
+                        courseId: d.courseId || null,
                         title: d.title,
                         course: d.course || d.subject || "Course Deck",
                         cardCount: d.cardCount || (d.cards?.length || 0),
                         activeStudents: d.activeStudents || 0,
-                        lastUpdated: d.lastUpdated || "Recently Imported"
+                        lastUpdated: d.lastUpdated || "Recently Updated"
                     }));
-                    setDecks(prev => {
-                        const existingIds = new Set(prev.map(p => p.id));
-                        const additions = formatted.filter((f: any) => !existingIds.has(f.id));
-                        return [...additions, ...prev];
-                    });
+                    setDecks(formatted);
                 }
             }
         } catch (e) {
@@ -87,7 +84,8 @@ export default function TeacherFlashcards() {
     }, []);
 
     const [newDeckTitle, setNewDeckTitle] = useState("");
-    const [newDeckCourse, setNewDeckCourse] = useState("");
+    const [newDeckCourseId, setNewDeckCourseId] = useState("");
+    const [newDeckCourseCustom, setNewDeckCourseCustom] = useState("");
     const [newDeckDesc, setNewDeckDesc] = useState("");
 
     const handleCreateDeck = () => {
@@ -96,24 +94,52 @@ export default function TeacherFlashcards() {
             return;
         }
 
-        const newDeck = {
+        const selectedCourse = courses.find(c => c.id === newDeckCourseId);
+        const resolvedCourseName = selectedCourse ? selectedCourse.title : (newDeckCourseCustom.trim() || "General Engineering");
+        const resolvedCourseId = selectedCourse ? selectedCourse.id : null;
+
+        const newDeck: TeacherDeckItem = {
             id: `t-deck-${Date.now()}`,
+            courseId: resolvedCourseId,
             title: newDeckTitle,
-            course: newDeckCourse || "General Engineering",
-            cardCount: 5,
+            course: resolvedCourseName,
+            cardCount: 0,
             activeStudents: 0,
             lastUpdated: "Just now"
         };
 
-        setDecks([newDeck, ...decks]);
+        const updated = [newDeck, ...decks];
+        setDecks(updated);
+
+        // Persist to localStorage for students
+        try {
+            const stored = localStorage.getItem("orbit_flashcard_decks");
+            const existing = stored ? JSON.parse(stored) : [];
+            const newFullDeck = {
+                id: newDeck.id,
+                courseId: resolvedCourseId,
+                course: resolvedCourseName,
+                title: newDeckTitle,
+                description: newDeckDesc,
+                subject: resolvedCourseName,
+                icon: "⚡",
+                color: "from-blue-600 to-indigo-700",
+                cards: []
+            };
+            localStorage.setItem("orbit_flashcard_decks", JSON.stringify([newFullDeck, ...(Array.isArray(existing) ? existing : [])]));
+        } catch (e) {
+            console.error("Error updating localStorage:", e);
+        }
+
         setCreateDeckOpen(false);
         setNewDeckTitle("");
-        setNewDeckCourse("");
+        setNewDeckCourseId("");
+        setNewDeckCourseCustom("");
         setNewDeckDesc("");
 
         toast({
             title: "Deck Created & Published! 🎉",
-            description: `Enrolled students can now practice "${newDeck.title}" with active recall.`
+            description: `Enrolled students in "${resolvedCourseName}" can now practice this deck.`
         });
     };
 
@@ -203,12 +229,35 @@ export default function TeacherFlashcards() {
                                     </div>
                                     <div>
                                         <label className="font-semibold text-foreground">Mapped Course</label>
-                                        <Input
-                                            placeholder="e.g. CS 401 - Compiler Construction"
-                                            value={newDeckCourse}
-                                            onChange={e => setNewDeckCourse(e.target.value)}
-                                            className="mt-1"
-                                        />
+                                        {courses.length > 0 ? (
+                                            <div className="space-y-1.5 mt-1">
+                                                <select
+                                                    value={newDeckCourseId}
+                                                    onChange={e => setNewDeckCourseId(e.target.value)}
+                                                    className="w-full h-8 text-xs rounded-md border border-input bg-background px-3 py-1 text-foreground font-medium focus:ring-1 focus:ring-primary outline-none"
+                                                >
+                                                    <option value="">-- Select a Course or Enter Custom Below --</option>
+                                                    {courses.map(c => (
+                                                        <option key={c.id} value={c.id}>{c.title}</option>
+                                                    ))}
+                                                </select>
+                                                {!newDeckCourseId && (
+                                                    <Input
+                                                        placeholder="Or enter custom course title..."
+                                                        value={newDeckCourseCustom}
+                                                        onChange={e => setNewDeckCourseCustom(e.target.value)}
+                                                        className="text-xs h-8"
+                                                    />
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <Input
+                                                placeholder="e.g. CS 401 - Compiler Construction"
+                                                value={newDeckCourseCustom}
+                                                onChange={e => setNewDeckCourseCustom(e.target.value)}
+                                                className="mt-1"
+                                            />
+                                        )}
                                     </div>
                                     <div>
                                         <label className="font-semibold text-foreground">Syllabus Coverage / Notes</label>
@@ -230,50 +279,72 @@ export default function TeacherFlashcards() {
                     </div>
                 </div>
 
-                {/* Decks Grid */}
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {decks.map(deck => (
-                        <Card key={deck.id} className="border shadow-xs hover:border-primary/40 transition-all flex flex-col justify-between">
-                            <CardHeader className="pb-3">
-                                <div className="flex items-start justify-between gap-2">
-                                    <Badge variant="outline" className="font-mono text-[10px]">
-                                        {deck.course}
-                                    </Badge>
-                                    <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30 text-[10px]">
-                                        Published
-                                    </Badge>
-                                </div>
-                                <CardTitle className="text-base font-bold text-foreground mt-2">
-                                    {deck.title}
-                                </CardTitle>
-                                <CardDescription className="text-xs">
-                                    Updated {deck.lastUpdated}
-                                </CardDescription>
-                            </CardHeader>
-
-                            <CardContent className="pt-0 space-y-3">
-                                <div className="grid grid-cols-2 gap-2 p-2.5 rounded-lg bg-muted/40 border text-xs">
-                                    <div>
-                                        <span className="text-[10px] text-muted-foreground uppercase font-bold">Cards</span>
-                                        <p className="font-mono font-bold text-foreground">{deck.cardCount} Cards</p>
+                {/* Decks Grid or Empty State */}
+                {decks.length === 0 ? (
+                    <div className="text-center py-16 px-4 rounded-2xl border-2 border-dashed border-border bg-card/50 space-y-4">
+                        <div className="h-14 w-14 rounded-2xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center mx-auto shadow-inner">
+                            <Layers className="h-7 w-7" />
+                        </div>
+                        <div className="max-w-md mx-auto space-y-1.5">
+                            <h3 className="text-lg font-bold text-foreground">
+                                No Course Flashcard Decks Yet
+                            </h3>
+                            <p className="text-xs text-muted-foreground leading-relaxed">
+                                Author dedicated flashcard decks for your courses or import syllabus question banks via JSON.
+                            </p>
+                        </div>
+                        <Button size="sm" onClick={() => setCreateDeckOpen(true)} className="gap-1.5 text-xs font-semibold">
+                            <Plus className="h-4 w-4" /> Author First Deck
+                        </Button>
+                    </div>
+                ) : (
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {decks.map(deck => (
+                            <Card key={deck.id} className="border shadow-xs hover:border-primary/40 transition-all flex flex-col justify-between">
+                                <CardHeader className="pb-3">
+                                    <div className="flex items-start justify-between gap-2">
+                                        <Badge variant="outline" className="font-mono text-[10px]">
+                                            {deck.course}
+                                        </Badge>
+                                        <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30 text-[10px]">
+                                            Published
+                                        </Badge>
                                     </div>
-                                    <div>
-                                        <span className="text-[10px] text-muted-foreground uppercase font-bold">Active Learners</span>
-                                        <p className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{deck.activeStudents} Students</p>
-                                    </div>
-                                </div>
+                                    <CardTitle className="text-base font-bold text-foreground mt-2">
+                                        {deck.title}
+                                    </CardTitle>
+                                    <CardDescription className="text-xs">
+                                        Updated {deck.lastUpdated}
+                                    </CardDescription>
+                                </CardHeader>
 
-                                <div className="flex items-center gap-2 pt-2 border-t">
-                                    <Link to="/student/flashcards" className="w-full">
-                                        <Button size="sm" variant="outline" className="w-full gap-1.5 text-xs h-8">
-                                            <Brain className="h-3.5 w-3.5 text-primary" /> Practice & Review
-                                        </Button>
-                                    </Link>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
-                </div>
+                                <CardContent className="pt-0 space-y-3">
+                                    <div className="grid grid-cols-2 gap-2 p-2.5 rounded-lg bg-muted/40 border text-xs">
+                                        <div>
+                                            <span className="text-[10px] text-muted-foreground uppercase font-bold">Cards</span>
+                                            <p className="font-mono font-bold text-foreground">{deck.cardCount} Cards</p>
+                                        </div>
+                                        <div>
+                                            <span className="text-[10px] text-muted-foreground uppercase font-bold">Active Learners</span>
+                                            <p className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{deck.activeStudents} Students</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 pt-2 border-t">
+                                        <Link
+                                            to={deck.courseId ? `/student/flashcards?courseId=${deck.courseId}` : `/student/flashcards`}
+                                            className="w-full"
+                                        >
+                                            <Button size="sm" variant="outline" className="w-full gap-1.5 text-xs h-8">
+                                                <Brain className="h-3.5 w-3.5 text-primary" /> Practice & Review
+                                            </Button>
+                                        </Link>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                )}
             </div>
         </TeacherLayout>
     );

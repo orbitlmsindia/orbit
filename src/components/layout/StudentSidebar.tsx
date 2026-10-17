@@ -13,7 +13,8 @@ import {
     Trophy,
     CheckSquare,
     Layers,
-    Lightbulb
+    Lightbulb,
+    Swords
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -50,6 +51,7 @@ const studentNavItems: StudentNavItem[] = [
     { title: "My Courses", url: "/student/courses", icon: BookOpen, featureId: "course_management" },
     { title: "Flashcards", url: "/student/flashcards", icon: Layers },
     { title: "Mnemonics", url: "/student/mnemonics", icon: Lightbulb },
+    { title: "Celestial Armory", url: "/student/armory", icon: Swords },
     { title: "Leaderboard", url: "/student/leaderboard", icon: Trophy, featureId: "leaderboard" },
     { title: "Assignments", url: "/student/assignments", icon: Clock, featureId: "assignments" },
     { title: "Grades & Results", url: "/student/grades", icon: Award, featureId: "certificates" },

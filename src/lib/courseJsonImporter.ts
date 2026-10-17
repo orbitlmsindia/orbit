@@ -698,14 +698,15 @@ export async function importSectionsToExistingCourse(courseId: string, rawSectio
             }
           } else if (item.type === "flashcards") {
             const fcItem = item as any;
-            const res = importFlashcardsFromJson(fcItem.cards || fcItem, courseId);
+            const res = importFlashcardsFromJson(fcItem.cards || fcItem, courseId, payload.title);
             if (res.success) {
               result.flashcardsCreated = (result.flashcardsCreated || 0) + res.cardsCount;
             }
             const markdownSummary = `# 🗂️ Flashcard Deck: ${fcItem.title || 'Module Revision Flashcards'}\n\n` +
-              `**Subject**: ${fcItem.subject || 'Course Topic'}\n\n` +
+              `**Subject**: ${fcItem.subject || payload.title || 'Course Topic'}\n\n` +
               `${fcItem.description || 'Practice high-yield concepts using active recall and spaced repetition.'}\n\n` +
-              `This interactive deck contains **${res.cardsCount || (fcItem.cards?.length || 0)} cards**. Open the **Flashcards Studio** from the navigation menu to review these cards in 3D flip study mode!`;
+              `This interactive deck contains **${res.cardsCount || (fcItem.cards?.length || 0)} cards**. Open the **Flashcards Studio** from the navigation menu to review these cards in 3D flip study mode!\n\n` +
+              `<!-- ORBIT_FLASHCARDS_JSON: ${JSON.stringify(fcItem)} -->`;
 
             const { error: contentError } = await supabase
               .from("section_contents")
@@ -725,13 +726,14 @@ export async function importSectionsToExistingCourse(courseId: string, rawSectio
             }
           } else if (item.type === "mnemonics") {
             const mneItem = item as any;
-            const res = importMnemonicsFromJson(mneItem.mnemonics || mneItem, courseId);
+            const res = importMnemonicsFromJson(mneItem.mnemonics || mneItem, courseId, payload.title);
             if (res.success) {
               result.mnemonicsCreated = (result.mnemonicsCreated || 0) + res.mnemonicsCount;
             }
             const markdownSummary = `# 🧠 Mnemonics & Memory Studio: ${mneItem.title || 'Cognitive Recall Anchors'}\n\n` +
               `${mneItem.description || 'Accelerate retention using phonetic and acronym memory hooks.'}\n\n` +
-              `Open the **Mnemonics Hub** from the student portal to test your active recall and acronym breakdowns!`;
+              `Open the **Mnemonics Hub** from the student portal to test your active recall and acronym breakdowns!\n\n` +
+              `<!-- ORBIT_MNEMONICS_JSON: ${JSON.stringify(mneItem)} -->`;
 
             const { error: contentError } = await supabase
               .from("section_contents")
@@ -846,6 +848,28 @@ export async function importSectionsToExistingCourse(courseId: string, rawSectio
             }
           }
         }
+      }
+    }
+
+    // Top-level Flashcard Decks & Mnemonics imports
+    if (payload.flashcard_decks && Array.isArray(payload.flashcard_decks)) {
+      for (const deck of payload.flashcard_decks) {
+        const fcRes = importFlashcardsFromJson(deck, courseId, payload.title);
+        if (fcRes.success) {
+          result.flashcardsCreated = (result.flashcardsCreated || 0) + fcRes.cardsCount;
+        }
+      }
+    }
+    if (payload.flashcards && Array.isArray(payload.flashcards)) {
+      const fcRes = importFlashcardsFromJson({ title: `${payload.title} Active Recall`, cards: payload.flashcards }, courseId, payload.title);
+      if (fcRes.success) {
+        result.flashcardsCreated = (result.flashcardsCreated || 0) + fcRes.cardsCount;
+      }
+    }
+    if (payload.mnemonics && Array.isArray(payload.mnemonics)) {
+      const mnRes = importMnemonicsFromJson(payload.mnemonics, courseId, payload.title);
+      if (mnRes.success) {
+        result.mnemonicsCreated = (result.mnemonicsCreated || 0) + mnRes.mnemonicsCount;
       }
     }
 
@@ -1580,7 +1604,8 @@ export function importMnemonicsFromJson(payload: any, courseId?: string, courseT
 
     const formattedMnemonics = rawList.map((m, idx) => ({
       id: m.id || `mne-${Date.now()}-${idx}`,
-      courseId: courseId || null,
+      courseId: courseId || m.courseId || null,
+      course: courseTitle || m.course || null,
       title: m.title || m.concept || `Mnemonic Concept ${idx + 1}`,
       acronym: m.acronym || m.keyword || "MNE",
       phrase: m.phrase || m.sentence || m.hook || "",

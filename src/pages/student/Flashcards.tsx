@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams, Link } from "react-router-dom";
 import { StudentLayout } from "@/components/layout/StudentLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -35,7 +36,7 @@ import {
 } from "lucide-react";
 import { triggerConfetti } from "@/lib/confetti";
 import { supabase } from "@/lib/supabase";
-import { downloadJsonFile, copyJsonToClipboard } from "@/lib/courseJsonImporter";
+import { downloadJsonFile, copyJsonToClipboard, importFlashcardsFromJson } from "@/lib/courseJsonImporter";
 
 export interface Flashcard {
     id: string;
@@ -50,6 +51,8 @@ export interface Flashcard {
 
 export interface FlashcardDeck {
     id: string;
+    courseId?: string | null;
+    course?: string;
     title: string;
     description: string;
     subject: string;
@@ -223,8 +226,16 @@ const DEFAULT_DECKS: FlashcardDeck[] = [
 
 export default function StudentFlashcards() {
     const { toast } = useToast();
-    const [decks, setDecks] = useState<FlashcardDeck[]>(DEFAULT_DECKS);
-    const [selectedDeck, setSelectedDeck] = useState<FlashcardDeck>(DEFAULT_DECKS[0]);
+    const [searchParams] = useSearchParams();
+    const courseIdParam = searchParams.get("courseId");
+
+    const [decks, setDecks] = useState<FlashcardDeck[]>([]);
+    const [selectedDeck, setSelectedDeck] = useState<FlashcardDeck | null>(null);
+    const [courseInfo, setCourseInfo] = useState<{ id: string; title: string; domain?: string } | null>(null);
+    const [enrolledCourses, setEnrolledCourses] = useState<{ id: string; title: string }[]>([]);
+    const [selectedCourseId, setSelectedCourseId] = useState<string>(courseIdParam || "all");
+    const [loading, setLoading] = useState(true);
+
     const [studyMode, setStudyMode] = useState(false);
     const [currentCardIndex, setCurrentCardIndex] = useState(0);
     const [isFlipped, setIsFlipped] = useState(false);
@@ -234,24 +245,157 @@ export default function StudentFlashcards() {
     const [studyStreak, setStudyStreak] = useState(4);
     const [masteredCount, setMasteredCount] = useState(0);
 
+    // Sync selectedCourseId if courseIdParam changes
     useEffect(() => {
-        try {
-            const stored = localStorage.getItem("orbit_flashcard_decks");
-            if (stored) {
-                const parsed = JSON.parse(stored);
-                if (Array.isArray(parsed) && parsed.length > 0) {
-                    const defaultIds = new Set(DEFAULT_DECKS.map(d => d.id));
-                    const newCustom = parsed.filter(d => !defaultIds.has(d.id));
-                    if (newCustom.length > 0) {
-                        const merged = [...DEFAULT_DECKS, ...newCustom];
-                        setDecks(merged);
+        if (courseIdParam) {
+            setSelectedCourseId(courseIdParam);
+        }
+    }, [courseIdParam]);
+
+    // Load Decks & Course Context
+    useEffect(() => {
+        let isMounted = true;
+
+        async function loadData() {
+            setLoading(true);
+            try {
+                let currentCourseTitle = "";
+                let userEnrolledIds: string[] = [];
+                let userEnrolledCoursesList: { id: string; title: string }[] = [];
+
+                // 1. If courseIdParam is present, fetch course metadata
+                if (courseIdParam) {
+                    const { data: cData } = await supabase
+                        .from("courses")
+                        .select("id, title, domain")
+                        .eq("id", courseIdParam)
+                        .maybeSingle();
+                    if (isMounted && cData) {
+                        setCourseInfo(cData);
+                        currentCourseTitle = cData.title;
+                    }
+
+                    // Check section_contents for this course for embedded flashcards
+                    try {
+                        const { data: sections } = await supabase
+                            .from("course_sections")
+                            .select("id")
+                            .eq("course_id", courseIdParam);
+                        if (sections && sections.length > 0) {
+                            const secIds = sections.map(s => s.id);
+                            const { data: contents } = await supabase
+                                .from("section_contents")
+                                .select("id, title, content_text")
+                                .in("section_id", secIds);
+                            if (contents) {
+                                for (const c of contents) {
+                                    if (c.content_text?.includes("<!-- ORBIT_FLASHCARDS_JSON:")) {
+                                        const match = c.content_text.match(/<!-- ORBIT_FLASHCARDS_JSON:\s*(.+?)\s*-->/s);
+                                        if (match && match[1]) {
+                                            try {
+                                                const parsed = JSON.parse(match[1]);
+                                                importFlashcardsFromJson(parsed, courseIdParam, cData?.title);
+                                            } catch (e) {
+                                                console.warn("Error parsing embedded flashcards:", e);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } catch (secErr) {
+                        console.warn("Could not check section contents:", secErr);
+                    }
+                } else {
+                    // 2. No courseId in URL: fetch student's enrolled courses from Supabase
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (user) {
+                        const { data: enrollments } = await supabase
+                            .from("enrollments")
+                            .select("course_id, courses(id, title)")
+                            .eq("student_id", user.id);
+                        if (enrollments && enrollments.length > 0) {
+                            userEnrolledCoursesList = enrollments
+                                .map((e: any) => e.courses ? { id: e.courses.id, title: e.courses.title } : null)
+                                .filter(Boolean) as { id: string; title: string }[];
+                            userEnrolledIds = userEnrolledCoursesList.map(c => c.id);
+                            if (isMounted) setEnrolledCourses(userEnrolledCoursesList);
+                        }
                     }
                 }
+
+                // 3. Load stored decks from localStorage
+                const stored = localStorage.getItem("orbit_flashcard_decks");
+                let allStoredDecks: FlashcardDeck[] = [];
+                if (stored) {
+                    try {
+                        const parsed = JSON.parse(stored);
+                        if (Array.isArray(parsed)) {
+                            allStoredDecks = parsed.map((d: any) => ({
+                                id: d.id,
+                                courseId: d.courseId || null,
+                                course: d.course || d.subject || "Course Deck",
+                                title: d.title,
+                                description: d.description || "",
+                                subject: d.subject || d.course || "General",
+                                icon: d.icon || "⚡",
+                                color: d.color || "from-blue-600 to-indigo-700",
+                                cards: Array.isArray(d.cards) ? d.cards : []
+                            }));
+                        }
+                    } catch (err) {
+                        console.error("Error parsing stored decks:", err);
+                    }
+                }
+
+                // 4. Strict Scoping Filter: NEVER show un-enrolled / un-scoped mock cards
+                let scopedDecks: FlashcardDeck[] = [];
+                if (courseIdParam) {
+                    const targetTitleNorm = (currentCourseTitle || "").trim().toLowerCase();
+                    scopedDecks = allStoredDecks.filter(d => {
+                        if (d.courseId === courseIdParam) return true;
+                        if (targetTitleNorm && d.course?.trim().toLowerCase() === targetTitleNorm) return true;
+                        if (targetTitleNorm && d.subject?.trim().toLowerCase() === targetTitleNorm) return true;
+                        return false;
+                    });
+                } else {
+                    // Filter by selectedCourseId or all enrolled courses
+                    scopedDecks = allStoredDecks.filter(d => {
+                        if (selectedCourseId !== "all") {
+                            return d.courseId === selectedCourseId;
+                        }
+                        if (userEnrolledIds.length > 0) {
+                            const enrolledIds = new Set(userEnrolledIds);
+                            const enrolledTitles = new Set(userEnrolledCoursesList.map(c => c.title.trim().toLowerCase()));
+                            if (d.courseId && enrolledIds.has(d.courseId)) return true;
+                            if (d.course && enrolledTitles.has(d.course.trim().toLowerCase())) return true;
+                            return false;
+                        }
+                        return false;
+                    });
+                }
+
+                if (isMounted) {
+                    setDecks(scopedDecks);
+                    if (scopedDecks.length > 0) {
+                        setSelectedDeck(scopedDecks[0]);
+                    } else {
+                        setSelectedDeck(null);
+                    }
+                }
+            } catch (e) {
+                console.error("Error loading flashcards:", e);
+            } finally {
+                if (isMounted) setLoading(false);
             }
-        } catch (e) {
-            console.error("Error loading stored flashcard decks:", e);
         }
-    }, []);
+
+        loadData();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [courseIdParam, selectedCourseId]);
 
     // New Deck Creation State
     const [createDeckOpen, setCreateDeckOpen] = useState(false);
@@ -266,7 +410,9 @@ export default function StudentFlashcards() {
     const [newCardHint, setNewCardHint] = useState("");
     const [newCardCategory, setNewCardCategory] = useState("General");
 
-    const currentCard = selectedDeck.cards[currentCardIndex] || selectedDeck.cards[0];
+    const currentCard = selectedDeck && selectedDeck.cards && selectedDeck.cards.length > 0
+        ? (selectedDeck.cards[currentCardIndex] || selectedDeck.cards[0])
+        : null;
 
     // Filtered Decks
     const filteredDecks = decks.filter(d => {
@@ -284,6 +430,7 @@ export default function StudentFlashcards() {
     };
 
     const handleNextCard = () => {
+        if (!selectedDeck || !selectedDeck.cards) return;
         if (currentCardIndex < selectedDeck.cards.length - 1) {
             setCurrentCardIndex(prev => prev + 1);
             setIsFlipped(false);
@@ -329,24 +476,41 @@ export default function StudentFlashcards() {
             return;
         }
 
+        const effectiveCourseId = courseIdParam || (selectedCourseId !== "all" ? selectedCourseId : null);
+        const effectiveCourseTitle = courseInfo?.title || 
+            (effectiveCourseId ? enrolledCourses.find(c => c.id === effectiveCourseId)?.title : null) || 
+            newDeckSubject;
+
         const newDeck: FlashcardDeck = {
             id: `deck-${Date.now()}`,
+            courseId: effectiveCourseId,
+            course: effectiveCourseTitle,
             title: newDeckTitle,
-            description: newDeckDesc || "Custom study flashcards deck.",
-            subject: newDeckSubject,
+            description: newDeckDesc || "Custom course study flashcards deck.",
+            subject: effectiveCourseTitle,
             icon: "🧠",
             color: "from-amber-500 to-orange-600",
             cards: [
                 {
                     id: `card-${Date.now()}`,
-                    front: `Sample Question for ${newDeckTitle}`,
-                    back: "Sample answer and key exam summary point.",
+                    front: `Key Concept: ${newDeckTitle}`,
+                    back: "Enter your complete definition, formula, or exam answer here.",
                     hint: "Review module notes.",
                     category: "Core Concept",
                     difficulty: "medium"
                 }
             ]
         };
+
+        // Update localStorage
+        try {
+            const stored = localStorage.getItem("orbit_flashcard_decks");
+            const existing = stored ? JSON.parse(stored) : [];
+            const updated = [newDeck, ...(Array.isArray(existing) ? existing : [])];
+            localStorage.setItem("orbit_flashcard_decks", JSON.stringify(updated));
+        } catch (e) {
+            console.error("Error saving deck:", e);
+        }
 
         setDecks([newDeck, ...decks]);
         setSelectedDeck(newDeck);
@@ -360,6 +524,7 @@ export default function StudentFlashcards() {
     };
 
     const handleAddCardToDeck = () => {
+        if (!selectedDeck) return;
         if (!newCardFront.trim() || !newCardBack.trim()) {
             toast({ variant: "destructive", title: "Incomplete Card", description: "Both front prompt and back answer are required." });
             return;
@@ -374,11 +539,27 @@ export default function StudentFlashcards() {
             difficulty: "medium"
         };
 
-        const updatedCards = [...selectedDeck.cards, newCard];
+        const updatedCards = [...(selectedDeck.cards || []), newCard];
         const updatedDeck = { ...selectedDeck, cards: updatedCards };
 
         setSelectedDeck(updatedDeck);
-        setDecks(decks.map(d => d.id === updatedDeck.id ? updatedDeck : d));
+        const updatedDecks = decks.map(d => d.id === updatedDeck.id ? updatedDeck : d);
+        setDecks(updatedDecks);
+
+        // Update localStorage
+        try {
+            const stored = localStorage.getItem("orbit_flashcard_decks");
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                if (Array.isArray(parsed)) {
+                    const saved = parsed.map((d: any) => d.id === updatedDeck.id ? updatedDeck : d);
+                    localStorage.setItem("orbit_flashcard_decks", JSON.stringify(saved));
+                }
+            }
+        } catch (e) {
+            console.error("Error updating deck storage:", e);
+        }
+
         setAddCardOpen(false);
         setNewCardFront("");
         setNewCardBack("");
@@ -406,6 +587,44 @@ export default function StudentFlashcards() {
     return (
         <StudentLayout>
             <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 pb-20 animate-in fade-in duration-300">
+                {/* Course Context Header / Breadcrumb */}
+                {courseIdParam && (
+                    <div className="flex items-center justify-between pb-3 border-b border-border/50 flex-wrap gap-2">
+                        <Link to={`/student/courses/${courseIdParam}`}>
+                            <Button variant="ghost" size="sm" className="gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 -ml-2">
+                                <ChevronLeft className="h-4 w-4" /> Back to Course Player
+                            </Button>
+                        </Link>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground font-medium">Viewing Course:</span>
+                            <Badge className="bg-primary/10 text-primary border-primary/30 text-xs font-semibold">
+                                {courseInfo?.title || "Enrolled Course"}
+                            </Badge>
+                        </div>
+                    </div>
+                )}
+
+                {/* Enrolled Course Filter (When accessed from main navigation) */}
+                {!courseIdParam && enrolledCourses.length > 0 && (
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-border/60 flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                            <BookOpen className="h-4 w-4 text-primary" />
+                            <span className="text-xs font-bold text-foreground">Filter by Enrolled Course:</span>
+                        </div>
+                        <select
+                            value={selectedCourseId}
+                            onChange={(e) => setSelectedCourseId(e.target.value)}
+                            aria-label="Filter by Enrolled Course"
+                            className="h-8 text-xs rounded-lg border border-border bg-background px-3 py-1 text-foreground font-medium focus:ring-1 focus:ring-primary outline-none"
+                        >
+                            <option value="all">All Enrolled Courses ({enrolledCourses.length})</option>
+                            {enrolledCourses.map(c => (
+                                <option key={c.id} value={c.id}>{c.title}</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+
                 {/* Header Banner */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-5">
                     <div>
@@ -414,14 +633,16 @@ export default function StudentFlashcards() {
                                 <Layers className="h-5 w-5" />
                             </div>
                             <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground">
-                                Active Recall Flashcards
+                                {courseIdParam ? `${courseInfo?.title || "Course"} Flashcards` : "Active Recall Flashcards"}
                             </h1>
                             <Badge className="bg-primary/10 text-primary border-primary/20 text-xs font-mono">
-                                Spaced Repetition (SM-2)
+                                {courseIdParam ? "Course-Scoped" : "Spaced Repetition"}
                             </Badge>
                         </div>
                         <p className="text-muted-foreground mt-1 text-xs sm:text-sm">
-                            Master high-yield concepts, exam definitions, algorithms, and key terms through active recall intervals.
+                            {courseIdParam
+                                ? `Active recall memory decks strictly author-published for ${courseInfo?.title || "this course"}.`
+                                : "Master high-yield concepts, exam definitions, algorithms, and key terms through active recall intervals."}
                         </p>
                     </div>
 
@@ -514,7 +735,7 @@ export default function StudentFlashcards() {
 
                             <div className="flex items-center gap-2">
                                 <Badge variant="outline" className="font-mono text-xs">
-                                    Card {currentCardIndex + 1} of {selectedDeck.cards.length}
+                                    Card {selectedDeck && selectedDeck.cards?.length ? currentCardIndex + 1 : 0} of {selectedDeck?.cards?.length || 0}
                                 </Badge>
                                 <Button
                                     size="sm"
@@ -531,101 +752,110 @@ export default function StudentFlashcards() {
                         <div className="space-y-1">
                             <div className="flex justify-between text-xs text-muted-foreground font-mono">
                                 <span>Progress</span>
-                                <span>{Math.round(((currentCardIndex + 1) / selectedDeck.cards.length) * 100)}%</span>
+                                <span>{selectedDeck?.cards?.length ? Math.round(((currentCardIndex + 1) / selectedDeck.cards.length) * 100) : 0}%</span>
                             </div>
-                            <Progress value={((currentCardIndex + 1) / selectedDeck.cards.length) * 100} className="h-2" />
+                            <Progress value={selectedDeck?.cards?.length ? ((currentCardIndex + 1) / selectedDeck.cards.length) * 100 : 0} className="h-2" />
                         </div>
 
                         {/* 3D Flip Card Container */}
-                        <div
-                            onClick={handleFlip}
-                            className="cursor-pointer perspective-[1000px] min-h-[340px] sm:min-h-[380px] w-full"
-                        >
-                            <div className={`relative w-full h-full min-h-[340px] sm:min-h-[380px] rounded-2xl border-2 transition-all duration-500 shadow-xl p-6 sm:p-8 flex flex-col justify-between ${
-                                isFlipped
-                                    ? "bg-gradient-to-br from-indigo-950/40 via-card to-background border-indigo-500/50"
-                                    : "bg-gradient-to-br from-card via-muted/20 to-background border-border hover:border-primary/50"
-                            }`}>
-                                {/* Card Header Info */}
-                                <div className="flex items-center justify-between border-b pb-3">
-                                    <div className="flex items-center gap-2">
-                                        <Badge variant="secondary" className="text-[10px] font-mono">
-                                            {currentCard.category || selectedDeck.subject}
-                                        </Badge>
-                                        <Badge
-                                            variant="outline"
-                                            className={`text-[10px] uppercase font-mono ${
-                                                currentCard.difficulty === 'hard'
-                                                    ? 'border-red-500/40 text-red-500'
-                                                    : currentCard.difficulty === 'medium'
-                                                        ? 'border-amber-500/40 text-amber-500'
-                                                        : 'border-emerald-500/40 text-emerald-500'
-                                            }`}
-                                        >
-                                            {currentCard.difficulty || 'Core'}
-                                        </Badge>
+                        {!currentCard ? (
+                            <div className="p-12 text-center border-2 border-dashed rounded-2xl bg-card space-y-3">
+                                <p className="text-sm font-semibold text-muted-foreground">This deck does not have any cards yet.</p>
+                                <Button size="sm" onClick={() => setAddCardOpen(true)} className="gap-1.5 text-xs">
+                                    <Plus className="h-4 w-4" /> Add First Card
+                                </Button>
+                            </div>
+                        ) : (
+                            <div
+                                onClick={handleFlip}
+                                className="cursor-pointer perspective-[1000px] min-h-[340px] sm:min-h-[380px] w-full"
+                            >
+                                <div className={`relative w-full h-full min-h-[340px] sm:min-h-[380px] rounded-2xl border-2 transition-all duration-500 shadow-xl p-6 sm:p-8 flex flex-col justify-between ${
+                                    isFlipped
+                                        ? "bg-gradient-to-br from-indigo-950/40 via-card to-background border-indigo-500/50"
+                                        : "bg-gradient-to-br from-card via-muted/20 to-background border-border hover:border-primary/50"
+                                }`}>
+                                    {/* Card Header Info */}
+                                    <div className="flex items-center justify-between border-b pb-3">
+                                        <div className="flex items-center gap-2">
+                                            <Badge variant="secondary" className="text-[10px] font-mono">
+                                                {currentCard?.category || selectedDeck?.subject || "Core"}
+                                            </Badge>
+                                            <Badge
+                                                variant="outline"
+                                                className={`text-[10px] uppercase font-mono ${
+                                                    currentCard?.difficulty === 'hard'
+                                                        ? 'border-red-500/40 text-red-500'
+                                                        : currentCard?.difficulty === 'medium'
+                                                            ? 'border-amber-500/40 text-amber-500'
+                                                            : 'border-emerald-500/40 text-emerald-500'
+                                                }`}
+                                            >
+                                                {currentCard?.difficulty || 'Core'}
+                                            </Badge>
+                                        </div>
+
+                                        <span className="text-xs font-mono text-muted-foreground flex items-center gap-1">
+                                            <RotateCw className="h-3.5 w-3.5 text-primary" />
+                                            {isFlipped ? "Answer / Solution" : "Prompt / Question"}
+                                        </span>
                                     </div>
 
-                                    <span className="text-xs font-mono text-muted-foreground flex items-center gap-1">
-                                        <RotateCw className="h-3.5 w-3.5 text-primary" />
-                                        {isFlipped ? "Answer / Solution" : "Prompt / Question"}
-                                    </span>
-                                </div>
-
-                                {/* Main Card Content */}
-                                <div className="py-6 sm:py-8 flex-1 flex flex-col items-center justify-center text-center">
-                                    {!isFlipped ? (
-                                        <div className="space-y-4">
-                                            <p className="text-lg sm:text-2xl font-bold font-display text-foreground leading-snug max-w-xl">
-                                                {currentCard.front}
-                                            </p>
-                                            <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
-                                                <Zap className="h-3.5 w-3.5 text-amber-500" /> Click anywhere or press Space to reveal answer
-                                            </p>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-4 text-left w-full max-w-xl">
-                                            <div className="p-4 rounded-xl bg-muted/60 border border-border/80 text-sm leading-relaxed text-foreground whitespace-pre-line font-sans">
-                                                {currentCard.back}
+                                    {/* Main Card Content */}
+                                    <div className="py-6 sm:py-8 flex-1 flex flex-col items-center justify-center text-center">
+                                        {!isFlipped ? (
+                                            <div className="space-y-4">
+                                                <p className="text-lg sm:text-2xl font-bold font-display text-foreground leading-snug max-w-xl">
+                                                    {currentCard?.front}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                                                    <Zap className="h-3.5 w-3.5 text-amber-500" /> Click anywhere or press Space to reveal answer
+                                                </p>
                                             </div>
-
-                                            {currentCard.hint && (
-                                                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-600 dark:text-amber-400 flex items-start gap-2">
-                                                    <Lightbulb className="h-4 w-4 shrink-0 mt-0.5" />
-                                                    <span><strong>Memory Hook:</strong> {currentCard.hint}</span>
+                                        ) : (
+                                            <div className="space-y-4 text-left w-full max-w-xl">
+                                                <div className="p-4 rounded-xl bg-muted/60 border border-border/80 text-sm leading-relaxed text-foreground whitespace-pre-line font-sans">
+                                                    {currentCard?.back}
                                                 </div>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
 
-                                {/* Card Footer Hint & Flip Guide */}
-                                <div className="border-t pt-3 flex items-center justify-between text-xs text-muted-foreground" onClick={e => e.stopPropagation()}>
-                                    <div>
-                                        {!isFlipped && currentCard.hint && (
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => setShowHint(!showHint)}
-                                                className="h-7 text-xs gap-1 text-amber-500 hover:text-amber-600"
-                                            >
-                                                <Lightbulb className="h-3.5 w-3.5" />
-                                                {showHint ? currentCard.hint : "Show Hint"}
-                                            </Button>
+                                                {currentCard?.hint && (
+                                                    <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-600 dark:text-amber-400 flex items-start gap-2">
+                                                        <Lightbulb className="h-4 w-4 shrink-0 mt-0.5" />
+                                                        <span><strong>Memory Hook:</strong> {currentCard.hint}</span>
+                                                    </div>
+                                                )}
+                                            </div>
                                         )}
                                     </div>
 
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={handleFlip}
-                                        className="h-7 text-xs gap-1"
-                                    >
-                                        <RotateCw className="h-3 w-3" /> Flip Card
-                                    </Button>
+                                    {/* Card Footer Hint & Flip Guide */}
+                                    <div className="border-t pt-3 flex items-center justify-between text-xs text-muted-foreground" onClick={e => e.stopPropagation()}>
+                                        <div>
+                                            {!isFlipped && currentCard?.hint && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => setShowHint(!showHint)}
+                                                    className="h-7 text-xs gap-1 text-amber-500 hover:text-amber-600"
+                                                >
+                                                    <Lightbulb className="h-3.5 w-3.5" />
+                                                    {showHint ? currentCard.hint : "Show Hint"}
+                                                </Button>
+                                            )}
+                                        </div>
+
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleFlip}
+                                            className="h-7 text-xs gap-1"
+                                        >
+                                            <RotateCw className="h-3 w-3" /> Flip Card
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        )}
 
                         {/* Spaced Repetition Response Controls */}
                         {isFlipped ? (
@@ -728,53 +958,91 @@ export default function StudentFlashcards() {
                             </div>
                         </div>
 
-                        {/* Decks Grid */}
-                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                            {filteredDecks.map(deck => (
-                                <Card
-                                    key={deck.id}
-                                    className="border shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col justify-between group overflow-hidden border-border hover:border-primary/40"
-                                >
-                                    <div className={`h-2 bg-gradient-to-r ${deck.color}`} />
-                                    <CardHeader className="pb-3">
-                                        <div className="flex items-start justify-between gap-2">
-                                            <span className="text-2xl p-2 rounded-xl bg-muted/80">{deck.icon}</span>
-                                            <Badge variant="outline" className="font-mono text-[10px]">
-                                                {deck.cards.length} Cards
-                                            </Badge>
-                                        </div>
-                                        <CardTitle className="text-base font-bold text-foreground group-hover:text-primary transition-colors mt-2">
-                                            {deck.title}
-                                        </CardTitle>
-                                        <CardDescription className="text-xs line-clamp-2 leading-relaxed">
-                                            {deck.description}
-                                        </CardDescription>
-                                    </CardHeader>
-
-                                    <CardContent className="pt-0 space-y-3">
-                                        <div className="flex items-center justify-between text-[11px] text-muted-foreground font-mono">
-                                            <span className="capitalize">{deck.subject}</span>
-                                            <span>Active Recall Ready</span>
-                                        </div>
-
-                                        <div className="flex items-center gap-2 pt-2 border-t">
-                                            <Button
-                                                size="sm"
-                                                onClick={() => {
-                                                    setSelectedDeck(deck);
-                                                    setCurrentCardIndex(0);
-                                                    setIsFlipped(false);
-                                                    setStudyMode(true);
-                                                }}
-                                                className="w-full gap-1.5 text-xs font-semibold h-8 shadow-xs"
-                                            >
-                                                <Brain className="h-3.5 w-3.5" /> Study Deck
+                        {/* Decks Grid or Course Empty State */}
+                        {filteredDecks.length === 0 ? (
+                            <div className="text-center py-16 px-4 rounded-2xl border-2 border-dashed border-border bg-card/50 space-y-4">
+                                <div className="h-14 w-14 rounded-2xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center mx-auto shadow-inner">
+                                    <Layers className="h-7 w-7" />
+                                </div>
+                                <div className="max-w-md mx-auto space-y-1.5">
+                                    <h3 className="text-lg font-bold text-foreground">
+                                        {courseIdParam 
+                                            ? `No Flashcards Found for ${courseInfo?.title || "this Course"}`
+                                            : "No Course Flashcard Decks Available"}
+                                    </h3>
+                                    <p className="text-xs text-muted-foreground leading-relaxed">
+                                        {courseIdParam
+                                            ? "The instructor has not added flashcards to this course curriculum yet. You can create personal study cards for this course or return to the course player."
+                                            : "Active recall flashcard decks are tied to your enrolled courses. Once course instructors publish flashcards, or when you create your own, they will appear here."}
+                                    </p>
+                                </div>
+                                <div className="flex items-center justify-center gap-2 pt-2 flex-wrap">
+                                    {courseIdParam ? (
+                                        <Link to={`/student/courses/${courseIdParam}`}>
+                                            <Button variant="default" size="sm" className="gap-1.5 text-xs font-semibold">
+                                                <ChevronLeft className="h-4 w-4" /> Return to Course Player
                                             </Button>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
+                                        </Link>
+                                    ) : (
+                                        <Link to="/student/courses">
+                                            <Button variant="default" size="sm" className="gap-1.5 text-xs font-semibold">
+                                                <BookOpen className="h-4 w-4" /> View My Courses
+                                            </Button>
+                                        </Link>
+                                    )}
+                                    <Button variant="outline" size="sm" onClick={() => setCreateDeckOpen(true)} className="gap-1.5 text-xs font-semibold">
+                                        <Plus className="h-4 w-4" /> Create Study Cards
+                                    </Button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                                {filteredDecks.map(deck => (
+                                    <Card
+                                        key={deck.id}
+                                        className="border shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col justify-between group overflow-hidden border-border hover:border-primary/40"
+                                    >
+                                        <div className={`h-2 bg-gradient-to-r ${deck.color}`} />
+                                        <CardHeader className="pb-3">
+                                            <div className="flex items-start justify-between gap-2">
+                                                <span className="text-2xl p-2 rounded-xl bg-muted/80">{deck.icon}</span>
+                                                <Badge variant="outline" className="font-mono text-[10px]">
+                                                    {deck.cards?.length || 0} Cards
+                                                </Badge>
+                                            </div>
+                                            <CardTitle className="text-base font-bold text-foreground group-hover:text-primary transition-colors mt-2">
+                                                {deck.title}
+                                            </CardTitle>
+                                            <CardDescription className="text-xs line-clamp-2 leading-relaxed">
+                                                {deck.description}
+                                            </CardDescription>
+                                        </CardHeader>
+
+                                        <CardContent className="pt-0 space-y-3">
+                                            <div className="flex items-center justify-between text-[11px] text-muted-foreground font-mono">
+                                                <span className="capitalize">{deck.subject || deck.course}</span>
+                                                <span>Active Recall Ready</span>
+                                            </div>
+
+                                            <div className="flex items-center gap-2 pt-2 border-t">
+                                                <Button
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        setSelectedDeck(deck);
+                                                        setCurrentCardIndex(0);
+                                                        setIsFlipped(false);
+                                                        setStudyMode(true);
+                                                    }}
+                                                    className="w-full gap-1.5 text-xs font-semibold h-8 shadow-xs"
+                                                >
+                                                    <Brain className="h-3.5 w-3.5" /> Study Deck
+                                                </Button>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -783,7 +1051,7 @@ export default function StudentFlashcards() {
                     <DialogContent className="sm:max-w-md">
                         <DialogHeader>
                             <DialogTitle className="flex items-center gap-2 text-base">
-                                <Plus className="h-4 w-4 text-primary" /> Add Card to "{selectedDeck.title}"
+                                <Plus className="h-4 w-4 text-primary" /> Add Card to "{selectedDeck?.title || 'Course Deck'}"
                             </DialogTitle>
                         </DialogHeader>
                         <div className="space-y-3 py-2 text-xs">

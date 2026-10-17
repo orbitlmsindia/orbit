@@ -21,7 +21,19 @@ import {
     Upload
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { supabase } from "@/lib/supabase";
 import { exportAllMnemonicsToJson, downloadJsonFile, copyJsonToClipboard } from "@/lib/courseJsonImporter";
+
+interface TeacherMnemonicItem {
+    id: string;
+    courseId?: string | null;
+    title: string;
+    acronym: string;
+    phrase: string;
+    course: string;
+    termsCount: number;
+    verified: boolean;
+}
 
 export default function TeacherMnemonics() {
     const { toast } = useToast();
@@ -29,38 +41,25 @@ export default function TeacherMnemonics() {
     const [title, setTitle] = useState("");
     const [acronym, setAcronym] = useState("");
     const [phrase, setPhrase] = useState("");
-    const [course, setCourse] = useState("");
+    const [selectedCourseId, setSelectedCourseId] = useState("");
+    const [customCourseName, setCustomCourseName] = useState("");
     const [terms, setTerms] = useState("");
+    const [courses, setCourses] = useState<{ id: string; title: string }[]>([]);
+    const [mnemonics, setMnemonics] = useState<TeacherMnemonicItem[]>([]);
 
-    const [mnemonics, setMnemonics] = useState([
-        {
-            id: "tm-1",
-            title: "OSI 7 Layers Protocol Stack",
-            acronym: "PDNTSPA",
-            phrase: "Please Do Not Throw Sausage Pizza Away",
-            course: "CS 302 - Computer Networks",
-            termsCount: 7,
-            verified: true
-        },
-        {
-            id: "tm-2",
-            title: "ACID Database Transaction Properties",
-            acronym: "ACID",
-            phrase: "Atomic Code Is Durable",
-            course: "CS 304 - Database Systems",
-            termsCount: 4,
-            verified: true
-        },
-        {
-            id: "tm-3",
-            title: "SOLID Principles of Object-Oriented Architecture",
-            acronym: "SOLID",
-            phrase: "Software Organizes Logical Interfaces Dependably",
-            course: "CS 202 - Object Oriented Design",
-            termsCount: 5,
-            verified: true
+    useEffect(() => {
+        async function fetchCourses() {
+            try {
+                const { data } = await supabase.from("courses").select("id, title").order("title");
+                if (data) {
+                    setCourses(data);
+                }
+            } catch (err) {
+                console.warn("Could not fetch courses:", err);
+            }
         }
-    ]);
+        fetchCourses();
+    }, []);
 
     useEffect(() => {
         try {
@@ -70,6 +69,7 @@ export default function TeacherMnemonics() {
                 if (Array.isArray(parsed) && parsed.length > 0) {
                     const formatted = parsed.map((m: any) => ({
                         id: m.id,
+                        courseId: m.courseId || null,
                         title: m.title,
                         acronym: m.acronym,
                         phrase: m.phrase,
@@ -77,11 +77,7 @@ export default function TeacherMnemonics() {
                         termsCount: m.termsCount || (m.breakdown?.length || m.acronym?.length || 4),
                         verified: true
                     }));
-                    setMnemonics(prev => {
-                        const existingIds = new Set(prev.map(p => p.id));
-                        const additions = formatted.filter((f: any) => !existingIds.has(f.id));
-                        return [...additions, ...prev];
-                    });
+                    setMnemonics(formatted);
                 }
             }
         } catch (e) {
@@ -95,12 +91,17 @@ export default function TeacherMnemonics() {
             return;
         }
 
-        const newMne = {
+        const selectedCourse = courses.find(c => c.id === selectedCourseId);
+        const resolvedCourseName = selectedCourse ? selectedCourse.title : (customCourseName.trim() || "Core Curriculum");
+        const resolvedCourseId = selectedCourse ? selectedCourse.id : null;
+
+        const newMne: TeacherMnemonicItem = {
             id: `tm-${Date.now()}`,
+            courseId: resolvedCourseId,
             title,
             acronym: acronym.toUpperCase(),
             phrase,
-            course: course || "Core Curriculum",
+            course: resolvedCourseName,
             termsCount: acronym.length,
             verified: true
         };
@@ -112,7 +113,24 @@ export default function TeacherMnemonics() {
         try {
             const stored = localStorage.getItem("orbit_mnemonics");
             const existing = stored ? JSON.parse(stored) : [];
-            localStorage.setItem("orbit_mnemonics", JSON.stringify([newMne, ...existing]));
+            const studentMnemonic = {
+                id: newMne.id,
+                courseId: resolvedCourseId,
+                course: resolvedCourseName,
+                title,
+                acronym: acronym.toUpperCase(),
+                phrase,
+                subject: resolvedCourseName,
+                category: "Teaching Aid",
+                explanation: `High-yield mnemonic hook for ${title}.`,
+                breakdown: terms.split(',').map((t, idx) => ({
+                    letter: acronym.charAt(idx) || t.charAt(0) || '',
+                    word: t.trim(),
+                    meaning: `Core item in ${title}.`
+                })),
+                examTip: `Remember: "${phrase}" during revision.`
+            };
+            localStorage.setItem("orbit_mnemonics", JSON.stringify([studentMnemonic, ...(Array.isArray(existing) ? existing : [])]));
         } catch (err) {
             console.warn("Could not save to localStorage:", err);
         }
@@ -121,12 +139,13 @@ export default function TeacherMnemonics() {
         setTitle("");
         setAcronym("");
         setPhrase("");
-        setCourse("");
+        setSelectedCourseId("");
+        setCustomCourseName("");
         setTerms("");
 
         toast({
             title: "Mnemonic Published! 💡",
-            description: `Students enrolled in "${newMne.course}" can now use this memory hook.`
+            description: `Students enrolled in "${resolvedCourseName}" can now use this memory hook.`
         });
     };
 
@@ -214,25 +233,46 @@ export default function TeacherMnemonics() {
                                             className="mt-1"
                                         />
                                     </div>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <div>
-                                            <label className="font-semibold text-foreground">Acronym / Abbreviation</label>
-                                            <Input
-                                                placeholder="e.g. FCL (Follower, Candidate, Leader)"
-                                                value={acronym}
-                                                onChange={e => setAcronym(e.target.value)}
-                                                className="mt-1 font-mono uppercase"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="font-semibold text-foreground">Target Course</label>
+                                    <div className="space-y-1">
+                                        <label className="font-semibold text-foreground">Acronym / Abbreviation</label>
+                                        <Input
+                                            placeholder="e.g. FCL (Follower, Candidate, Leader)"
+                                            value={acronym}
+                                            onChange={e => setAcronym(e.target.value)}
+                                            className="font-mono uppercase h-8 text-xs"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="font-semibold text-foreground">Target Course</label>
+                                        {courses.length > 0 ? (
+                                            <div className="space-y-1.5">
+                                                <select
+                                                    value={selectedCourseId}
+                                                    onChange={e => setSelectedCourseId(e.target.value)}
+                                                    className="w-full h-8 text-xs rounded-md border border-input bg-background px-3 py-1 text-foreground font-medium focus:ring-1 focus:ring-amber-500 outline-none"
+                                                >
+                                                    <option value="">-- Select Course or Enter Custom Below --</option>
+                                                    {courses.map(c => (
+                                                        <option key={c.id} value={c.id}>{c.title}</option>
+                                                    ))}
+                                                </select>
+                                                {!selectedCourseId && (
+                                                    <Input
+                                                        placeholder="Or enter custom course title..."
+                                                        value={customCourseName}
+                                                        onChange={e => setCustomCourseName(e.target.value)}
+                                                        className="text-xs h-8"
+                                                    />
+                                                )}
+                                            </div>
+                                        ) : (
                                             <Input
                                                 placeholder="e.g. CS 402 - Distributed Systems"
-                                                value={course}
-                                                onChange={e => setCourse(e.target.value)}
-                                                className="mt-1"
+                                                value={customCourseName}
+                                                onChange={e => setCustomCourseName(e.target.value)}
+                                                className="text-xs h-8"
                                             />
-                                        </div>
+                                        )}
                                     </div>
                                     <div>
                                         <label className="font-semibold text-foreground">Catchy Memory Phrase Hook</label>
@@ -263,44 +303,66 @@ export default function TeacherMnemonics() {
                     </div>
                 </div>
 
-                {/* Mnemonics Grid */}
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {mnemonics.map(m => (
-                        <Card key={m.id} className="border shadow-xs hover:border-amber-500/40 transition-all flex flex-col justify-between">
-                            <CardHeader className="pb-3 space-y-2">
-                                <div className="flex items-start justify-between gap-2">
-                                    <Badge className="bg-amber-500 text-white font-mono text-xs">
-                                        {m.acronym}
-                                    </Badge>
-                                    <Badge variant="outline" className="text-[10px]">
-                                        {m.course}
-                                    </Badge>
-                                </div>
-                                <CardTitle className="text-base font-bold text-foreground">
-                                    {m.title}
-                                </CardTitle>
-                                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs italic font-serif text-foreground">
-                                    "{m.phrase}"
-                                </div>
-                            </CardHeader>
+                {/* Mnemonics Grid or Empty State */}
+                {mnemonics.length === 0 ? (
+                    <div className="text-center py-16 px-4 rounded-2xl border-2 border-dashed border-border bg-card/50 space-y-4">
+                        <div className="h-14 w-14 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto shadow-inner">
+                            <BrainCircuit className="h-7 w-7" />
+                        </div>
+                        <div className="max-w-md mx-auto space-y-1.5">
+                            <h3 className="text-lg font-bold text-foreground">
+                                No Course Mnemonics Published Yet
+                            </h3>
+                            <p className="text-xs text-muted-foreground leading-relaxed">
+                                Create memorable cognitive hooks, acronyms, and formulas bound to your course syllabus.
+                            </p>
+                        </div>
+                        <Button size="sm" onClick={() => setCreateOpen(true)} className="gap-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-white">
+                            <Plus className="h-4 w-4" /> Author First Mnemonic
+                        </Button>
+                    </div>
+                ) : (
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {mnemonics.map(m => (
+                            <Card key={m.id} className="border shadow-xs hover:border-amber-500/40 transition-all flex flex-col justify-between">
+                                <CardHeader className="pb-3 space-y-2">
+                                    <div className="flex items-start justify-between gap-2">
+                                        <Badge className="bg-amber-500 text-white font-mono text-xs">
+                                            {m.acronym}
+                                        </Badge>
+                                        <Badge variant="outline" className="text-[10px]">
+                                            {m.course}
+                                        </Badge>
+                                    </div>
+                                    <CardTitle className="text-base font-bold text-foreground">
+                                        {m.title}
+                                    </CardTitle>
+                                    <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs italic font-serif text-foreground">
+                                        "{m.phrase}"
+                                    </div>
+                                </CardHeader>
 
-                            <CardContent className="pt-0 space-y-3">
-                                <div className="flex items-center justify-between text-xs text-muted-foreground font-mono">
-                                    <span>{m.termsCount} Sequence Items</span>
-                                    <span className="text-emerald-500">Verified Teaching Aid</span>
-                                </div>
+                                <CardContent className="pt-0 space-y-3">
+                                    <div className="flex items-center justify-between text-xs text-muted-foreground font-mono">
+                                        <span>{m.termsCount} Sequence Items</span>
+                                        <span className="text-emerald-500">Verified Teaching Aid</span>
+                                    </div>
 
-                                <div className="pt-2 border-t">
-                                    <Link to="/student/mnemonics" className="w-full">
-                                        <Button size="sm" variant="outline" className="w-full gap-1.5 text-xs h-8">
-                                            <Lightbulb className="h-3.5 w-3.5 text-amber-500" /> Open Interactive Studio
-                                        </Button>
-                                    </Link>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
-                </div>
+                                    <div className="pt-2 border-t">
+                                        <Link
+                                            to={m.courseId ? `/student/mnemonics?courseId=${m.courseId}` : `/student/mnemonics`}
+                                            className="w-full"
+                                        >
+                                            <Button size="sm" variant="outline" className="w-full gap-1.5 text-xs h-8">
+                                                <Lightbulb className="h-3.5 w-3.5 text-amber-500" /> Open Interactive Studio
+                                            </Button>
+                                        </Link>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                )}
             </div>
         </TeacherLayout>
     );

@@ -1208,7 +1208,7 @@ export default function StudentCourses() {
                                                     </div>
                                                     <div className="flex items-center gap-1.5 pt-1 border-t border-border/40">
                                                         <Link 
-                                                            to={`/student/flashcards`} 
+                                                            to={`/student/flashcards?courseId=${course.id}`} 
                                                             className="flex-1"
                                                             onClick={(e) => e.stopPropagation()}
                                                         >
@@ -1217,7 +1217,7 @@ export default function StudentCourses() {
                                                             </Button>
                                                         </Link>
                                                         <Link 
-                                                            to={`/student/mnemonics`} 
+                                                            to={`/student/mnemonics?courseId=${course.id}`} 
                                                             className="flex-1"
                                                             onClick={(e) => e.stopPropagation()}
                                                         >

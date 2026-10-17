@@ -22,7 +22,8 @@ import {
   ArrowRight,
   ExternalLink,
   ShieldCheck,
-  Check
+  Check,
+  Swords
 } from "lucide-react";
 import {
   getStudentProfileThemeData,
@@ -34,6 +35,8 @@ import { useTheme } from "@/components/theme-provider";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { ThemeStudioModal } from "@/components/theme/ThemeStudioModal";
+import { getStudentEquippedWeapon } from "@/services/weaponService";
+import { AstraWeapon } from "@/types/weapon";
 
 export interface StudentProfileData {
   id: string;
@@ -85,6 +88,8 @@ export function PublicStudentProfileModal({
   }, [student, currentUserId, open]);
 
   if (!student || !themeData) return null;
+
+  const equippedAstra = getStudentEquippedWeapon(student.id, student.rank, student.auraPoints);
 
   const getRankBadge = (rank?: number) => {
     if (!rank) return null;
@@ -219,6 +224,49 @@ export function PublicStudentProfileModal({
                     </>
                   )}
                 </div>
+
+                {/* Wielded Astra & Shastra Weapon Banner */}
+                {equippedAstra && (
+                  <div
+                    className="mt-2.5 p-2.5 rounded-xl border flex items-center justify-between gap-3 text-xs shadow-xs"
+                    style={{
+                      borderColor: `${equippedAstra.glowColor}50`,
+                      background: `${equippedAstra.glowColor}10`,
+                    }}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="text-xl p-1.5 rounded-lg bg-background/80 shadow-2xs shrink-0 drop-shadow-xs">
+                        {equippedAstra.icon}
+                      </span>
+                      <div className="min-w-0 text-left">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-bold text-foreground truncate">{equippedAstra.name}</span>
+                          <span className="text-[10px] font-serif font-bold text-amber-600 dark:text-amber-400">
+                            ({equippedAstra.sanskritName})
+                          </span>
+                          <Badge variant="outline" className="text-[9px] uppercase font-mono px-1 py-0 border-current">
+                            {equippedAstra.rarity}
+                          </Badge>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground truncate mt-0.5">
+                          Perk: {equippedAstra.passiveBuff} • Power: {equippedAstra.stats.power}/100
+                        </p>
+                      </div>
+                    </div>
+
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        onOpenChange(false);
+                        navigate("/student/armory");
+                      }}
+                      className="h-7 px-2 text-[10px] font-bold gap-1 text-primary hover:bg-primary/10 shrink-0"
+                    >
+                      <Swords className="h-3 w-3" /> Armory
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-row sm:flex-col gap-2 shrink-0 self-center sm:self-start">

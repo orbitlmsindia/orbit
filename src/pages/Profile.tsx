@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { StudentLayout } from "@/components/layout/StudentLayout";
 import { TeacherLayout } from "@/components/layout/TeacherLayout";
@@ -35,7 +35,8 @@ import {
   Gift,
   ShieldCheck,
   Check,
-  Share2
+  Share2,
+  Swords
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -47,6 +48,8 @@ import {
 import { THEMES_CATALOG, ThemeCatalogItem } from "@/types/theme";
 import { useTheme } from "@/components/theme-provider";
 import { ThemeStudioModal } from "@/components/theme/ThemeStudioModal";
+import { getEquippedWeapon } from "@/services/weaponService";
+import { AstraWeapon } from "@/types/weapon";
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -67,12 +70,23 @@ export default function Profile() {
   const [currentStreak, setCurrentStreak] = useState(0);
   const [highestStreak, setHighestStreak] = useState(0);
 
+  // Wielded Astra & Shastra Weapon
+  const [equippedWeapon, setEquippedWeapon] = useState<AstraWeapon | null>(null);
+
   // Theme intelligence
   const [themeData, setThemeData] = useState<StudentProfileThemeData | null>(null);
   const [themeStudioOpen, setThemeStudioOpen] = useState(false);
   const [unlockingId, setUnlockingId] = useState<string | null>(null);
 
   const isSelf = !paramUserId || (currentAuthUser && paramUserId === currentAuthUser.id);
+
+  useEffect(() => {
+    const handleWeaponEquip = (e: any) => {
+      if (e.detail) setEquippedWeapon(e.detail);
+    };
+    window.addEventListener("orbit_weapon_equipped", handleWeaponEquip);
+    return () => window.removeEventListener("orbit_weapon_equipped", handleWeaponEquip);
+  }, []);
 
   useEffect(() => {
     loadProfileData();
@@ -176,6 +190,10 @@ export default function Profile() {
         targetData.role
       );
       setThemeData(themeIntel);
+
+      // 5. Load equipped Astra & Shastra Weapon
+      const wielded = getEquippedWeapon(effectiveUserId);
+      setEquippedWeapon(wielded);
     } catch (err: any) {
       console.error("Error loading profile:", err);
       toast.error(err.message || "Failed to load profile.");
@@ -344,6 +362,16 @@ export default function Profile() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto">
+          <Link to="/student/armory">
+            <Button
+              variant="outline"
+              className="rounded-xl border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 font-bold text-xs gap-1.5 shadow-2xs cursor-pointer touch-press"
+            >
+              <Swords className="h-4 w-4" />
+              <span>Celestial Armory</span>
+            </Button>
+          </Link>
+
           <Button
             variant="outline"
             onClick={handleShareProfile}
@@ -458,113 +486,180 @@ export default function Profile() {
 
       {/* Main 2-Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: Profile Card */}
-        <Card className="lg:col-span-1 shadow-sm">
-          <CardHeader className="text-center pb-2">
-            <CardTitle className="text-lg">Student Identity</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center space-y-4 pt-2">
-            <div className="relative group">
-              <Avatar className="h-28 w-28 border-4 border-muted shadow-md">
-                <AvatarImage src={targetUser?.avatar_url} />
-                <AvatarFallback className="text-2xl font-bold bg-primary/10 text-primary">
-                  {fullName
-                    ? fullName
-                        .split(" ")
-                        .map((n: string) => n[0])
-                        .join("")
-                    : "U"}
-                </AvatarFallback>
-              </Avatar>
-              {isSelf && (
-                <>
-                  <label
-                    htmlFor="avatar-upload"
-                    className="absolute inset-0 flex items-center justify-center bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity"
-                  >
-                    <span className="text-xs font-semibold">Change Photo</span>
-                  </label>
-                  <input
-                    id="avatar-upload"
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleImageUpload}
-                    disabled={saving}
-                  />
-                </>
-              )}
-            </div>
-
-            <div className="text-center space-y-1">
-              <h2 className="text-xl font-bold text-foreground">{fullName}</h2>
-              <p className="text-xs text-muted-foreground font-mono">{targetUser?.email}</p>
-              <div className="flex items-center justify-center gap-1.5 pt-1">
-                <Badge variant="outline" className="text-[10px] font-mono capitalize">
-                  {targetUser?.role || "student"}
-                </Badge>
-                <Badge className="bg-emerald-600/10 text-emerald-600 border-emerald-600/20 text-[10px] font-sans">
-                  <ShieldCheck className="h-3 w-3 mr-1 inline" /> Verified
-                </Badge>
+        {/* Left Column: Profile Card & Wielded Astra */}
+        <div className="lg:col-span-1 space-y-5">
+          <Card className="shadow-sm">
+            <CardHeader className="text-center pb-2">
+              <CardTitle className="text-lg">Student Identity</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col items-center space-y-4 pt-2">
+              <div className="relative group">
+                <Avatar className="h-28 w-28 border-4 border-muted shadow-md">
+                  <AvatarImage src={targetUser?.avatar_url} />
+                  <AvatarFallback className="text-2xl font-bold bg-primary/10 text-primary">
+                    {fullName
+                      ? fullName
+                          .split(" ")
+                          .map((n: string) => n[0])
+                          .join("")
+                      : "U"}
+                  </AvatarFallback>
+                </Avatar>
+                {isSelf && (
+                  <>
+                    <label
+                      htmlFor="avatar-upload"
+                      className="absolute inset-0 flex items-center justify-center bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity"
+                    >
+                      <span className="text-xs font-semibold">Change Photo</span>
+                    </label>
+                    <input
+                      id="avatar-upload"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleImageUpload}
+                      disabled={saving}
+                    />
+                  </>
+                )}
               </div>
-            </div>
 
-            {/* Bio info */}
-            <div className="w-full pt-3 border-t text-left space-y-1">
-              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                About Student
-              </span>
-              <p className="text-xs text-foreground/80 leading-relaxed">
-                {bio || "Dedicated Orbit scholar passionate about coding and technology."}
-              </p>
-            </div>
-          </CardContent>
-
-          {isSelf && (
-            <form onSubmit={handleUpdateProfile}>
-              <CardContent className="pt-0 space-y-3 border-t">
-                <div className="space-y-1 pt-3">
-                  <Label htmlFor="fullname" className="text-xs font-semibold">
-                    Full Name
-                  </Label>
-                  <Input
-                    id="fullname"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    className="h-8 text-xs"
-                    disabled={saving}
-                  />
+              <div className="text-center space-y-1">
+                <h2 className="text-xl font-bold text-foreground">{fullName}</h2>
+                <p className="text-xs text-muted-foreground font-mono">{targetUser?.email}</p>
+                <div className="flex items-center justify-center gap-1.5 pt-1">
+                  <Badge variant="outline" className="text-[10px] font-mono capitalize">
+                    {targetUser?.role || "student"}
+                  </Badge>
+                  <Badge className="bg-emerald-600/10 text-emerald-600 border-emerald-600/20 text-[10px] font-sans">
+                    <ShieldCheck className="h-3 w-3 mr-1 inline" /> Verified
+                  </Badge>
                 </div>
-                <div className="space-y-1">
-                  <Label htmlFor="bio" className="text-xs font-semibold">
-                    Bio & Learning Philosophy
-                  </Label>
-                  <Input
-                    id="bio"
-                    value={bio}
-                    onChange={(e) => setBio(e.target.value)}
-                    className="h-8 text-xs"
-                    placeholder="Brief intro..."
-                    disabled={saving}
-                  />
+              </div>
+
+              {/* Bio info */}
+              <div className="w-full pt-3 border-t text-left space-y-1">
+                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                  About Student
+                </span>
+                <p className="text-xs text-foreground/80 leading-relaxed">
+                  {bio || "Dedicated Orbit scholar passionate about coding and technology."}
+                </p>
+              </div>
+            </CardContent>
+
+            {isSelf && (
+              <form onSubmit={handleUpdateProfile}>
+                <CardContent className="pt-0 space-y-3 border-t">
+                  <div className="space-y-1 pt-3">
+                    <Label htmlFor="fullname" className="text-xs font-semibold">
+                      Full Name
+                    </Label>
+                    <Input
+                      id="fullname"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      className="h-8 text-xs"
+                      disabled={saving}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="bio" className="text-xs font-semibold">
+                      Bio & Learning Philosophy
+                    </Label>
+                    <Input
+                      id="bio"
+                      value={bio}
+                      onChange={(e) => setBio(e.target.value)}
+                      className="h-8 text-xs"
+                      placeholder="Brief intro..."
+                      disabled={saving}
+                    />
+                  </div>
+                </CardContent>
+                <CardFooter className="pt-2 border-t flex justify-end">
+                  <Button size="sm" type="submit" disabled={saving} className="h-8 text-xs gap-1.5 font-bold">
+                    {saving ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-3.5 w-3.5" /> Save Changes
+                      </>
+                    )}
+                  </Button>
+                </CardFooter>
+              </form>
+            )}
+          </Card>
+
+          {/* Wielded Astra & Shastra Showcase Card */}
+          {equippedWeapon && (
+            <Card
+              className="border overflow-hidden shadow-md relative"
+              style={{
+                borderColor: `${equippedWeapon.glowColor}50`,
+                boxShadow: `0 0 20px ${equippedWeapon.glowColor}20`,
+              }}
+            >
+              <div className={`h-2 bg-gradient-to-r ${equippedWeapon.gradient}`} />
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <Badge className="bg-amber-500 text-slate-950 font-black text-[10px] tracking-wide gap-1">
+                    <Swords className="h-3 w-3 stroke-[3]" /> WIELDED ASTRA
+                  </Badge>
+                  <Badge variant="outline" className="text-[10px] uppercase font-mono border-primary/30">
+                    {equippedWeapon.rarity}
+                  </Badge>
+                </div>
+                <CardTitle className="text-base font-bold text-foreground mt-2 flex items-center gap-2.5">
+                  <span className="text-2xl p-1.5 rounded-xl bg-muted/60">{equippedWeapon.icon}</span>
+                  <div>
+                    <span className="block leading-tight">{equippedWeapon.name}</span>
+                    <span className="block text-xs font-serif font-bold text-amber-600 dark:text-amber-400">
+                      {equippedWeapon.sanskritName}
+                    </span>
+                  </div>
+                </CardTitle>
+              </CardHeader>
+
+              <CardContent className="space-y-3 pt-0 text-xs">
+                <p className="text-muted-foreground leading-relaxed line-clamp-2">
+                  {equippedWeapon.lore}
+                </p>
+
+                {equippedWeapon.mantra && (
+                  <div className="p-2 rounded-lg bg-muted/40 border border-border/50 font-serif italic text-foreground text-[11px] flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                    <span className="truncate">{equippedWeapon.mantra}</span>
+                  </div>
+                )}
+
+                <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20 text-[11px] text-foreground flex items-center gap-1.5 font-medium">
+                  <Zap className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                  <span>{equippedWeapon.passiveBuff}</span>
+                </div>
+
+                <div className="pt-2 border-t flex items-center justify-between">
+                  <span className="text-[10px] text-muted-foreground font-mono">
+                    Power: {equippedWeapon.stats.power}/100 • {equippedWeapon.stats.range}
+                  </span>
+                  <Link to="/student/armory">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-[11px] gap-1 font-bold border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+                    >
+                      <Swords className="h-3 w-3" /> Armory
+                    </Button>
+                  </Link>
                 </div>
               </CardContent>
-              <CardFooter className="pt-2 border-t flex justify-end">
-                <Button size="sm" type="submit" disabled={saving} className="h-8 text-xs gap-1.5 font-bold">
-                  {saving ? (
-                    <>
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="h-3.5 w-3.5" /> Save Changes
-                    </>
-                  )}
-                </Button>
-              </CardFooter>
-            </form>
+            </Card>
           )}
-        </Card>
+        </div>
 
         {/* Right Column: Theme Showcase & Purchaseable Themes */}
         <div className="lg:col-span-2 space-y-5">

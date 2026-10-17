@@ -50,6 +50,7 @@ import StudentNotifications from "./pages/student/Notifications";
 import StudentAttendance from "./pages/student/Attendance";
 import StudentFlashcards from "./pages/student/Flashcards";
 import StudentMnemonics from "./pages/student/Mnemonics";
+import StudentArmory from "./pages/student/Armory";
 import TeacherFlashcards from "./pages/teacher/Flashcards";
 import TeacherMnemonics from "./pages/teacher/Mnemonics";
 import NotFound from "./pages/NotFound";
@@ -154,6 +155,7 @@ const App = () => (
             <Route path="/student/courses" element={<ProtectedRoute><GatedFeatureRoute featureId="course_management"><StudentCourses /></GatedFeatureRoute></ProtectedRoute>} />
             <Route path="/student/flashcards" element={<ProtectedRoute><StudentFlashcards /></ProtectedRoute>} />
             <Route path="/student/mnemonics" element={<ProtectedRoute><StudentMnemonics /></ProtectedRoute>} />
+            <Route path="/student/armory" element={<ProtectedRoute><StudentArmory /></ProtectedRoute>} />
             <Route path="/student/leaderboard" element={<ProtectedRoute><GatedFeatureRoute featureId="leaderboard"><Leaderboard userRole="student" /></GatedFeatureRoute></ProtectedRoute>} />
             <Route path="/student/courses/:id/learn" element={<ProtectedRoute><CoursePlayer /></ProtectedRoute>} />
             <Route path="/student/assignments" element={<ProtectedRoute><GatedFeatureRoute featureId="assignments"><StudentAssignments /></GatedFeatureRoute></ProtectedRoute>} />
