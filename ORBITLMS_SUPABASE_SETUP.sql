@@ -1108,6 +1108,19 @@ CREATE INDEX IF NOT EXISTS idx_mnemonics_course_id ON public.mnemonics(course_id
 CREATE INDEX IF NOT EXISTS idx_attendance_clearance_student ON public.attendance_clearance_records(student_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_clearance_course ON public.attendance_clearance_records(course_id);
 
+-- ── 15. SECTION CONTENTS ENUM UPGRADES ────────────────────────────────────────────────
+-- Ensure content_type enum includes modern multimedia types
+DO $$
+BEGIN
+    ALTER TYPE content_type ADD VALUE IF NOT EXISTS 'presentation';
+    ALTER TYPE content_type ADD VALUE IF NOT EXISTS 'document';
+    ALTER TYPE content_type ADD VALUE IF NOT EXISTS 'reference';
+    ALTER TYPE content_type ADD VALUE IF NOT EXISTS 'live';
+EXCEPTION
+    WHEN duplicate_object THEN null;
+    WHEN undefined_object THEN null;
+END $$;
+
 -- Output Confirmation
 SELECT 
     (SELECT COUNT(*) FROM public.colleges) AS total_colleges,
@@ -1122,7 +1135,3 @@ SELECT
     (SELECT COUNT(*) FROM public.master_staff) AS total_master_staff,
     (SELECT COUNT(*) FROM public.coupons) AS total_coupons,
     (SELECT COUNT(*) FROM public.aura_awards) AS total_aura_awards;
-
-
-
-

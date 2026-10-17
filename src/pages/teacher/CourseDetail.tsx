@@ -43,7 +43,8 @@ import {
     Eye,
     Users,
     HelpCircle,
-    X
+    X,
+    Presentation
 } from "lucide-react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
@@ -1936,10 +1937,19 @@ ${liveHTML}
                                             <div key={item.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted transition-colors group">
                                                 <div className="flex items-center gap-3">
                                                     <div className="h-8 w-8 rounded bg-background flex items-center justify-center border text-muted-foreground">
-                                                        {item.type === "video" && <Video className="h-4 w-4 text-amber-500" />}
-                                                        {item.type === "pdf" && <FileText className="h-4 w-4 text-emerald-500" />}
-                                                        {item.type === "text" && <Type className="h-4 w-4 text-blue-500" />}
-                                                        {item.itemType === 'assignment' && <BrainCircuit className="h-4 w-4 text-rose-500" />}
+                                                        {(item.type === "presentation" || item.summary === "type:presentation" || (item.pdf_url && (item.pdf_url.includes('presentation') || item.pdf_url.includes('slides')))) ? (
+                                                            <Presentation className="h-4 w-4 text-purple-500" />
+                                                        ) : item.type === "video" ? (
+                                                            <Video className="h-4 w-4 text-amber-500" />
+                                                        ) : item.type === "pdf" ? (
+                                                            <FileText className="h-4 w-4 text-emerald-500" />
+                                                        ) : item.type === "text" ? (
+                                                            <Type className="h-4 w-4 text-blue-500" />
+                                                        ) : item.itemType === 'assignment' ? (
+                                                            <BrainCircuit className="h-4 w-4 text-rose-500" />
+                                                        ) : (
+                                                            <FileText className="h-4 w-4 text-muted-foreground" />
+                                                        )}
                                                     </div>
                                                     <div>
                                                         <div className="flex items-center gap-2">
@@ -3246,10 +3256,12 @@ function AddContentDialog({ sectionId, onSuccess }: { sectionId: string, onSucce
                 const res = await supabase.from('assignments').insert([assignmentData]);
                 error = res.error;
             } else {
+                const isPres = type === "presentation";
+                const isDoc = (type as string) === "pdf" || (type as string) === "document" || (type as string) === "reference";
                 const contentPayload: any = {
                     section_id: sectionId,
                     title,
-                    type,
+                    type: isPres ? "pdf" : (isDoc ? "pdf" : type),
                     duration_minutes: durationMinutes ? parseInt(durationMinutes) : 30
                 };
                 if (type === "text") {
@@ -3257,8 +3269,13 @@ function AddContentDialog({ sectionId, onSuccess }: { sectionId: string, onSucce
                 } else if (type === "video") {
                     contentPayload.content_url = isGoogleDriveUrl(contentUrl) ? getGoogleDriveEmbedUrl(contentUrl) : contentUrl;
                     contentPayload.video_url = contentPayload.content_url;
+                } else if (isPres) {
+                    contentPayload.content_url = contentUrl;
+                    contentPayload.pdf_url = contentUrl;
+                    contentPayload.summary = "type:presentation";
                 } else {
                     contentPayload.content_url = contentUrl;
+                    contentPayload.pdf_url = contentUrl;
                 }
                 const res = await supabase.from('section_contents').insert([contentPayload]);
                 error = res.error;

@@ -70,6 +70,28 @@ export default function CoursePlayer() {
     const [celebrationModalOpen, setCelebrationModalOpen] = useState(false);
     const [streakCount, setStreakCount] = useState(3);
 
+    const isPresentationContent = (item: any) => {
+        if (!item) return false;
+        const typeLower = (item.type || '').toLowerCase();
+        const sumLower = (item.summary || '').toLowerCase();
+        const pdfLower = (item.pdf_url || '').toLowerCase();
+        const urlLower = (item.content_url || item.url || '').toLowerCase();
+        const titleLower = (item.title || '').toLowerCase();
+
+        return (
+            typeLower === 'presentation' ||
+            sumLower.includes('type:presentation') ||
+            pdfLower.includes('presentation') ||
+            pdfLower.includes('slides') ||
+            pdfLower.includes('docs.google.com/presentation') ||
+            urlLower.includes('presentation') ||
+            urlLower.includes('slides') ||
+            urlLower.includes('docs.google.com/presentation') ||
+            urlLower.includes('canva.com') ||
+            (titleLower.includes('slide') && (Boolean(item.pdf_url) || Boolean(item.content_url)))
+        );
+    };
+
     useEffect(() => {
         if (id) fetchCourseContent();
 
@@ -591,7 +613,7 @@ export default function CoursePlayer() {
                                 </div>
 
                                 {/* 1. Video Player */}
-                                {(currentContent.type === 'video' || (currentContent.video_url && currentContent.type !== 'pdf' && currentContent.type !== 'presentation' && currentContent.type !== 'document' && currentContent.type !== 'text')) && (
+                                {(!isPresentationContent(currentContent) && (currentContent.type === 'video' || (currentContent.video_url && currentContent.type !== 'pdf' && currentContent.type !== 'text'))) && (
                                     <SecureVideoPlayer
                                         key={currentContent.id}
                                         videoUrl={currentContent.video_url || currentContent.content_url}
@@ -612,7 +634,7 @@ export default function CoursePlayer() {
                                 )}
 
                                 {/* 2. Presentation Deck Viewer (Secure Embed) */}
-                                {(currentContent.type === 'presentation' || (currentContent.pdf_url && (currentContent.pdf_url.includes('presentation') || currentContent.pdf_url.includes('slides')))) && (
+                                {isPresentationContent(currentContent) && (
                                     <div className="bg-card p-4 sm:p-6 rounded-xl border shadow-xs space-y-3 relative overflow-hidden select-none" onContextMenu={(e) => e.preventDefault()}>
                                         <div className="flex items-center justify-between pb-2 border-b flex-wrap gap-2">
                                             <div className="flex items-center gap-2">
@@ -648,7 +670,7 @@ export default function CoursePlayer() {
                                 )}
 
                                 {/* 3. PDF / Document Viewer (Secure Embed) */}
-                                {(currentContent.type === 'pdf' || currentContent.type === 'document' || currentContent.type === 'reference' || (currentContent.pdf_url && currentContent.type !== 'presentation')) && (
+                                {(!isPresentationContent(currentContent) && (currentContent.type === 'pdf' || currentContent.type === 'document' || currentContent.type === 'reference' || currentContent.pdf_url)) && (
                                     <div className="bg-card p-4 sm:p-6 rounded-xl border shadow-xs space-y-3 relative overflow-hidden select-none" onContextMenu={(e) => e.preventDefault()}>
                                         <div className="flex items-center justify-between pb-2 border-b flex-wrap gap-2">
                                             <div className="flex items-center gap-2">
@@ -931,11 +953,15 @@ export default function CoursePlayer() {
                                                                                     <Video className="h-3 w-3" /> Video
                                                                                 </span>
                                                                             )}
-                                                                            {item.pdf_url && (
+                                                                            {isPresentationContent(item) ? (
+                                                                                <span className="flex items-center gap-1 bg-purple-500/10 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded font-medium" title="Presentation Deck">
+                                                                                    <Presentation className="h-3 w-3" /> Slide Deck
+                                                                                </span>
+                                                                            ) : item.pdf_url ? (
                                                                                 <span className="flex items-center gap-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded font-medium" title="PDF">
                                                                                     <FileText className="h-3 w-3" /> PDF
                                                                                 </span>
-                                                                            )}
+                                                                            ) : null}
                                                                             {item.content_text && !item.video_url && !item.pdf_url && (
                                                                                 <span className="flex items-center gap-1 bg-slate-500/10 text-slate-600 dark:text-slate-400 px-1.5 py-0.5 rounded font-medium" title="Text">
                                                                                     <Type className="h-3 w-3" /> Reading

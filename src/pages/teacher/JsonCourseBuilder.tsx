@@ -39,7 +39,8 @@ import {
   Lightbulb,
   Brain,
   Zap,
-  Bookmark
+  Bookmark,
+  Presentation
 } from "lucide-react";
 import {
   validateCourseJson,
@@ -556,6 +557,49 @@ Ensure all JSON keys and formatting are 100% syntactically valid JSON. Return ON
   };
 
 
+  const handleAutoFitSectionHours = (sectionIndex: number, newHours: number) => {
+    if (!parsedData || !parsedData.sections) return;
+    const updated = { ...parsedData };
+    if (updated.sections[sectionIndex]) {
+      updated.sections[sectionIndex].allocated_hours = newHours;
+      const newJsonText = JSON.stringify(updated, null, 2);
+      setCourseJsonText(newJsonText);
+      validateCourseJsonText(newJsonText);
+      toast({
+        title: "Module Budget Adjusted ⏱️",
+        description: `Set Module ${sectionIndex + 1} allocated duration to ${newHours} hrs.`
+      });
+    }
+  };
+
+  const handleAutoBalanceAllHours = () => {
+    if (!parsedData || !parsedData.sections) return;
+    const updated = { ...parsedData };
+    let changed = false;
+    updated.sections = updated.sections.map(sec => {
+      const budget = validateModuleTimeBudget(sec);
+      if (!budget.valid) {
+        changed = true;
+        const neededHours = Math.ceil((budget.itemsMinutes / 60) * 2) / 2;
+        return {
+          ...sec,
+          allocated_hours: neededHours
+        };
+      }
+      return sec;
+    });
+
+    if (changed) {
+      const newJsonText = JSON.stringify(updated, null, 2);
+      setCourseJsonText(newJsonText);
+      validateCourseJsonText(newJsonText);
+      toast({
+        title: "All Module Hours Balanced ⚖️",
+        description: "Updated module allocated hours to comfortably accommodate all lessons."
+      });
+    }
+  };
+
   const handleImport = async () => {
     if (!isValid || !parsedData) {
       toast({
@@ -949,7 +993,20 @@ Ensure all JSON keys and formatting are 100% syntactically valid JSON. Return ON
 
                           {/* Curriculum Outline */}
                           <div className="space-y-2">
-                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Module Breakdown</p>
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Module Breakdown</p>
+                              {parsedData.sections?.some(s => !validateModuleTimeBudget(s).valid) && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-6 text-[10px] px-2 gap-1 text-amber-600 border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 font-bold"
+                                  onClick={handleAutoBalanceAllHours}
+                                >
+                                  <Sparkles className="h-3 w-3" /> Auto-Balance Module Hours
+                                </Button>
+                              )}
+                            </div>
                             <div className="max-h-60 overflow-y-auto space-y-2 border rounded-xl p-3 bg-background/30 text-xs">
                               {parsedData.sections?.map((section, sidx) => {
                                 const budget = validateModuleTimeBudget(section);
@@ -966,15 +1023,27 @@ Ensure all JSON keys and formatting are 100% syntactically valid JSON. Return ON
                                       )}
                                     </div>
                                     {!budget.valid && (
-                                      <p className="text-[10px] text-red-500 flex items-center gap-1 font-mono">
-                                        <AlertTriangle className="h-3 w-3" /> {budget.message}
-                                      </p>
+                                      <div className="flex items-center justify-between text-[10px] text-amber-600 dark:text-amber-400 font-mono bg-amber-500/10 p-1.5 rounded border border-amber-500/20">
+                                        <p className="flex items-center gap-1">
+                                          <AlertTriangle className="h-3 w-3 shrink-0" /> {budget.message}
+                                        </p>
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-5 px-1.5 text-[10px] text-blue-500 hover:text-blue-600 underline font-sans font-semibold cursor-pointer shrink-0"
+                                          onClick={() => handleAutoFitSectionHours(sidx, Math.ceil((budget.itemsMinutes / 60) * 2) / 2)}
+                                        >
+                                          Fit to {Math.ceil((budget.itemsMinutes / 60) * 2) / 2}h
+                                        </Button>
+                                      </div>
                                     )}
                                     <div className="pl-3 border-l space-y-1">
                                       {section.items?.map((item, iidx) => (
                                         <p key={iidx} className="text-[11px] text-muted-foreground flex items-center justify-between">
                                           <span className="flex items-center gap-1.5">
                                             {item.type === "video" && <Video className="h-3 w-3 text-amber-500" />}
+                                            {item.type === "presentation" && <Presentation className="h-3 w-3 text-purple-500" />}
                                             {item.type === "pdf" && <FileText className="h-3 w-3 text-emerald-500" />}
                                             {item.type === "text" && <FileText className="h-3 w-3 text-blue-500" />}
                                             {item.type === "quiz" && <HelpCircle className="h-3 w-3 text-rose-500" />}

@@ -308,7 +308,29 @@ export function normalizeCourseJson(data: any): any {
           normItem.url = normItem.url || normItem.meeting_link || normItem.meeting_url || "https://meet.google.com/orbit-live-session";
           normItem.scheduled_at = normItem.scheduled_at || new Date(Date.now() + 86400000).toISOString();
         } else {
-          normItem.type = ["video", "pdf", "text", "presentation", "document", "reference"].includes(rawType) ? rawType : "video";
+          let resolvedType = "video";
+          if (["presentation", "slides", "slide", "google_slides", "ppt", "pptx", "deck"].includes(rawType)) {
+            resolvedType = "presentation";
+          } else if (["pdf", "document", "doc", "docx", "reference"].includes(rawType)) {
+            resolvedType = rawType === "pdf" ? "pdf" : (rawType === "reference" ? "reference" : "document");
+          } else if (["text", "notes", "reading", "article", "markdown"].includes(rawType)) {
+            resolvedType = "text";
+          } else if (["video", "lecture", "clip", "recording"].includes(rawType)) {
+            resolvedType = "video";
+          } else {
+            const titleLower = (normItem.title || "").toLowerCase();
+            const urlLower = (normItem.url || normItem.link || "").toLowerCase();
+            if (titleLower.includes("slide") || titleLower.includes("presentation") || titleLower.includes("deck") || urlLower.includes("docs.google.com/presentation")) {
+              resolvedType = "presentation";
+            } else if (titleLower.includes("pdf") || urlLower.endsWith(".pdf")) {
+              resolvedType = "pdf";
+            } else if (titleLower.includes("notes") || titleLower.includes("reading") || normItem.content_text) {
+              resolvedType = "text";
+            } else {
+              resolvedType = "video";
+            }
+          }
+          normItem.type = resolvedType;
           const foundUrl = normItem.url || normItem.video_url || normItem.pdf_url || normItem.content_url || normItem.link || "";
           normItem.url = foundUrl;
           normItem.video_url = foundUrl;
@@ -320,6 +342,17 @@ export function normalizeCourseJson(data: any): any {
 
         return normItem;
       });
+
+      // Auto-adjust allocated_hours if total lesson duration exceeds it
+      const totalItemMinutes = normSec.items.reduce((sum: number, it: any) => {
+        return sum + (Number(it.duration_minutes) || (it.time_limit_minutes ? Number(it.time_limit_minutes) : 0) || 0);
+      }, 0);
+
+      const currentAllocatedMinutes = Number(normSec.allocated_hours || 0) * 60;
+      if (totalItemMinutes > 0 && totalItemMinutes > currentAllocatedMinutes) {
+        // Expand allocated_hours to fit actual content duration (rounded up to nearest 0.5 hours)
+        normSec.allocated_hours = Math.max(Number(normSec.allocated_hours || 0), Math.ceil((totalItemMinutes / 60) * 2) / 2);
+      }
 
       return normSec;
     });
@@ -718,16 +751,45 @@ export async function importSectionsToExistingCourse(courseId: string, rawSectio
             }
           } else {
             const contentItem = item as JsonContentItem;
+            const rawType = (contentItem.type || "").toLowerCase().trim();
+
+            // PostgreSQL enum 'content_type' strictly allows ('video', 'pdf', 'text')
+            // Map presentation/document/reference to 'pdf' with summary metadata so database constraints
+            // are always satisfied, while player & viewers recognize it as a Presentation Deck!
+            let dbType: "video" | "pdf" | "text" = "video";
+            if (rawType === "text") {
+              dbType = "text";
+            } else if (
+              rawType === "pdf" ||
+              rawType === "presentation" ||
+              rawType === "document" ||
+              rawType === "reference"
+            ) {
+              dbType = "pdf";
+            } else {
+              dbType = "video";
+            }
+
             const contentPayload: any = {
               section_id: sectionData.id,
               title: contentItem.title.trim(),
-              type: contentItem.type === "live" || contentItem.type === "live_class" ? "video" : contentItem.type,
+              type: dbType,
               duration_minutes: contentItem.duration_minutes || 30,
               order_index: ii,
             };
 
-            if (contentItem.type === "live" || contentItem.type === "live_class") {
-              const meetingUrl = contentItem.url || "https://meet.google.com/orbit-live-session";
+            const targetUrl = contentItem.url || contentItem.video_url || contentItem.pdf_url || contentItem.content_url || "";
+
+            if (rawType === "presentation") {
+              contentPayload.summary = (contentItem as any).summary || "type:presentation";
+              contentPayload.content_url = targetUrl;
+              contentPayload.pdf_url = targetUrl;
+            } else if (rawType === "document" || rawType === "reference") {
+              contentPayload.summary = (contentItem as any).summary || `type:${rawType}`;
+              contentPayload.content_url = targetUrl;
+              contentPayload.pdf_url = targetUrl;
+            } else if (rawType === "live" || rawType === "live_class") {
+              const meetingUrl = targetUrl || "https://meet.google.com/orbit-live-session";
               try {
                 const { data: liveData } = await supabase
                   .from("live_classes")
@@ -750,22 +812,32 @@ export async function importSectionsToExistingCourse(courseId: string, rawSectio
               } catch (liveErr) {
                 console.warn("Live class create error:", liveErr);
               }
-            } else if (contentItem.type === "text") {
+            } else if (rawType === "text") {
               contentPayload.content_text = contentItem.content_text || `# ${contentItem.title}\n\nLesson lecture notes.`;
-            } else if (contentItem.type === "video" && contentItem.url) {
-              const url = isGoogleDriveUrl(contentItem.url)
-                ? getGoogleDriveEmbedUrl(contentItem.url)
-                : contentItem.url;
+            } else if (rawType === "video" && targetUrl) {
+              const url = isGoogleDriveUrl(targetUrl)
+                ? getGoogleDriveEmbedUrl(targetUrl)
+                : targetUrl;
               contentPayload.content_url = url;
               contentPayload.video_url = url;
-            } else if (contentItem.url) {
-              contentPayload.content_url = contentItem.url;
-              contentPayload.pdf_url = contentItem.url;
+            } else if (targetUrl) {
+              contentPayload.content_url = targetUrl;
+              contentPayload.pdf_url = targetUrl;
             }
 
-            const { error: contentError } = await supabase
+            let { error: contentError } = await supabase
               .from("section_contents")
               .insert([contentPayload]);
+
+            // Resilient fallback in case of database enum restrictions
+            if (contentError && contentError.message?.includes("enum content_type")) {
+              console.warn("Retrying section_contents insert with fallback enum type 'pdf':", contentError.message);
+              contentPayload.type = "pdf";
+              const retryRes = await supabase
+                .from("section_contents")
+                .insert([contentPayload]);
+              contentError = retryRes.error;
+            }
 
             if (contentError) {
               result.errors.push(`Content "${contentItem.title}": ${contentError.message}`);
@@ -1727,6 +1799,12 @@ export async function exportCourseToJson(courseId: string): Promise<JsonCoursePa
       let itemType: any = c.type || "text";
       if (itemType === "video" && (c.live_class_id || c.title?.includes("🔴"))) {
         itemType = "live";
+      } else if (c.summary === "type:presentation" || (c.pdf_url && (c.pdf_url.includes("presentation") || c.pdf_url.includes("slides")))) {
+        itemType = "presentation";
+      } else if (c.summary === "type:document") {
+        itemType = "document";
+      } else if (c.summary === "type:reference") {
+        itemType = "reference";
       }
 
       const itemPayload: any = {
@@ -1852,7 +1930,15 @@ export async function exportSectionToJson(sectionId: string): Promise<JsonSectio
 
   (contents || []).forEach(c => {
     let itemType: any = c.type || "text";
-    if (itemType === "video" && (c.live_class_id || c.title?.includes("🔴"))) itemType = "live";
+    if (itemType === "video" && (c.live_class_id || c.title?.includes("🔴"))) {
+      itemType = "live";
+    } else if (c.summary === "type:presentation" || (c.pdf_url && (c.pdf_url.includes("presentation") || c.pdf_url.includes("slides")))) {
+      itemType = "presentation";
+    } else if (c.summary === "type:document") {
+      itemType = "document";
+    } else if (c.summary === "type:reference") {
+      itemType = "reference";
+    }
     const item: any = {
       title: c.title,
       type: itemType,
