@@ -64,7 +64,11 @@ export default function Settings() {
     const navigate = useNavigate();
     const { theme, setTheme } = useTheme();
     const { toast } = useToast();
-    
+    const [profile, setProfile] = useState({
+        name: "Administrator",
+        email: "",
+        bio: "Institutional Administrator"
+    });
 
     const [notifications, setNotifications] = useState({
         email: true,
@@ -127,6 +131,7 @@ export default function Settings() {
     const [loadingTeachers, setLoadingTeachers] = useState(false);
 
     useEffect(() => {
+        loadProfile();
         fetchDailyQuote();
         loadInstituteSettings();
         loadCreditPolicySettings();
@@ -134,6 +139,27 @@ export default function Settings() {
         fetchTeachers();
         loadLiveSystemStats();
     }, []);
+
+    const loadProfile = async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data } = await supabase
+                    .from('users')
+                    .select('full_name, email, bio')
+                    .eq('id', user.id)
+                    .maybeSingle();
+
+                setProfile({
+                    name: data?.full_name || user.user_metadata?.full_name || "Administrator",
+                    email: data?.email || user.email || "",
+                    bio: data?.bio || "Institutional Administrator"
+                });
+            }
+        } catch (e) {
+            console.error("Error loading admin profile:", e);
+        }
+    };
 
     const loadLiveSystemStats = async () => {
         setLoadingStats(true);
@@ -449,8 +475,19 @@ export default function Settings() {
         }
     };
 
-    const handleSave = () => {
-        toast({ title: "Settings saved" });
+    const handleSave = async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                await supabase.from('users').update({
+                    full_name: profile.name,
+                    bio: profile.bio
+                }).eq('id', user.id);
+            }
+            toast({ title: "Profile updated successfully! 👤" });
+        } catch (e: any) {
+            toast({ variant: "destructive", title: "Save Failed", description: e.message });
+        }
     };
 
     const handleSaveQuote = async () => {

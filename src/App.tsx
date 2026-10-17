@@ -20,6 +20,7 @@ import Settings from "./pages/admin/Settings";
 import HelpCenter from "./pages/admin/HelpCenter";
 import Notifications from "./pages/admin/Notifications";
 import AdminBilling from "./pages/admin/AdminBilling";
+import AdminCoupons from "./pages/admin/AdminCoupons";
 import TeacherDashboard from "./pages/teacher/Dashboard";
 import TeacherCourses from "./pages/teacher/Courses";
 import CourseDetail from "./pages/teacher/CourseDetail";
@@ -67,6 +68,7 @@ import MasterCollegeDetail from "./pages/master/MasterCollegeDetail";
 import MasterAccounts from "./pages/master/MasterAccounts";
 import MasterCourses from "./pages/master/MasterCourses";
 import MasterBilling from "./pages/master/MasterBilling";
+import MasterCoupons from "./pages/master/MasterCoupons";
 import MasterPlans from "./pages/master/MasterPlans";
 import MasterBlogs from "./pages/master/MasterBlogs";
 import MasterCareers from "./pages/master/MasterCareers";
@@ -115,7 +117,8 @@ const App = () => (
 
             {/* Admin Routes */}
             <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
-            <Route path="/admin/billing" element={<ProtectedRoute><GatedFeatureRoute featureId="coupon_engine"><AdminBilling /></GatedFeatureRoute></ProtectedRoute>} />
+            <Route path="/admin/coupons" element={<ProtectedRoute><AdminCoupons /></ProtectedRoute>} />
+            <Route path="/admin/billing" element={<ProtectedRoute><AdminBilling /></ProtectedRoute>} />
             <Route path="/admin/inquiries" element={<ProtectedRoute><GatedFeatureRoute featureId="inquiries"><AdminInquiries /></GatedFeatureRoute></ProtectedRoute>} />
             <Route path="/admin/users" element={<ProtectedRoute><GatedFeatureRoute featureId="user_management"><UserManagement /></GatedFeatureRoute></ProtectedRoute>} />
             <Route path="/admin/courses" element={<ProtectedRoute><GatedFeatureRoute featureId="course_management"><CourseManagement /></GatedFeatureRoute></ProtectedRoute>} />
@@ -177,6 +180,7 @@ const App = () => (
             <Route path="/master/accounts" element={<ProtectedRoute><MasterAccounts /></ProtectedRoute>} />
             <Route path="/master/courses" element={<ProtectedRoute><MasterCourses /></ProtectedRoute>} />
             <Route path="/master/billing" element={<ProtectedRoute><MasterBilling /></ProtectedRoute>} />
+            <Route path="/master/coupons" element={<ProtectedRoute><MasterCoupons /></ProtectedRoute>} />
             <Route path="/master/plans" element={<ProtectedRoute><MasterPlans /></ProtectedRoute>} />
             <Route path="/master/blogs" element={<ProtectedRoute><MasterBlogs /></ProtectedRoute>} />
             <Route path="/master/careers" element={<ProtectedRoute><MasterCareers /></ProtectedRoute>} />

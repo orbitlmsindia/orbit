@@ -13,6 +13,7 @@ import {
     ShieldCheck,
     LogOut,
     Sparkles,
+    Ticket,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -51,6 +52,7 @@ const mainNavItems: NavItemConfig[] = [
     { title: "Accounts & Users", url: "/master/accounts", icon: Users, permission: "view_accounts" },
     { title: "Course Explorer", url: "/master/courses", icon: BookOpen, permission: "view_courses" },
     { title: "Billing & Invoices", url: "/master/billing", icon: CreditCard, permission: "view_billing" },
+    { title: "Coupons & Discounts", url: "/master/coupons", icon: Ticket, permission: "view_billing" },
     { title: "Analytics", url: "/master/analytics", icon: BarChart3, permission: "view_analytics" },
     { title: "Monitoring", url: "/master/monitoring", icon: Activity, permission: "system_monitoring" },
     { title: "Staff & Roles", url: "/master/roles", icon: ShieldCheck, permission: "manage_roles" },

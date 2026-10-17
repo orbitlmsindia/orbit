@@ -116,7 +116,13 @@ export default function StudentCourses() {
     const [loadingCurriculum, setLoadingCurriculum] = useState(false);
 
     // Payment / Enrollment Dialog State
-    const [enrollmentDialog, setEnrollmentDialog] = useState<{ isOpen: boolean; courseId: string | null; courseName: string | null; coursePrice: number }>({ isOpen: false, courseId: null, courseName: null, coursePrice: 0 });
+    const [enrollmentDialog, setEnrollmentDialog] = useState<{
+        isOpen: boolean;
+        courseId: string | null;
+        courseName: string | null;
+        coursePrice: number;
+        collegeId?: string | null;
+    }>({ isOpen: false, courseId: null, courseName: null, coursePrice: 0, collegeId: null });
     const [transactionId, setTransactionId] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -660,7 +666,13 @@ export default function StudentCourses() {
     };
 
     const handleEnrollClick = (course: any) => {
-        setEnrollmentDialog({ isOpen: true, courseId: course.id, courseName: course.title, coursePrice: course.price || 0 });
+        setEnrollmentDialog({
+            isOpen: true,
+            courseId: course.id,
+            courseName: course.title,
+            coursePrice: course.price || 0,
+            collegeId: course.college_id || null,
+        });
         setTransactionId("");
         setCouponCode("");
         setCouponApplied(null);
@@ -668,7 +680,7 @@ export default function StudentCourses() {
     };
 
     // Coupon validation
-    // Coupon validation with active/disabled checking and local fallback
+    // Coupon validation with active/disabled checking, institution isolation, max uses limit and local fallback
     const handleApplyCoupon = async () => {
         const cleanCode = couponCode.toUpperCase().trim();
         if (!cleanCode) {
@@ -725,16 +737,37 @@ export default function StudentCourses() {
                 return;
             }
 
-            // Check max uses
-            if (coupon.max_uses !== null && coupon.max_uses !== undefined && (coupon.used_count || 0) >= coupon.max_uses) {
-                setCouponError("This coupon has reached its maximum usage limit.");
+            // Check max uses limit (Limit of usage)
+            if (coupon.max_uses !== null && coupon.max_uses !== undefined && Number(coupon.max_uses) > 0 && (coupon.used_count || 0) >= Number(coupon.max_uses)) {
+                setCouponError(`This coupon has reached its maximum usage limit of ${coupon.max_uses} redemptions.`);
                 return;
             }
 
-            // Check course-specific
+            // Check course-specific restriction
             if (coupon.course_id && coupon.course_id !== enrollmentDialog.courseId) {
                 setCouponError("This coupon is not valid for this course.");
                 return;
+            }
+
+            // Check institution-specific coupon restriction
+            if (coupon.college_id) {
+                const courseCollege = enrollmentDialog.collegeId;
+                if (courseCollege && coupon.college_id !== courseCollege) {
+                    setCouponError("This coupon code is valid only for a specific institution.");
+                    return;
+                }
+                const { data: { user: currentUser } } = await supabase.auth.getUser();
+                if (currentUser) {
+                    const { data: userProfile } = await supabase
+                        .from('users')
+                        .select('college_id')
+                        .eq('id', currentUser.id)
+                        .maybeSingle();
+                    if (userProfile?.college_id && userProfile.college_id !== coupon.college_id) {
+                        setCouponError("This coupon code is valid only for students of a specific institution.");
+                        return;
+                    }
+                }
             }
 
             // Check min purchase

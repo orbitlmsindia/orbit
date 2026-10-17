@@ -14,7 +14,8 @@ import {
   Calendar,
   Trophy,
   Mail,
-  Receipt
+  Receipt,
+  Ticket
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -56,7 +57,8 @@ interface AdminNavItem {
 
 const mainNavItems: AdminNavItem[] = [
   { title: "Dashboard", url: "/admin", icon: Home },
-  { title: "Subscriptions & Invoices", url: "/admin/billing", icon: Receipt, featureId: "coupon_engine" },
+  { title: "Coupons & Discounts", url: "/admin/coupons", icon: Ticket },
+  { title: "Subscriptions & Invoices", url: "/admin/billing", icon: Receipt },
   { title: "Get In Touch", url: "/admin/inquiries", icon: Mail, featureId: "inquiries" },
   { title: "User Management", url: "/admin/users", icon: Users, featureId: "user_management" },
   { title: "Course Management", url: "/admin/courses", icon: BookOpen, featureId: "course_management" },
