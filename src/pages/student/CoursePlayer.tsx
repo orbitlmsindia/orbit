@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -42,6 +42,7 @@ import { Trophy, ShieldAlert, ShieldCheck } from "lucide-react";
 import { DynamicWatermark } from "@/components/security/DynamicWatermark";
 import { getEmbeddablePresentationUrl, getEmbeddableDocUrl, isGoogleDriveUrl } from "@/lib/googleDriveUtils";
 import { CourseCelebrationModal } from "@/components/courses/CourseCelebrationModal";
+import { getCompanyBranding } from "@/services/brandingService";
 
 export default function CoursePlayer() {
     const { id } = useParams();
@@ -59,8 +60,10 @@ export default function CoursePlayer() {
     const [userName, setUserName] = useState<string>("Orbit Student");
     const [isBlurred, setIsBlurred] = useState(false);
     const [isBlackedOut, setIsBlackedOut] = useState(false);
+    const mouseInPlayerRef = useRef(false);
 
     // Progression & Streak State
+    const [allowUnrestrictedNav, setAllowUnrestrictedNav] = useState(true);
     const [completedContents, setCompletedContents] = useState<Set<string>>(new Set());
     const [submittedAssignments, setSubmittedAssignments] = useState<Set<string>>(new Set());
     const [unlockedSections, setUnlockedSections] = useState<Set<string>>(new Set());
@@ -127,18 +130,33 @@ export default function CoursePlayer() {
                     navigator.clipboard.writeText("LEAK PREVENTION: Course materials are protected by OrbitLMS DRM. Screenshots are prohibited.");
                 } catch (_) {}
                 setIsBlackedOut(true);
-                toast({ variant: "destructive", title: "Screenshot Blocked", description: "Taking screenshots of proprietary educational material is prohibited." });
-                setTimeout(() => setIsBlackedOut(false), 3500);
+                setIsBlurred(true);
+                toast({ variant: "destructive", title: "🛡️ Screenshot Blocked", description: "Taking screenshots of proprietary educational material is prohibited." });
+                setTimeout(() => {
+                    setIsBlackedOut(false);
+                    setIsBlurred(false);
+                }, 3500);
                 return;
             }
-            if (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4' || e.key === '5' || e.key.toLowerCase() === 's')) {
+
+            // Windows Snipping Tool (Win+Shift+S) / Mac (Cmd+Shift+3/4/5/S) / Linux (Ctrl+Shift+S) / Alt+PrintScreen
+            const isSnippingTool =
+                ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === '3' || e.key === '4' || e.key === '5' || e.key.toLowerCase() === 's' || e.code === 'KeyS')) ||
+                (e.altKey && (e.key === 'PrintScreen' || e.code === 'PrintScreen'));
+
+            if (isSnippingTool) {
                 e.preventDefault();
                 try { navigator.clipboard.writeText(""); } catch (_) {}
                 setIsBlackedOut(true);
-                toast({ variant: "destructive", title: "Screen Capture Blocked", description: "Taking screenshots is strictly prohibited." });
-                setTimeout(() => setIsBlackedOut(false), 3500);
+                setIsBlurred(true);
+                toast({ variant: "destructive", title: "🛡️ Screen Capture Intercepted", description: "Taking screenshots or snips is strictly prohibited." });
+                setTimeout(() => {
+                    setIsBlackedOut(false);
+                    setIsBlurred(false);
+                }, 3500);
                 return;
             }
+
             // DevTools Blocking (F12, Ctrl+Shift+I/J/C)
             if (e.key === 'F12' || e.code === 'F12' || (e.ctrlKey && e.shiftKey && ['KeyI', 'KeyJ', 'KeyC', 'i', 'I', 'j', 'J', 'c', 'C'].includes(e.code || e.key))) {
                 e.preventDefault();
@@ -165,43 +183,66 @@ export default function CoursePlayer() {
         };
 
         const handleKeyUp = (e: KeyboardEvent) => {
-            if (e.key === 'PrintScreen' || e.code === 'PrintScreen') {
+            if (
+                e.key === 'PrintScreen' || 
+                e.code === 'PrintScreen' || 
+                ((e.key.toLowerCase() === 's' || e.code === 'KeyS') && (e.metaKey || e.ctrlKey))
+            ) {
                 e.preventDefault();
-                navigator.clipboard.writeText("");
+                try { navigator.clipboard.writeText(""); } catch (_) {}
                 setIsBlackedOut(true);
-                toast({ variant: "destructive", title: "Action Not Allowed", description: "Taking screenshots is strictly prohibited." });
-                setTimeout(() => setIsBlackedOut(false), 3000);
+                setIsBlurred(true);
+                setTimeout(() => {
+                    setIsBlackedOut(false);
+                    setIsBlurred(false);
+                }, 3000);
             }
         };
 
-        // 3. Blur on visibility/focus change
+        // 3. Blur & Blackout on visibility or window focus change
         const handleVisibilityChange = () => {
-            setIsBlurred(document.hidden);
-            if (document.hidden) {
+            if (document.hidden || document.visibilityState !== 'visible') {
+                setIsBlurred(true);
                 setIsBlackedOut(true);
-                setTimeout(() => setIsBlackedOut(false), 3000);
+                try { navigator.clipboard.writeText(""); } catch (_) {}
+            } else {
+                setTimeout(() => {
+                    setIsBlackedOut(false);
+                    setIsBlurred(false);
+                }, 400);
             }
-        }
+        };
+
         const handleWindowBlur = () => {
-            // Do not blur if the user clicked inside our own video iframe
-            if (document.activeElement?.tagName === 'IFRAME') {
+            // If user clicked inside player controls to play/pause, do not interrupt
+            if (mouseInPlayerRef.current) {
                 return;
             }
+            // Otherwise, window focus was transferred to Snipping Tool, secondary monitor, or external app
             setIsBlurred(true);
+            setIsBlackedOut(true);
+            try { navigator.clipboard.writeText(""); } catch (_) {}
+            setTimeout(() => {
+                setIsBlackedOut(false);
+            }, 3500);
         };
-        const handleWindowFocus = () => setIsBlurred(false);
 
-        document.addEventListener("contextmenu", handleContextMenu);
-        document.addEventListener("keydown", handleKeyDown);
-        document.addEventListener("keyup", handleKeyUp);
+        const handleWindowFocus = () => {
+            setIsBlurred(false);
+            setIsBlackedOut(false);
+        };
+
+        document.addEventListener("contextmenu", handleContextMenu, { capture: true });
+        window.addEventListener("keydown", handleKeyDown, { capture: true });
+        window.addEventListener("keyup", handleKeyUp, { capture: true });
         document.addEventListener("visibilitychange", handleVisibilityChange);
         window.addEventListener("blur", handleWindowBlur);
         window.addEventListener("focus", handleWindowFocus);
 
         return () => {
             document.removeEventListener("contextmenu", handleContextMenu);
-            document.removeEventListener("keydown", handleKeyDown);
-            document.removeEventListener("keyup", handleKeyUp);
+            window.removeEventListener("keydown", handleKeyDown);
+            window.removeEventListener("keyup", handleKeyUp);
             document.removeEventListener("visibilitychange", handleVisibilityChange);
             window.removeEventListener("blur", handleWindowBlur);
             window.removeEventListener("focus", handleWindowFocus);
@@ -318,33 +359,44 @@ export default function CoursePlayer() {
             ]);
             setSubmittedAssignments(subAssigns);
 
-            // Progression Logic: Unlock sections sequentially
+            // Check company branding & teacher/admin unrestricted navigation permissions
+            const branding = getCompanyBranding();
+            const allowUnrestricted = isStaff || branding.allowUnrestrictedNavigation !== false || Boolean(courseData?.allow_unrestricted_navigation);
+            setAllowUnrestrictedNav(allowUnrestricted);
+
             const unlocked = new Set<string>();
-            let allPreviousCompleted = true;
 
-            const isSectionCompleted = (section: any) => {
-                if (!section.items || section.items.length === 0) return true; // Empty sections are trivially complete or shouldn't block
-                return section.items.every((item: any) => {
-                    if (item.itemType === 'assignment') {
-                        return subAssigns.has(item.id);
-                    }
-                    return compContents.has(item.id);
-                });
-            };
+            if (allowUnrestricted) {
+                // Admin or Teacher allowed complete unrestricted navigation without forcing prior completion
+                sorted.forEach((s: any) => unlocked.add(s.id));
+            } else {
+                // Progression Logic: Unlock sections sequentially
+                let allPreviousCompleted = true;
 
-            sorted.forEach((s: any, idx: number) => {
-                if (idx === 0) {
-                    unlocked.add(s.id);
-                    if (!isSectionCompleted(s)) allPreviousCompleted = false;
-                } else {
-                    if (allPreviousCompleted) {
+                const isSectionCompleted = (section: any) => {
+                    if (!section.items || section.items.length === 0) return true; // Empty sections are trivially complete or shouldn't block
+                    return section.items.every((item: any) => {
+                        if (item.itemType === 'assignment') {
+                            return subAssigns.has(item.id);
+                        }
+                        return compContents.has(item.id);
+                    });
+                };
+
+                sorted.forEach((s: any, idx: number) => {
+                    if (idx === 0) {
                         unlocked.add(s.id);
+                        if (!isSectionCompleted(s)) allPreviousCompleted = false;
+                    } else {
+                        if (allPreviousCompleted) {
+                            unlocked.add(s.id);
+                        }
+                        if (!isSectionCompleted(s)) {
+                            allPreviousCompleted = false;
+                        }
                     }
-                    if (!isSectionCompleted(s)) {
-                        allPreviousCompleted = false;
-                    }
-                }
-            });
+                });
+            }
 
             setUnlockedSections(unlocked);
 
@@ -614,23 +666,29 @@ export default function CoursePlayer() {
 
                                 {/* 1. Video Player */}
                                 {(!isPresentationContent(currentContent) && (currentContent.type === 'video' || (currentContent.video_url && currentContent.type !== 'pdf' && currentContent.type !== 'text'))) && (
-                                    <SecureVideoPlayer
-                                        key={currentContent.id}
-                                        videoUrl={currentContent.video_url || currentContent.content_url}
-                                        title={currentContent.title}
-                                        userEmail={userEmail}
-                                        initialProgress={watchProgressMap[currentContent.id] || (completedContents.has(currentContent.id) ? 100 : 0)}
-                                        onProgressUpdate={(percentage) => {
-                                            const contentId = currentContent.id;
-                                            setWatchProgressMap(prev => {
-                                                if (prev[contentId] === percentage) return prev;
-                                                return {
-                                                    ...prev,
-                                                    [contentId]: Math.max(prev[contentId] || 0, percentage)
-                                                };
-                                            });
-                                        }}
-                                    />
+                                    <div 
+                                        onMouseEnter={() => { mouseInPlayerRef.current = true; }} 
+                                        onMouseLeave={() => { mouseInPlayerRef.current = false; }}
+                                        className="relative"
+                                    >
+                                        <SecureVideoPlayer
+                                            key={currentContent.id}
+                                            videoUrl={currentContent.video_url || currentContent.content_url}
+                                            title={currentContent.title}
+                                            userEmail={userEmail}
+                                            initialProgress={watchProgressMap[currentContent.id] || (completedContents.has(currentContent.id) ? 100 : 0)}
+                                            onProgressUpdate={(percentage) => {
+                                                const contentId = currentContent.id;
+                                                setWatchProgressMap(prev => {
+                                                    if (prev[contentId] === percentage) return prev;
+                                                    return {
+                                                        ...prev,
+                                                        [contentId]: Math.max(prev[contentId] || 0, percentage)
+                                                    };
+                                                });
+                                            }}
+                                        />
+                                    </div>
                                 )}
 
                                 {/* 2. Presentation Deck Viewer (Secure Embed) */}
@@ -852,7 +910,14 @@ export default function CoursePlayer() {
                                     <BookOpen className="h-4 w-4" />
                                 </div>
                                 <div className="flex flex-col min-w-0">
-                                    <span className="font-bold text-sm leading-none">Course Content</span>
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="font-bold text-sm leading-none">Course Content</span>
+                                        {allowUnrestrictedNav && (
+                                            <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 font-semibold shrink-0">
+                                                Open Access
+                                            </Badge>
+                                        )}
+                                    </div>
                                     <span className="text-[11px] text-muted-foreground font-normal pt-1">
                                         {completedCount} of {allCourseItems.length} Completed
                                     </span>

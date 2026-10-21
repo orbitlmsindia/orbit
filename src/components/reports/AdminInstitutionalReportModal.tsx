@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
+import { getCompanyBranding, CompanyBrandingSettings } from "@/services/brandingService";
 
 interface AdminInstitutionalReportModalProps {
   open: boolean;
@@ -57,16 +58,7 @@ export function AdminInstitutionalReportModal({
   const [coursesList, setCoursesList] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const [institute, setInstitute] = useState({
-    name: "Orbit LMS Innovation Academy",
-    logoUrl: "https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=150&auto=format&fit=crop&q=80",
-    registrationNo: "REG-ORBIT-2026/8942",
-    email: "admin@orbitlms.edu.in",
-    phone: "+91 98765 43210",
-    address: "Orbit Technology Campus, Sector 62, Tech City, India",
-    signatoryTitle: "Chief Academic Officer & Director",
-    signatoryName: "Prof. Rajesh Verma"
-  });
+  const [institute, setInstitute] = useState<CompanyBrandingSettings>(() => getCompanyBranding());
 
   useEffect(() => {
     if (open) {
@@ -76,12 +68,7 @@ export function AdminInstitutionalReportModal({
   }, [open]);
 
   const loadInstituteSettings = () => {
-    const saved = localStorage.getItem("orbit_institute_settings");
-    if (saved) {
-      try {
-        setInstitute(prev => ({ ...prev, ...JSON.parse(saved) }));
-      } catch (e) {}
-    }
+    setInstitute(getCompanyBranding());
   };
 
   const fetchCompleteReportData = async () => {
@@ -240,8 +227,23 @@ export function AdminInstitutionalReportModal({
         </DialogHeader>
 
         {/* Printable Report Document Body */}
-        <div id="printable-admin-report" className="p-6 sm:p-10 space-y-8 bg-card text-foreground">
-          {/* Institutional Letterhead Header */}
+        <div id="printable-admin-report" className="relative p-6 sm:p-10 space-y-8 bg-card text-foreground overflow-hidden">
+          {/* Subtle Background Watermark / Water Drop Crest */}
+          {(institute.watermarkUrl || institute.logoUrl) && (
+            <div 
+              className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0"
+              style={{ opacity: institute.watermarkOpacity ?? 0.06 }}
+            >
+              <img 
+                src={institute.watermarkUrl || institute.logoUrl} 
+                alt="Institutional Crest Watermark" 
+                className="w-80 sm:w-96 max-w-[80%] max-h-[80%] object-contain grayscale" 
+              />
+            </div>
+          )}
+
+          <div className="relative z-10 space-y-8">
+            {/* Institutional Letterhead Header */}
           <div className="border-b-2 border-primary/20 pb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="h-16 w-16 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center p-2 shrink-0">
@@ -416,6 +418,11 @@ export function AdminInstitutionalReportModal({
             </div>
 
             <div className="text-center shrink-0 space-y-1">
+              {institute.stampUrl && (
+                <div className="flex justify-center mb-1">
+                  <img src={institute.stampUrl} alt="Official Seal" className="h-12 w-28 object-contain rounded border p-0.5 bg-white shadow-sm" />
+                </div>
+              )}
               <div className="w-48 border-b-2 border-foreground/40 pb-1 mb-1">
                 <p className="font-bold text-sm text-foreground">{institute.signatoryName || "Authorized Signatory"}</p>
               </div>
@@ -424,6 +431,7 @@ export function AdminInstitutionalReportModal({
                 <ShieldCheck className="h-3 w-3" /> Digitally Certified
               </p>
             </div>
+          </div>
           </div>
         </div>
 

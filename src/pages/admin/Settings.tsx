@@ -37,16 +37,30 @@ import {
     AlertOctagon,
     HardDrive,
     Check,
-    Info
+    Info,
+    Globe,
+    Hash,
+    Shield,
+    Copy
 } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import {
+    getCompanyBranding,
+    saveCompanyBranding,
+    exportCompanyBrandingJson,
+    importCompanyBrandingFromJson,
+    CompanyBrandingSettings
+} from "@/services/brandingService";
+import {
     fetchSystemStats,
     exportFullSystemBackup,
     restoreFullSystemBackup,
+    exportInstituteBackup,
+    restoreInstituteBackup,
+    fetchInstituteScopedStats,
     SystemStats,
     BackupSnapshot
 } from "@/lib/fullSystemBackup";
@@ -97,15 +111,9 @@ export default function Settings() {
     const [loadingCreditPolicy, setLoadingCreditPolicy] = useState(false);
 
     // Institute & Official Letterhead State
-    const [institute, setInstitute] = useState({
-        name: "Orbit LMS Innovation Academy",
-        logoUrl: "https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=150&auto=format&fit=crop&q=80",
-        registrationNo: "REG-ORBIT-2026/8942",
-        email: "contact@orbitlms.edu.in",
-        phone: "+91 98765 43210",
-        address: "Orbit Technology Campus, Sector 62, Tech City, India",
-        signatureUrl: "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=200&auto=format&fit=crop&q=80"
-    });
+    const [institute, setInstitute] = useState<CompanyBrandingSettings>(() => getCompanyBranding());
+    const [jsonImportDialogOpen, setJsonImportDialogOpen] = useState(false);
+    const [jsonInputText, setJsonInputText] = useState("");
 
     // Backup & Zero-Loss System Recovery State
     const [isExportingBackup, setIsExportingBackup] = useState(false);
@@ -140,15 +148,24 @@ export default function Settings() {
         loadLiveSystemStats();
     }, []);
 
+    const [collegeId, setCollegeId] = useState<string>(() => {
+        return sessionStorage.getItem("collegeId") || localStorage.getItem("admin_college_id") || "00000000-0000-0000-0000-000000000001";
+    });
+
     const loadProfile = async () => {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
                 const { data } = await supabase
                     .from('users')
-                    .select('full_name, email, bio')
+                    .select('full_name, email, bio, college_id')
                     .eq('id', user.id)
                     .maybeSingle();
+
+                if (data?.college_id) {
+                    setCollegeId(data.college_id);
+                    sessionStorage.setItem("collegeId", data.college_id);
+                }
 
                 setProfile({
                     name: data?.full_name || user.user_metadata?.full_name || "Administrator",
@@ -163,8 +180,21 @@ export default function Settings() {
 
     const loadLiveSystemStats = async () => {
         setLoadingStats(true);
-        const stats = await fetchSystemStats();
-        setSystemStats(stats);
+        const colId = sessionStorage.getItem("collegeId") || localStorage.getItem("admin_college_id") || collegeId;
+        const scoped = await fetchInstituteScopedStats(colId);
+        setSystemStats({
+            usersCount: scoped.usersCount,
+            coursesCount: scoped.coursesCount,
+            sectionsCount: scoped.sectionsCount,
+            contentsCount: scoped.contentsCount,
+            assignmentsCount: scoped.assignmentsCount,
+            questionsCount: scoped.questionsCount,
+            submissionsCount: scoped.submissionsCount,
+            enrollmentsCount: scoped.usersCount,
+            liveClassesCount: 0,
+            couponsCount: 0,
+            lastBackupDate: localStorage.getItem(`orbit_last_backup_${colId}`) || localStorage.getItem("orbit_last_backup") || new Date().toISOString()
+        });
         setLoadingStats(false);
     };
 
@@ -214,12 +244,7 @@ export default function Settings() {
     };
 
     const loadInstituteSettings = () => {
-        const saved = localStorage.getItem("orbit_institute_settings");
-        if (saved) {
-            try {
-                setInstitute(JSON.parse(saved));
-            } catch (e) {}
-        }
+        setInstitute(getCompanyBranding());
     };
 
     // Coupon Settings
@@ -270,11 +295,12 @@ export default function Settings() {
     const handleExportSnapshot = async () => {
         setIsExportingBackup(true);
         try {
-            const res = await exportFullSystemBackup();
+            const colId = sessionStorage.getItem("collegeId") || localStorage.getItem("admin_college_id") || collegeId;
+            const res = await exportInstituteBackup(colId);
             if (!res.success) throw new Error(res.error);
             toast({
-                title: "System Snapshot Exported! 📦",
-                description: `Successfully saved ${res.filename}. Contains complete database & branding snapshot.`
+                title: "Institute Snapshot Exported! 📦",
+                description: `Successfully saved ${res.filename}. Contains complete institute records & branding snapshot.`
             });
             setLastBackupDate(new Date().toISOString());
             loadLiveSystemStats();
@@ -293,7 +319,7 @@ export default function Settings() {
         reader.onload = (event) => {
             try {
                 const parsed = JSON.parse(event.target?.result as string);
-                if (!parsed || typeof parsed !== "object" || !parsed.tables) {
+                if (!parsed || typeof parsed !== "object" || (!parsed.tables && !parsed.data)) {
                     toast({
                         variant: "destructive",
                         title: "Invalid Backup File",
@@ -318,15 +344,23 @@ export default function Settings() {
         setRestoreProgressMsg("Initiating Zero-Loss Restoration...");
 
         try {
-            const result = await restoreFullSystemBackup(pendingRestoreData, (msg) => {
-                setRestoreProgressMsg(msg);
-            });
+            const colId = sessionStorage.getItem("collegeId") || localStorage.getItem("admin_college_id") || collegeId;
+            let result: any;
+            if (pendingRestoreData.scope === "respective_institute" || (pendingRestoreData as any).data) {
+                result = await restoreInstituteBackup(colId, pendingRestoreData, (msg) => {
+                    setRestoreProgressMsg(msg);
+                });
+            } else {
+                result = await restoreFullSystemBackup(pendingRestoreData, (msg) => {
+                    setRestoreProgressMsg(msg);
+                });
+            }
 
             if (!result.success) throw new Error(result.error);
 
             toast({
-                title: "System Restored Successfully! 🎉",
-                description: `Restored ${result.restoredTables} tables (${result.restoredRecords} records) and system branding settings.`
+                title: "Institute System Restored! 🎉",
+                description: `Restored ${result.restoredRecords || 0} records and institute branding settings.`
             });
             setRestoreDialogOpen(false);
             setPendingRestoreData(null);
@@ -351,12 +385,88 @@ export default function Settings() {
         });
     };
 
-    const handleSaveInstituteSettings = () => {
-        localStorage.setItem("orbit_institute_settings", JSON.stringify(institute));
+    const handleSaveInstituteSettings = async () => {
+        const saved = saveCompanyBranding(institute);
+        setInstitute(saved);
+
+        // Also sync name to colleges table if user has an associated college_id
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data: prof } = await supabase
+                    .from('users')
+                    .select('college_id')
+                    .eq('id', user.id)
+                    .single();
+                if (prof?.college_id && saved.name) {
+                    await supabase
+                        .from('colleges')
+                        .update({ name: saved.name })
+                        .eq('id', prof.college_id);
+                }
+            }
+        } catch (e) {
+            console.error("Error syncing institute name to colleges table:", e);
+        }
+
         toast({
             title: "Institute Branding Saved! 🏫",
-            description: "Official letterhead details & logo updated for all reports and certificates."
+            description: "Official letterhead details, CIN, watermark & curriculum progression policy updated."
         });
+    };
+
+    const handleExportCompanyJson = () => {
+        const jsonStr = exportCompanyBrandingJson();
+        const blob = new Blob([jsonStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        const dateTag = new Date().toISOString().split('T')[0];
+        a.download = `orbit_company_branding_${dateTag}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        try {
+            navigator.clipboard.writeText(jsonStr);
+        } catch (_) {}
+
+        toast({
+            title: "Company Details Exported! 📄",
+            description: "Downloaded company JSON profile & copied payload to clipboard."
+        });
+    };
+
+    const handleImportCompanyJsonFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const content = event.target?.result as string;
+            applyCompanyJson(content);
+        };
+        reader.readAsText(file);
+        e.target.value = "";
+    };
+
+    const applyCompanyJson = (jsonStr: string) => {
+        const res = importCompanyBrandingFromJson(jsonStr);
+        if (res.success && res.data) {
+            setInstitute(res.data);
+            setJsonImportDialogOpen(false);
+            setJsonInputText("");
+            toast({
+                title: "Company Profile Imported! 🏢",
+                description: res.message
+            });
+        } else {
+            toast({
+                variant: "destructive",
+                title: "Import Failed",
+                description: res.message
+            });
+        }
     };
 
     // Manual Full Backup Engine
@@ -681,53 +791,112 @@ export default function Settings() {
                     </TabsContent>
 
                     {/* Institute Branding & Official Letterhead Tab */}
-                    <TabsContent value="institute">
+                    <TabsContent value="institute" className="space-y-6">
+                        {/* Top Action Ribbon for JSON Import / Export */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-primary/5 border border-primary/20">
+                            <div>
+                                <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
+                                    <Building2 className="h-4 w-4 text-primary" /> Master Company & Organization Profile
+                                </h3>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                    Manage corporate branding, letterhead, watermark for PDF exports, and student progression policy.
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleExportCompanyJson}
+                                    className="gap-1.5 text-xs font-semibold h-9 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
+                                >
+                                    <Download className="h-3.5 w-3.5" /> Export Company JSON
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    onClick={() => setJsonImportDialogOpen(true)}
+                                    className="gap-1.5 text-xs font-semibold h-9 bg-primary hover:bg-primary/90 text-primary-foreground"
+                                >
+                                    <UploadCloud className="h-3.5 w-3.5" /> Import Company JSON
+                                </Button>
+                            </div>
+                        </div>
+
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             <Card>
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2">
-                                        <Building2 className="h-5 w-5 text-primary" /> Official Institute Information
+                                        <Building2 className="h-5 w-5 text-primary" /> Official Organization Details
                                     </CardTitle>
-                                    <CardDescription>Configure your institute logo, registration, and contact details for official letterheads & reports.</CardDescription>
+                                    <CardDescription>
+                                        All details are optional and will be rendered across official letterheads, PDFs, and certificates.
+                                    </CardDescription>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
                                     <div className="space-y-2">
-                                        <Label>Institute Name</Label>
+                                        <Label>Organization / Institute Name</Label>
                                         <Input
                                             value={institute.name}
                                             onChange={(e) => setInstitute({ ...institute, name: e.target.value })}
                                             placeholder="e.g. Orbit LMS Innovation Academy"
                                         />
                                     </div>
-                                    <div className="grid grid-cols-2 gap-3">
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <div className="space-y-2">
-                                            <Label>Registration / Govt No. (Optional)</Label>
+                                            <Label className="flex items-center gap-1.5">
+                                                <Hash className="h-3.5 w-3.5 text-amber-500" /> CIN (Corporate Identification No.)
+                                            </Label>
                                             <Input
-                                                value={institute.registrationNo}
-                                                onChange={(e) => setInstitute({ ...institute, registrationNo: e.target.value })}
-                                                placeholder="REG-2026/8942"
+                                                value={institute.cin || ""}
+                                                onChange={(e) => setInstitute({ ...institute, cin: e.target.value })}
+                                                placeholder="e.g. U72900DL2026PTC389421"
+                                                className="font-mono text-xs uppercase"
                                             />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label>Contact Phone</Label>
+                                            <Label>Registration / Govt No. (Optional)</Label>
                                             <Input
-                                                value={institute.phone}
+                                                value={institute.registrationNo || ""}
+                                                onChange={(e) => setInstitute({ ...institute, registrationNo: e.target.value })}
+                                                placeholder="REG-2026/8942"
+                                                className="font-mono text-xs"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div className="space-y-2">
+                                            <Label className="flex items-center gap-1.5">
+                                                <Globe className="h-3.5 w-3.5 text-blue-500" /> Official Website
+                                            </Label>
+                                            <Input
+                                                value={institute.website || ""}
+                                                onChange={(e) => setInstitute({ ...institute, website: e.target.value })}
+                                                placeholder="https://orbitlms.edu.in"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Contact Phone / Mobile</Label>
+                                            <Input
+                                                value={institute.phone || ""}
                                                 onChange={(e) => setInstitute({ ...institute, phone: e.target.value })}
                                                 placeholder="+91 98765 43210"
                                             />
                                         </div>
                                     </div>
+
                                     <div className="space-y-2">
                                         <Label>Official Contact Email</Label>
                                         <Input
                                             type="email"
-                                            value={institute.email}
+                                            value={institute.email || ""}
                                             onChange={(e) => setInstitute({ ...institute, email: e.target.value })}
-                                            placeholder="official@orbitlms.edu.in"
+                                            placeholder="contact@orbitlms.edu.in"
                                         />
                                     </div>
+
                                     <div className="space-y-2">
-                                        <Label>Institute Logo (URL or Direct Image Upload)</Label>
+                                        <Label>Primary Organization Logo</Label>
                                         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                                             <Input
                                                 value={institute.logoUrl}
@@ -738,13 +907,13 @@ export default function Settings() {
                                             <Button
                                                 type="button"
                                                 variant="outline"
-                                                className="w-full sm:w-auto gap-1.5 shrink-0 cursor-pointer font-semibold border-primary/40 text-primary hover:bg-primary/10"
+                                                className="w-full sm:w-auto gap-1.5 shrink-0 font-semibold border-primary/40 text-primary hover:bg-primary/10"
                                                 onClick={() => {
                                                     const fileInput = document.getElementById('logo-upload-input') as HTMLInputElement;
                                                     if (fileInput) fileInput.click();
                                                 }}
                                             >
-                                                <UploadCloud className="h-4 w-4" /> Upload Logo File
+                                                <UploadCloud className="h-4 w-4" /> Upload File
                                             </Button>
                                             <input
                                                 id="logo-upload-input"
@@ -758,7 +927,7 @@ export default function Settings() {
                                                         reader.onload = (event) => {
                                                             const base64Str = event.target?.result as string;
                                                             setInstitute({ ...institute, logoUrl: base64Str });
-                                                            toast({ title: "Logo Image Uploaded! 🖼️", description: "Institute logo preview updated." });
+                                                            toast({ title: "Logo Uploaded! 🖼️", description: "Organization logo preview updated." });
                                                         };
                                                         reader.readAsDataURL(file);
                                                     }
@@ -766,21 +935,87 @@ export default function Settings() {
                                             />
                                         </div>
                                     </div>
+
+                                    {/* Watermark / Water Drop Background Logo Configuration */}
+                                    <div className="space-y-2 p-3.5 rounded-xl bg-muted/40 border border-border">
+                                        <div className="flex items-center justify-between">
+                                            <Label className="font-bold text-xs flex items-center gap-1.5">
+                                                <Sparkles className="h-3.5 w-3.5 text-amber-500" /> PDF Background Watermark (Water Drop Logo)
+                                            </Label>
+                                            <span className="text-[11px] font-mono text-muted-foreground">
+                                                Opacity: {Math.round((institute.watermarkOpacity ?? 0.08) * 100)}%
+                                            </span>
+                                        </div>
+                                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                                            <Input
+                                                value={institute.watermarkUrl || ""}
+                                                onChange={(e) => setInstitute({ ...institute, watermarkUrl: e.target.value })}
+                                                placeholder="Watermark image URL (defaults to primary logo)..."
+                                                className="flex-1 text-xs"
+                                            />
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                className="shrink-0 text-xs font-semibold"
+                                                onClick={() => {
+                                                    const fileInput = document.getElementById('watermark-upload-input') as HTMLInputElement;
+                                                    if (fileInput) fileInput.click();
+                                                }}
+                                            >
+                                                <UploadCloud className="h-3.5 w-3.5" /> Upload Watermark
+                                            </Button>
+                                            <input
+                                                id="watermark-upload-input"
+                                                type="file"
+                                                accept="image/*"
+                                                className="hidden"
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) {
+                                                        const reader = new FileReader();
+                                                        reader.onload = (event) => {
+                                                            const base64Str = event.target?.result as string;
+                                                            setInstitute({ ...institute, watermarkUrl: base64Str });
+                                                            toast({ title: "Watermark Updated! 💧", description: "Watermark image set for PDF study downloads." });
+                                                        };
+                                                        reader.readAsDataURL(file);
+                                                    }
+                                                }}
+                                            />
+                                        </div>
+                                        <div className="flex items-center gap-3 pt-1">
+                                            <span className="text-[11px] text-muted-foreground shrink-0">Subtle Watermark Opacity:</span>
+                                            <input
+                                                type="range"
+                                                min="0.04"
+                                                max="0.25"
+                                                step="0.01"
+                                                value={institute.watermarkOpacity ?? 0.08}
+                                                onChange={(e) => setInstitute({ ...institute, watermarkOpacity: parseFloat(e.target.value) })}
+                                                className="w-full accent-primary h-1.5 rounded-lg cursor-pointer bg-muted"
+                                            />
+                                        </div>
+                                    </div>
+
                                     <div className="space-y-2">
                                         <Label>Official Address</Label>
                                         <Textarea
-                                            value={institute.address}
+                                            value={institute.address || ""}
                                             onChange={(e) => setInstitute({ ...institute, address: e.target.value })}
                                             placeholder="Full postal address for letterhead header..."
+                                            className="text-xs"
+                                            rows={2}
                                         />
                                     </div>
+
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <div className="space-y-2">
                                             <Label>Signatory Designation / Title</Label>
                                             <Input
                                                 value={institute.signatoryTitle || ""}
                                                 onChange={(e) => setInstitute({ ...institute, signatoryTitle: e.target.value })}
-                                                placeholder="e.g. Authorized Registrar / Controller of Examinations"
+                                                placeholder="e.g. Authorized Registrar / Academic Dean"
                                             />
                                         </div>
                                         <div className="space-y-2">
@@ -792,8 +1027,9 @@ export default function Settings() {
                                             />
                                         </div>
                                     </div>
+
                                     <div className="space-y-2">
-                                        <Label>Official Stamp / Seal Image (URL or Direct Upload)</Label>
+                                        <Label>Official Stamp / Seal Image</Label>
                                         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                                             <Input
                                                 value={institute.stampUrl || ""}
@@ -804,13 +1040,13 @@ export default function Settings() {
                                             <Button
                                                 type="button"
                                                 variant="outline"
-                                                className="w-full sm:w-auto gap-1.5 shrink-0 cursor-pointer font-semibold border-primary/40 text-primary hover:bg-primary/10"
+                                                className="w-full sm:w-auto gap-1.5 shrink-0 font-semibold border-primary/40 text-primary hover:bg-primary/10"
                                                 onClick={() => {
                                                     const fileInput = document.getElementById('stamp-upload-input') as HTMLInputElement;
                                                     if (fileInput) fileInput.click();
                                                 }}
                                             >
-                                                <UploadCloud className="h-4 w-4" /> Upload Stamp Image
+                                                <UploadCloud className="h-4 w-4" /> Upload Stamp
                                             </Button>
                                             <input
                                                 id="stamp-upload-input"
@@ -824,7 +1060,7 @@ export default function Settings() {
                                                         reader.onload = (event) => {
                                                             const base64Str = event.target?.result as string;
                                                             setInstitute({ ...institute, stampUrl: base64Str });
-                                                            toast({ title: "Stamp Image Uploaded! 📜", description: "Official letterhead stamp updated." });
+                                                            toast({ title: "Stamp Uploaded! 📜", description: "Official letterhead stamp updated." });
                                                         };
                                                         reader.readAsDataURL(file);
                                                     }
@@ -832,67 +1068,188 @@ export default function Settings() {
                                             />
                                         </div>
                                     </div>
+
+                                    {/* Policy & Permissions Section */}
+                                    <div className="space-y-3 pt-3 border-t">
+                                        <h4 className="font-bold text-xs uppercase tracking-wider text-muted-foreground">Curriculum & Navigation Permissions</h4>
+
+                                        {/* Unrestricted Navigation Switch */}
+                                        <div className="flex items-center justify-between p-3 rounded-xl bg-purple-500/10 border border-purple-500/30 gap-3">
+                                            <div className="space-y-0.5">
+                                                <Label className="font-bold text-xs text-purple-700 dark:text-purple-300 flex items-center gap-1.5 cursor-pointer">
+                                                    <Sparkles className="h-3.5 w-3.5" /> Allow Unrestricted Module Navigation
+                                                </Label>
+                                                <p className="text-[11px] text-muted-foreground">
+                                                    When enabled, students can freely explore and watch all modules and lessons without being forced to complete prior units sequentially. (Instructors and Admins always have full access).
+                                                </p>
+                                            </div>
+                                            <Switch
+                                                checked={institute.allowUnrestrictedNavigation !== false}
+                                                onCheckedChange={(checked) => setInstitute({ ...institute, allowUnrestrictedNavigation: checked })}
+                                            />
+                                        </div>
+
+                                        {/* Screenshot & DRM Protection Switch */}
+                                        <div className="flex items-center justify-between p-3 rounded-xl bg-red-500/10 border border-red-500/30 gap-3">
+                                            <div className="space-y-0.5">
+                                                <Label className="font-bold text-xs text-red-700 dark:text-red-300 flex items-center gap-1.5 cursor-pointer">
+                                                    <ShieldCheck className="h-3.5 w-3.5" /> Strict Anti-Screenshot & Screen Capture DRM
+                                                </Label>
+                                                <p className="text-[11px] text-muted-foreground">
+                                                    Instantly black out course videos, clear system clipboard, and intercept Windows Snipping Tool (Win+Shift+S) and PrintScreen.
+                                                </p>
+                                            </div>
+                                            <Switch
+                                                checked={institute.drmScreenshotProtection !== false}
+                                                onCheckedChange={(checked) => setInstitute({ ...institute, drmScreenshotProtection: checked })}
+                                            />
+                                        </div>
+                                    </div>
+
                                     <div className="pt-2 flex justify-end">
                                         <Button onClick={handleSaveInstituteSettings} className="gap-2 bg-primary text-primary-foreground font-semibold">
-                                            <Save className="h-4 w-4" /> Save Institute Branding
+                                            <Save className="h-4 w-4" /> Save Organization Settings
                                         </Button>
                                     </div>
                                 </CardContent>
                             </Card>
 
-                            {/* Live Letterhead Preview */}
-                            <Card className="border-2 border-primary/20 bg-background shadow-md overflow-hidden">
+                            {/* Live Letterhead & Watermark Preview */}
+                            <Card className="border-2 border-primary/20 bg-background shadow-md overflow-hidden relative flex flex-col justify-between">
                                 <CardHeader className="bg-primary/5 border-b pb-3">
                                     <CardTitle className="text-sm font-bold flex items-center justify-between">
                                         <span className="flex items-center gap-2 text-primary">
-                                            <FileText className="h-4 w-4" /> Official Letterhead Preview
+                                            <FileText className="h-4 w-4" /> Official Letterhead & Watermark Preview
                                         </span>
                                         <Badge variant="outline" className="font-mono text-[10px]">A4 Format</Badge>
                                     </CardTitle>
                                 </CardHeader>
-                                <CardContent className="p-6 space-y-6">
-                                    <div className="border-b-2 border-primary/40 pb-4 flex items-center justify-between gap-4">
-                                        <div className="flex items-center gap-3">
-                                            {institute.logoUrl ? (
-                                                <img src={institute.logoUrl} alt="Logo" className="h-12 w-12 object-contain rounded border p-1" />
-                                            ) : (
-                                                <div className="h-12 w-12 bg-primary text-primary-foreground rounded flex items-center justify-center font-bold">LOG</div>
-                                            )}
-                                            <div>
-                                                <h3 className="font-bold text-base text-foreground uppercase tracking-wide">{institute.name || "Institute Name"}</h3>
-                                                <p className="text-[11px] text-muted-foreground">{institute.address}</p>
-                                                <p className="text-[10px] font-mono text-muted-foreground">Email: {institute.email} • Tel: {institute.phone}</p>
-                                            </div>
+                                <CardContent className="p-6 space-y-6 relative flex-1">
+                                    {/* Background Watermark / Water Drop Demonstration */}
+                                    {(institute.watermarkUrl || institute.logoUrl) && (
+                                        <div
+                                            className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0 overflow-hidden"
+                                            style={{ opacity: institute.watermarkOpacity ?? 0.08 }}
+                                        >
+                                            <img
+                                                src={institute.watermarkUrl || institute.logoUrl}
+                                                alt="Watermark Preview"
+                                                className="w-64 max-w-[70%] object-contain filter grayscale"
+                                            />
                                         </div>
-                                        {institute.registrationNo && (
-                                            <Badge variant="secondary" className="font-mono text-[10px] shrink-0 border">
-                                                {institute.registrationNo}
-                                            </Badge>
-                                        )}
-                                    </div>
-                                    <div className="space-y-3 py-4 text-xs text-muted-foreground italic font-mono bg-muted/20 p-4 rounded-lg border">
-                                        <p className="font-bold text-foreground not-italic text-sm">OFFICIAL ACADEMIC TRANSCRIPT & REPORT</p>
-                                        <p>This is an automated demonstration of the official letterhead layout applied across all student grade transcripts, course completion certificates, and institutional reports.</p>
-                                        <div className="pt-4 flex items-center justify-between not-italic">
-                                            <span className="text-[10px]">Date: {new Date().toLocaleDateString()}</span>
-                                            <div className="text-right space-y-1">
-                                                {institute.stampUrl ? (
-                                                    <img src={institute.stampUrl} alt="Official Stamp" className="h-10 w-24 object-contain ml-auto border p-0.5 rounded bg-white" />
+                                    )}
+
+                                    {/* Foreground Letterhead Content */}
+                                    <div className="relative z-10 space-y-4">
+                                        <div className="border-b-2 border-primary/40 pb-4 flex items-start justify-between gap-4">
+                                            <div className="flex items-center gap-3 max-w-[60%]">
+                                                {institute.logoUrl ? (
+                                                    <img src={institute.logoUrl} alt="Logo" className="h-12 w-12 object-contain rounded border p-1 shrink-0 bg-white" />
                                                 ) : (
-                                                    <div className="h-8 w-24 bg-muted border rounded border-dashed flex items-center justify-center text-[10px] text-muted-foreground font-mono ml-auto">
-                                                        [Official Stamp]
+                                                    <div className="h-12 w-12 bg-primary text-primary-foreground rounded flex items-center justify-center font-bold shrink-0">LOG</div>
+                                                )}
+                                                <div>
+                                                    <h3 className="font-bold text-sm sm:text-base text-foreground uppercase tracking-wide leading-tight">
+                                                        {institute.name || "Organization Name"}
+                                                    </h3>
+                                                    {institute.registrationNo && (
+                                                        <p className="text-[10px] font-mono text-muted-foreground mt-0.5">
+                                                            Reg No: {institute.registrationNo}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <div className="text-right text-[10px] text-muted-foreground space-y-0.5 max-w-[40%]">
+                                                {institute.cin && (
+                                                    <div className="font-bold text-amber-600 dark:text-amber-400 font-mono">
+                                                        CIN: {institute.cin}
                                                     </div>
                                                 )}
-                                                {institute.signatoryName && (
-                                                    <span className="text-[10px] font-bold text-foreground block">{institute.signatoryName}</span>
-                                                )}
-                                                <span className="text-[10px] font-bold text-foreground block">{institute.signatoryTitle || "Authorized Registrar"}</span>
+                                                {institute.website && <div>Web: {institute.website}</div>}
+                                                {institute.phone && <div>Tel: {institute.phone}</div>}
+                                                {institute.email && <div>Email: {institute.email}</div>}
+                                                {institute.address && <div className="text-[9px] line-clamp-2">{institute.address}</div>}
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-3 py-4 text-xs text-muted-foreground italic font-mono bg-muted/20 p-4 rounded-lg border backdrop-blur-xs">
+                                            <p className="font-bold text-foreground not-italic text-sm">OFFICIAL ACADEMIC STUDY MATERIAL & CURRICULUM TRANSCRIPT</p>
+                                            <p>This is a live preview of your official institutional letterhead with embedded watermark background ("water drop" logo) applied across all student Mnemonics and Flashcards PDF downloads, grade transcripts, and completion certificates.</p>
+                                            <div className="pt-4 flex items-center justify-between not-italic">
+                                                <span className="text-[10px]">Date: {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
+                                                <div className="text-right space-y-1">
+                                                    {institute.stampUrl ? (
+                                                        <img src={institute.stampUrl} alt="Official Stamp" className="h-10 w-24 object-contain ml-auto border p-0.5 rounded bg-white" />
+                                                    ) : (
+                                                        <div className="h-8 w-24 bg-muted border rounded border-dashed flex items-center justify-center text-[10px] text-muted-foreground font-mono ml-auto">
+                                                            [Official Stamp]
+                                                        </div>
+                                                    )}
+                                                    {institute.signatoryName && (
+                                                        <span className="text-[10px] font-bold text-foreground block">{institute.signatoryName}</span>
+                                                    )}
+                                                    <span className="text-[10px] font-bold text-foreground block">{institute.signatoryTitle || "Authorized Registrar"}</span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
                                 </CardContent>
                             </Card>
                         </div>
+
+                        {/* JSON Import Modal Dialog */}
+                        <Dialog open={jsonImportDialogOpen} onOpenChange={setJsonImportDialogOpen}>
+                            <DialogContent className="sm:max-w-lg">
+                                <DialogHeader>
+                                    <DialogTitle className="flex items-center gap-2">
+                                        <FileJson className="h-5 w-5 text-primary" /> Import Organization & Letterhead JSON
+                                    </DialogTitle>
+                                    <DialogDescription>
+                                        Upload a JSON file or paste the organization JSON configuration to update all branding, CIN, watermark, and contact parameters.
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <div className="space-y-4 py-2">
+                                    <div>
+                                        <Label className="text-xs font-semibold">Option A: Upload .json File</Label>
+                                        <input
+                                            type="file"
+                                            accept=".json,application/json"
+                                            onChange={handleImportCompanyJsonFile}
+                                            className="mt-1 block w-full text-xs text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer"
+                                        />
+                                    </div>
+                                    <div className="relative flex py-1 items-center">
+                                        <div className="flex-grow border-t border-border"></div>
+                                        <span className="flex-shrink mx-3 text-xs text-muted-foreground font-semibold">OR</span>
+                                        <div className="flex-grow border-t border-border"></div>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs font-semibold">Option B: Paste JSON Data</Label>
+                                        <Textarea
+                                            value={jsonInputText}
+                                            onChange={(e) => setJsonInputText(e.target.value)}
+                                            placeholder='{\n  "name": "My Academy",\n  "cin": "U72900DL2026PTC389421",\n  "website": "https://example.com",\n  "phone": "+91 9876543210"\n}'
+                                            rows={8}
+                                            className="font-mono text-xs"
+                                        />
+                                    </div>
+                                </div>
+                                <DialogFooter>
+                                    <Button variant="ghost" size="sm" onClick={() => setJsonImportDialogOpen(false)}>
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        disabled={!jsonInputText.trim()}
+                                        onClick={() => applyCompanyJson(jsonInputText)}
+                                        className="gap-1.5 bg-primary text-primary-foreground font-semibold"
+                                    >
+                                        <Check className="h-4 w-4" /> Validate & Apply JSON
+                                    </Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
                     </TabsContent>
 
                     {/* Full System Zero-Loss Snapshot Backup & Recovery Tab */}
@@ -902,10 +1259,14 @@ export default function Settings() {
                                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                                     <div>
                                         <CardTitle className="flex items-center gap-2 text-xl font-bold">
-                                            <HardDrive className="h-6 w-6 text-primary" /> Full System Zero-Loss Backup & Recovery Suite
+                                            <HardDrive className="h-6 w-6 text-primary" /> {institute.name || "Institute"} Zero-Loss Backup & Recovery
                                         </CardTitle>
-                                        <p className="text-xs text-muted-foreground mt-1">
-                                            Export or recover the entire application state: users, courses, curriculum, quizzes, assignments, submissions, live sessions, coupons, and branding settings.
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <Badge variant="outline" className="font-mono text-[10px]">Scope ID: {collegeId}</Badge>
+                                            <Badge className="bg-emerald-600 text-white font-bold text-[10px]">Strict Tenant Isolation</Badge>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground mt-1.5">
+                                            Export or recover data exclusively for {institute.name || "your institute"}: student accounts, faculty, courses, modules, quizzes, assignments, submissions, attendance, flashcards, mnemonics, Astravyuh kingdoms, and official branding.
                                         </p>
                                     </div>
                                     <div className="flex items-center gap-2 shrink-0">
@@ -921,7 +1282,9 @@ export default function Settings() {
                             <CardContent className="space-y-6">
                                 {/* Live System Database Metrics */}
                                 <div className="space-y-2">
-                                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Live Database Record Summary</Label>
+                                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                                        Live Record Summary for {institute.name || "Institute"}
+                                    </Label>
                                     <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
                                         <div className="p-3 rounded-xl border bg-muted/20 text-center">
                                             <p className="text-xl font-bold text-foreground">{loadingStats ? "..." : systemStats?.usersCount || 0}</p>
@@ -972,10 +1335,10 @@ export default function Settings() {
                                     <div className="p-5 rounded-2xl border-2 border-primary/30 bg-primary/5 space-y-4 flex flex-col justify-between">
                                         <div className="space-y-2">
                                             <div className="flex items-center gap-2 text-primary font-bold text-base">
-                                                <Download className="h-5 w-5" /> Export Complete System Snapshot
+                                                <Download className="h-5 w-5" /> Export {institute.name || "Institute"} Snapshot
                                             </div>
                                             <p className="text-xs text-muted-foreground leading-relaxed">
-                                                Generates a comprehensive, encrypted JSON snapshot of 16 database tables and local system configurations. Guaranteed zero data loss recovery file.
+                                                Generates a comprehensive JSON snapshot scoped strictly to {institute.name || "this institute"}. Data of other colleges is strictly excluded to protect student privacy and compliance.
                                             </p>
                                         </div>
                                         <div className="space-y-2 pt-2">
@@ -985,7 +1348,7 @@ export default function Settings() {
                                             </div>
                                             <Button onClick={handleExportSnapshot} disabled={isExportingBackup} className="w-full gap-2 bg-primary text-primary-foreground font-bold shadow-md">
                                                 {isExportingBackup ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileJson className="h-4 w-4" />}
-                                                {isExportingBackup ? "Packaging Complete Snapshot..." : "Export Full System Snapshot (.json)"}
+                                                {isExportingBackup ? "Packaging Institute Snapshot..." : `Export ${institute.name || "Institute"} Backup (.json)`}
                                             </Button>
                                         </div>
                                     </div>
@@ -1112,11 +1475,11 @@ export default function Settings() {
                                     </div>
                                 )}
 
-                                <DialogFooter>
-                                    <Button variant="outline" onClick={() => setRestoreDialogOpen(false)} disabled={isRestoringSystem}>
+                                <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+                                    <Button variant="outline" onClick={() => setRestoreDialogOpen(false)} disabled={isRestoringSystem} className="w-full sm:w-auto">
                                         Cancel
                                     </Button>
-                                    <Button onClick={handleConfirmRestore} disabled={isRestoringSystem} className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+                                    <Button onClick={handleConfirmRestore} disabled={isRestoringSystem} className="w-full sm:w-auto gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
                                         {isRestoringSystem ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
                                         {isRestoringSystem ? "Restoring..." : "Confirm & Recover System Now"}
                                     </Button>

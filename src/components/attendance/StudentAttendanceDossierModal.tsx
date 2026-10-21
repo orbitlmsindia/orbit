@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
+import { getCompanyBranding, CompanyBrandingSettings } from "@/services/brandingService";
 
 export interface AttendanceSessionRecord {
     date: string;
@@ -54,6 +55,7 @@ export interface StudentDossierData {
     courseTitle: string;
     mentorName?: string;
     collegeName?: string;
+    branding?: CompanyBrandingSettings;
     parentName?: string;
     parentEmail?: string;
     parentPhone?: string;
@@ -234,9 +236,16 @@ export function StudentAttendanceDossierModal({
         });
     };
 
+    // Live company letterhead data
+    const branding = dossierData.branding || getCompanyBranding();
+    const instituteName = dossierData.collegeName && dossierData.collegeName !== "Orbit Institute of Technology & Engineering"
+        ? dossierData.collegeName
+        : (branding.name || "Orbit Innovation Academy");
+
     // Pre-written parent dispatch text
     const parentNoticeText = `[OFFICIAL ACADEMIC NOTICE: STUDENT ATTENDANCE REPORT]
-Institute: ${dossierData.collegeName || "Orbit Institute of Technology & Engineering"}
+Institute: ${instituteName}
+Campus: ${branding.address || "Sector 62, Innovation Campus, Tech City, India"}
 Reference: ${refNumber}
 Date: ${new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}
 
@@ -257,7 +266,9 @@ ${isCompliant
 Verified Academic Record: https://orbitlms.com/student/attendance
 
 Faculty Mentor: ${dossierData.mentorName || "Course Instructor"}
-Office of Academic Affairs & Student Compliance`;
+${branding.signatoryTitle || "Office of Academic Affairs & Student Compliance"},
+${instituteName}
+Contact: ${branding.phone || "+91 98765 43210"} | ${branding.email || "office@orbitlms.edu.in"}`;
 
     const handleCopyNotice = () => {
         navigator.clipboard.writeText(parentNoticeText);
@@ -333,21 +344,52 @@ Office of Academic Affairs & Student Compliance`;
                 <div className="overflow-y-auto flex-1 pr-1 sm:pr-2 space-y-5 py-4 text-foreground print:p-0 print:overflow-visible">
                     {/* Official Letterhead Header */}
                     <div className="p-4 sm:p-5 rounded-2xl border bg-card/60 space-y-4 border-border/80 relative overflow-hidden shadow-xs">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
-                            <div className="flex items-center gap-3">
-                                <div className="h-12 w-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-primary text-xl shrink-0">
-                                    <Building2 className="h-6 w-6 text-primary" />
-                                </div>
-                                <div>
+                        {/* Background Watermark */}
+                        <div
+                            className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden"
+                            style={{ opacity: branding.watermarkOpacity || 0.05 }}
+                        >
+                            {branding.watermarkUrl || branding.logoUrl ? (
+                                <img
+                                    src={branding.watermarkUrl || branding.logoUrl}
+                                    alt="Watermark"
+                                    className="w-72 max-w-[70%] object-contain filter grayscale"
+                                />
+                            ) : null}
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 relative z-10">
+                            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3.5 text-center sm:text-left">
+                                {branding.logoUrl ? (
+                                    <img
+                                        src={branding.logoUrl}
+                                        alt={instituteName}
+                                        className="h-14 w-14 object-contain rounded-xl border p-1 bg-white shadow-sm shrink-0"
+                                        onError={(e) => {
+                                            (e.target as HTMLElement).style.display = 'none';
+                                        }}
+                                    />
+                                ) : (
+                                    <div className="h-14 w-14 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-primary text-xl shrink-0">
+                                        <Building2 className="h-7 w-7 text-primary" />
+                                    </div>
+                                )}
+                                <div className="space-y-0.5">
                                     <h2 className="font-display font-extrabold text-base sm:text-lg text-foreground tracking-wide uppercase">
-                                        {dossierData.collegeName || "Orbit Institute of Technology & Engineering"}
+                                        {instituteName}
                                     </h2>
                                     <p className="text-[11px] text-muted-foreground uppercase tracking-widest font-mono">
                                         Accredited Council for Technical & Academic Excellence
                                     </p>
                                     <p className="text-[10px] text-muted-foreground">
-                                        Office of Academic Affairs, Examination Registry & Student Welfare
+                                        {branding.address || "Orbit Technology Campus, Sector 62, Tech City, India"}
                                     </p>
+                                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-0.5 text-[9px] font-mono text-muted-foreground">
+                                        {branding.cin && <span>CIN: {branding.cin}</span>}
+                                        {branding.registrationNo && <span>• Reg: {branding.registrationNo}</span>}
+                                        {branding.phone && <span>• Tel: {branding.phone}</span>}
+                                        {branding.email && <span>• {branding.email}</span>}
+                                    </div>
                                 </div>
                             </div>
 
@@ -514,7 +556,7 @@ Office of Academic Affairs & Student Compliance`;
                         </div>
 
                         {/* Sign-off & Verification Section */}
-                        <div className="pt-4 border-t border-border/80 grid grid-cols-1 sm:grid-cols-3 gap-6 text-xs text-muted-foreground mt-4">
+                        <div className="pt-4 border-t border-border/80 grid grid-cols-1 sm:grid-cols-3 gap-6 text-xs text-muted-foreground mt-4 relative z-10">
                             <div className="text-center sm:text-left space-y-1">
                                 <p className="font-semibold text-foreground">{dossierData.mentorName || "Course Faculty Mentor"}</p>
                                 <p className="text-[10px]">Lead Course Instructor</p>
@@ -523,9 +565,21 @@ Office of Academic Affairs & Student Compliance`;
                             </div>
 
                             <div className="text-center space-y-1">
-                                <p className="font-semibold text-foreground">Office of Academic Dean</p>
-                                <p className="text-[10px]">Controller of Examinations</p>
-                                <div className="border-b border-border/80 w-32 mx-auto mt-6"></div>
+                                <div className="h-10 flex items-center justify-center">
+                                    {branding.stampUrl ? (
+                                        <img
+                                            src={branding.stampUrl}
+                                            alt="Official Seal"
+                                            className="h-10 w-10 object-contain opacity-90 rotate-6"
+                                        />
+                                    ) : (
+                                        <div className="w-10 h-10 rounded-full border border-primary/40 flex flex-col items-center justify-center text-[7px] font-mono text-primary rotate-6 uppercase">
+                                            <span>SEAL</span>
+                                        </div>
+                                    )}
+                                </div>
+                                <p className="font-semibold text-foreground">{branding.signatoryTitle || "Office of Academic Dean"}</p>
+                                <p className="text-[10px]">{branding.signatoryName || "Controller of Examinations"}</p>
                                 <p className="text-[9px] uppercase font-mono pt-0.5">Institutional Seal & Stamp</p>
                             </div>
 

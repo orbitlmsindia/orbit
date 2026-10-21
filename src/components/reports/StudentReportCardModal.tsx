@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Printer, Download, Award, Sparkles, FileText, CheckCircle2, Building2, ShieldCheck, Clock } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { getCompanyBranding, CompanyBrandingSettings } from "@/services/brandingService";
 
 interface StudentReportCardModalProps {
   open: boolean;
@@ -27,17 +28,7 @@ interface StudentReportCardModalProps {
 }
 
 export function StudentReportCardModal({ open, onOpenChange, student }: StudentReportCardModalProps) {
-  const [institute, setInstitute] = useState<any>({
-    name: "Orbit LMS Innovation Academy",
-    logoUrl: "https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=150&auto=format&fit=crop&q=80",
-    registrationNo: "REG-ORBIT-2026/8942",
-    email: "contact@orbitlms.edu.in",
-    phone: "+91 98765 43210",
-    address: "Orbit Technology Campus, Sector 62, Tech City, India",
-    stampUrl: "",
-    signatoryTitle: "Authorized Registrar",
-    signatoryName: ""
-  });
+  const [institute, setInstitute] = useState<CompanyBrandingSettings>(() => getCompanyBranding());
 
   const [studentEnrollments, setStudentEnrollments] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -50,12 +41,7 @@ export function StudentReportCardModal({ open, onOpenChange, student }: StudentR
   }, [open, student]);
 
   const loadInstituteSettings = () => {
-    const saved = localStorage.getItem("orbit_institute_settings");
-    if (saved) {
-      try {
-        setInstitute(JSON.parse(saved));
-      } catch (e) {}
-    }
+    setInstitute(getCompanyBranding());
   };
 
   const fetchStudentDetails = async (studentId: string) => {
@@ -175,8 +161,23 @@ export function StudentReportCardModal({ open, onOpenChange, student }: StudentR
         </DialogHeader>
 
         {/* Printable Letterhead Container */}
-        <div id="printable-report-card" className="p-4 sm:p-8 space-y-4 sm:space-y-6 bg-background">
-          {/* 1. Official Letterhead Header Banner */}
+        <div id="printable-report-card" className="relative p-4 sm:p-8 space-y-4 sm:space-y-6 bg-background overflow-hidden">
+          {/* Subtle Background Watermark / Water Drop Institutional Crest */}
+          {(institute.watermarkUrl || institute.logoUrl) && (
+            <div 
+              className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0"
+              style={{ opacity: institute.watermarkOpacity ?? 0.06 }}
+            >
+              <img 
+                src={institute.watermarkUrl || institute.logoUrl} 
+                alt="Institutional Crest Watermark" 
+                className="w-72 sm:w-96 max-w-[80%] max-h-[80%] object-contain grayscale" 
+              />
+            </div>
+          )}
+
+          <div className="relative z-10 space-y-4 sm:space-y-6">
+            {/* 1. Official Letterhead Header Banner */}
           <div className="border-b-2 border-primary/50 pb-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               {institute.logoUrl ? (
@@ -317,6 +318,7 @@ export function StudentReportCardModal({ open, onOpenChange, student }: StudentR
               <span className="font-bold text-foreground block text-xs">{institute.signatoryTitle || "Authorized Registrar"}</span>
               <span className="text-[10px] text-muted-foreground block">{institute.name}</span>
             </div>
+          </div>
           </div>
         </div>
 

@@ -21,6 +21,12 @@ import { JsonCalendarUpdaterModal } from "@/components/calendar/JsonCalendarUpda
 import { AuraLedgerSheet } from "@/components/ledger/AuraLedgerSheet";
 import { ThemeStudioModal } from "@/components/theme/ThemeStudioModal";
 import { getFluxBalance } from "@/services/themeService";
+import {
+  getStoredAuraPoints,
+  setStoredAuraPoints,
+  getStoredCredits,
+  setStoredCredits
+} from "@/services/gamificationService";
 
 interface TopBarProps {
   userName?: string;
@@ -41,8 +47,8 @@ export function TopBar({
   const [email, setEmail] = useState(initialUserEmail);
   const [avatar, setAvatar] = useState(userAvatar);
   const [spotlightOpen, setSpotlightOpen] = useState(false);
-  const [auraPoints, setAuraPoints] = useState(0);
-  const [totalCredits, setTotalCredits] = useState(0);
+  const [auraPoints, setAuraPoints] = useState<number>(() => getStoredAuraPoints());
+  const [totalCredits, setTotalCredits] = useState<number>(() => getStoredCredits());
   const [userRole, setUserRole] = useState("student");
   const [ledgerSheetOpen, setLedgerSheetOpen] = useState(false);
   const [themeStudioOpen, setThemeStudioOpen] = useState(false);
@@ -52,8 +58,22 @@ export function TopBar({
     const handleFluxUpdate = (e: any) => {
       setFluxBalance(e?.detail ?? getFluxBalance());
     };
+    const handleAuraUpdate = (e: any) => {
+      setAuraPoints(e?.detail ?? getStoredAuraPoints());
+    };
+    const handleCreditsUpdate = (e: any) => {
+      setTotalCredits(e?.detail ?? getStoredCredits());
+    };
+
     window.addEventListener("orbit_flux_updated", handleFluxUpdate);
-    return () => window.removeEventListener("orbit_flux_updated", handleFluxUpdate);
+    window.addEventListener("orbit_aura_updated", handleAuraUpdate);
+    window.addEventListener("orbit_credits_updated", handleCreditsUpdate);
+
+    return () => {
+      window.removeEventListener("orbit_flux_updated", handleFluxUpdate);
+      window.removeEventListener("orbit_aura_updated", handleAuraUpdate);
+      window.removeEventListener("orbit_credits_updated", handleCreditsUpdate);
+    };
   }, []);
 
   useEffect(() => {
@@ -108,9 +128,20 @@ export function TopBar({
 
           const subAura = (subs || []).reduce((acc, s) => acc + (s.grade || 0), 0);
 
-          // Total Aura = base DB points + completed sessions + graded assignments (NO points for just joining)
-          setAuraPoints((profile.aura_points || 0) + sectionAura + subAura);
-          setTotalCredits(computedCredits);
+          // Total Aura combines database points, activity, and cached awards
+          const totalCalculatedAura = Math.max(
+            (profile.aura_points || 0) + sectionAura + subAura,
+            getStoredAuraPoints()
+          );
+          const totalCalculatedCredits = Math.max(
+            computedCredits,
+            getStoredCredits()
+          );
+
+          setAuraPoints(totalCalculatedAura);
+          setStoredAuraPoints(totalCalculatedAura);
+          setTotalCredits(totalCalculatedCredits);
+          setStoredCredits(totalCalculatedCredits);
         }
       }
     };

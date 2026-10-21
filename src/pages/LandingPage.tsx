@@ -33,6 +33,18 @@ import {
   Layers,
   IndianRupee,
   Clock,
+  Brain,
+  Swords,
+  Zap,
+  Shield,
+  ExternalLink,
+  FileText,
+  TrendingUp,
+  Activity,
+  Quote,
+  Target,
+  Crown,
+  Compass,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useTheme } from "@/components/theme-provider";
@@ -434,17 +446,21 @@ export default function LandingPage() {
           </div>
 
           {/* Desktop Nav Items */}
-          <div className="hidden md:flex items-center gap-6">
+          <div className="hidden md:flex items-center gap-4 lg:gap-5">
             <button onClick={() => scrollToSection("home")} className="text-xs font-semibold hover:text-primary transition-colors">Home</button>
+            <button onClick={() => scrollToSection("xie-methodology")} className="text-xs font-bold text-amber-500 hover:text-amber-400 flex items-center gap-1 transition-colors">
+              <Brain className="h-3.5 w-3.5" /> XIE Science
+            </button>
+            <button onClick={() => scrollToSection("astravyuh")} className="text-xs font-bold text-rose-500 hover:text-rose-400 flex items-center gap-1 transition-colors">
+              <Swords className="h-3.5 w-3.5" /> Astravyuh
+            </button>
             <button onClick={() => navigate("/experience")} className="text-xs font-bold text-primary flex items-center gap-1 bg-primary/10 px-3 py-1.5 rounded-full border border-primary/30 hover:bg-primary/20 transition-all shadow-sm">
               <Sparkles className="h-3.5 w-3.5 text-amber-500 fill-amber-500/20" /> Experience Orbit
             </button>
-            <button onClick={() => scrollToSection("about")} className="text-xs font-semibold hover:text-primary transition-colors">About Us</button>
             <button onClick={() => scrollToSection("features")} className="text-xs font-semibold hover:text-primary transition-colors">Features</button>
             <button onClick={() => scrollToSection("courses")} className="text-xs font-semibold hover:text-primary transition-colors">Courses</button>
             <button onClick={() => scrollToSection("pricing")} className="text-xs font-semibold hover:text-primary transition-colors">Plans & Pricing</button>
-            <button onClick={() => navigate("/blog")} className="text-xs font-semibold hover:text-primary transition-colors">Blog & Research</button>
-            <button onClick={() => navigate("/careers")} className="text-xs font-semibold hover:text-primary transition-colors">Careers</button>
+            <button onClick={() => navigate("/blog")} className="text-xs font-semibold hover:text-primary transition-colors">Research</button>
             <button onClick={() => scrollToSection("contact")} className="text-xs font-semibold hover:text-primary transition-colors">Contact</button>
           </div>
 
@@ -504,6 +520,18 @@ export default function LandingPage() {
               className="w-full text-left py-2.5 px-3 rounded-xl hover:bg-muted/50 text-sm font-semibold flex items-center gap-2.5 touch-press transition-colors"
             >
               <Rocket className="h-4 w-4 text-primary" /> Home
+            </button>
+            <button
+              onClick={() => { setMobileMenuOpen(false); scrollToSection("xie-methodology"); }}
+              className="w-full text-left py-2.5 px-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-sm font-bold text-amber-500 flex items-center gap-2.5 touch-press"
+            >
+              <Brain className="h-4 w-4 text-amber-500" /> XIE Psychology Science (SSRN)
+            </button>
+            <button
+              onClick={() => { setMobileMenuOpen(false); scrollToSection("astravyuh"); }}
+              className="w-full text-left py-2.5 px-3 rounded-xl bg-rose-500/10 border border-rose-500/25 text-sm font-bold text-rose-500 flex items-center gap-2.5 touch-press"
+            >
+              <Swords className="h-4 w-4 text-rose-500" /> SINVERSE: Astravyuh Arena
             </button>
             <button
               onClick={() => { setMobileMenuOpen(false); navigate("/experience"); }}
@@ -571,37 +599,609 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section id="home" className="pt-28 sm:pt-36 pb-16 sm:pb-24 px-4 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-primary/10 via-amber-500/5 to-transparent -z-10" />
-        <div className="container mx-auto text-center max-w-4xl">
+        <div className="container mx-auto text-center max-w-5xl">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
             className="space-y-6"
           >
-            <Badge variant="outline" className="px-3 py-1 border-primary/30 bg-primary/10 text-primary font-mono text-xs rounded-full inline-flex items-center gap-1.5">
-              <Sparkles className="h-3.5 w-3.5 text-amber-500 fill-amber-500/30" /> Orbit LMS 2.5 • Gamified Academic Ecosystem
-            </Badge>
+            {/* SSRN Research Badge */}
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <button
+                onClick={() => scrollToSection("xie-methodology")}
+                className="px-4 py-1.5 border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 font-mono text-xs rounded-full inline-flex items-center gap-2 transition-all shadow-sm cursor-pointer group"
+              >
+                <Brain className="h-3.5 w-3.5 text-amber-500 group-hover:scale-110 transition-transform" />
+                <span>🔬 Grounded in Published Research: <strong>eXtended Interactive Education (XIE)</strong> [SSRN: 7004538]</span>
+                <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
+              </button>
+            </div>
 
             <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold font-display leading-tight tracking-tight">
-              Next-Gen Gamified <br />
+              Rewarding Effort. Igniting Minds. <br />
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary via-accent to-amber-500">
-                Learning Management System
+                Psychology-Driven Gamified LMS
               </span>
             </h1>
 
-            <p className="text-base sm:text-xl text-muted-foreground max-w-2xl mx-auto font-normal">
-              Empowering students, educators, and administrators with AI-driven workflows, ✨ Aura XP gamification, mandatory credit points, anti-piracy video playback, and complete institutional control.
+            <p className="text-base sm:text-xl text-muted-foreground max-w-3xl mx-auto font-normal leading-relaxed">
+              Orbit LMS operationalizes the published <strong>XIE Educational Framework</strong> by <strong>Er. Harshvardhan Purohit</strong> (Founder & CEO, SIN Technologies). We replace passive classrooms with high-performance environmental psychology: &lt;30-second operant reward loops, cross-batch mutual monitoring, 4-house collective stakes, and kingdom warfare.
             </p>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-              <Button size="lg" className="w-full sm:w-auto h-12 px-8 text-base font-bold gap-2 shadow-lg bg-primary text-primary-foreground" onClick={() => navigate("/register")}>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-3">
+              <Button size="lg" className="w-full sm:w-auto h-12 px-8 text-base font-bold gap-2 shadow-lg bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer" onClick={() => navigate("/register")}>
                 Start Learning Free <ArrowRight className="h-4 w-4" />
               </Button>
-              <Button size="lg" variant="outline" className="w-full sm:w-auto h-12 px-8 text-base font-bold gap-2 border-primary/40 text-primary hover:bg-primary/10 shadow-sm" onClick={() => navigate("/experience")}>
-                <Sparkles className="h-4 w-4 text-amber-500 fill-amber-500/20" /> Experience Orbit Presentation
+              <Button size="lg" variant="outline" className="w-full sm:w-auto h-12 px-7 text-base font-bold gap-2 border-amber-500/40 text-amber-500 hover:bg-amber-500/10 shadow-sm cursor-pointer" onClick={() => scrollToSection("xie-methodology")}>
+                <Brain className="h-4 w-4 text-amber-500" /> Explore XIE Science
+              </Button>
+              <Button size="lg" variant="ghost" className="w-full sm:w-auto h-12 px-6 text-sm font-bold gap-2 text-foreground/80 hover:text-foreground hover:bg-muted/60 cursor-pointer" onClick={() => window.open("https://papers.ssrn.com/sol3/papers.cfm?abstract_id=7004538", "_blank")}>
+                <FileText className="h-4 w-4 text-primary" /> Read SSRN Paper <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
               </Button>
             </div>
+
+            {/* Quick Psychological & Gamification Feature Pills */}
+            <div className="pt-6 grid grid-cols-2 md:grid-cols-4 gap-3 max-w-4xl mx-auto text-left">
+              <div className="p-3.5 rounded-xl bg-card border border-border/80 shadow-xs space-y-1 hover:border-amber-500/40 transition-colors">
+                <div className="flex items-center gap-2 text-amber-500 font-bold text-xs">
+                  <Zap className="h-4 w-4" /> &lt;30s Reward Loop
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-snug">
+                  Immediate operant conditioning feedback vs semester-end marks.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-card border border-border/80 shadow-xs space-y-1 hover:border-primary/40 transition-colors">
+                <div className="flex items-center gap-2 text-primary font-bold text-xs">
+                  <Crown className="h-4 w-4" /> 4 House Identities
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-snug">
+                  Gryffindor, Ravenclaw, Hufflepuff & Slytherin collective stakes.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-card border border-border/80 shadow-xs space-y-1 hover:border-cyan-500/40 transition-colors">
+                <div className="flex items-center gap-2 text-cyan-500 font-bold text-xs">
+                  <Activity className="h-4 w-4" /> Mutual Monitoring
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-snug">
+                  Cross-batch live scoreboard driving 2.8x voluntary study effort.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-card border border-border/80 shadow-xs space-y-1 hover:border-rose-500/40 transition-colors">
+                <div className="flex items-center gap-2 text-rose-500 font-bold text-xs">
+                  <Swords className="h-4 w-4" /> 3 Astras & Kingdoms
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-snug">
+                  Homework and tests power Citadels, Flix coins & War Arena sieges.
+                </p>
+              </div>
+            </div>
           </motion.div>
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* SECTION: XIE METHODOLOGY & PSYCHOLOGICAL LEARNING SYSTEM (SSRN: 7004538) */}
+      {/* ========================================================================= */}
+      <section id="xie-methodology" className="py-20 sm:py-28 px-4 bg-muted/20 border-y relative overflow-hidden">
+        {/* Ambient background glow */}
+        <div className="absolute top-0 right-1/4 w-96 h-96 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="container mx-auto max-w-6xl relative z-10 space-y-16">
+          {/* Section Header */}
+          <div className="text-center space-y-4 max-w-3xl mx-auto">
+            <Badge variant="outline" className="px-3 py-1 border-amber-500/40 bg-amber-500/10 text-amber-500 font-mono text-xs uppercase tracking-wider inline-flex items-center gap-1.5">
+              <Brain className="h-3.5 w-3.5" /> Peer-Reviewed Pedagogy & Cognitive Science
+            </Badge>
+            <h2 className="text-3xl sm:text-5xl font-extrabold font-display tracking-tight text-foreground">
+              eXtended Interactive Education (XIE)
+            </h2>
+            <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
+              Standard classroom design removes the three core mechanisms that make high-performance environments work: <em>immediate feedback</em>, <em>visible competition</em>, and <em>collective accountability</em>. XIE puts them back into the heart of software.
+            </p>
+          </div>
+
+          {/* Official SSRN Research Paper Citation Showcase Card */}
+          <div className="rounded-3xl border-2 border-amber-500/30 bg-card p-6 sm:p-10 shadow-xl relative overflow-hidden">
+            <div className="absolute -top-12 -right-12 w-48 h-48 bg-gradient-to-br from-amber-500/20 to-primary/10 rounded-full blur-2xl pointer-events-none" />
+
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8">
+              <div className="space-y-4 max-w-3xl">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge className="bg-amber-500 text-black font-extrabold text-[11px] uppercase tracking-wider">
+                    SSRN Published Research
+                  </Badge>
+                  <span className="text-xs text-muted-foreground font-mono">SSRN Abstract ID: 7004538</span>
+                  <span className="text-xs text-muted-foreground">•</span>
+                  <span className="text-xs font-semibold text-foreground">R&D Division of SIN School of AI</span>
+                </div>
+
+                <h3 className="text-xl sm:text-2xl lg:text-3xl font-extrabold font-display text-foreground leading-snug">
+                  eXtended Interactive Education (XIE): House-Based Gamification, Cross-Batch Competition, and the Psychology of Reward-Driven Learning
+                </h3>
+
+                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                  <strong>Author:</strong> Er. Harshvardhan Purohit (Founder & CEO, SIN Technologies / SIN School of AI) • <a href="mailto:ceo@sintechnologies.in" className="text-primary hover:underline">ceo@sintechnologies.in</a>
+                </p>
+
+                <p className="text-xs sm:text-sm text-foreground/90 leading-relaxed italic border-l-2 border-amber-500 pl-3">
+                  "If you give students the same environmental infrastructure that high-performance environments use, they perform like high-performance environments. Not because the syllabus changed, but because the reward architecture changed."
+                </p>
+
+                <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground pt-1">
+                  <span className="flex items-center gap-1.5">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500" /> Tested on 200 Students at Lucky Institute of Professional Studies
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500" /> Replicated with ~180 Students at JIET Universe, Jodhpur
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row lg:flex-col gap-3 w-full lg:w-auto shrink-0">
+                <Button
+                  size="lg"
+                  className="bg-amber-500 hover:bg-amber-600 text-black font-extrabold text-xs sm:text-sm shadow-md gap-2 cursor-pointer h-12"
+                  onClick={() => window.open("https://papers.ssrn.com/sol3/papers.cfm?abstract_id=7004538", "_blank")}
+                >
+                  <FileText className="h-4 w-4" /> View Paper on SSRN <ExternalLink className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="border-border text-foreground hover:bg-muted font-bold text-xs sm:text-sm cursor-pointer h-12"
+                  onClick={() => scrollToSection("reward-loop")}
+                >
+                  <TrendingUp className="h-4 w-4 text-primary" /> See 4-Step Reward Loop
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Deep Insight Callout: Confidence as an Output */}
+          <div className="p-6 rounded-2xl bg-gradient-to-r from-amber-500/10 via-primary/10 to-transparent border border-amber-500/20 flex flex-col md:flex-row items-center gap-5">
+            <div className="p-3.5 rounded-2xl bg-amber-500/20 text-amber-500 shrink-0">
+              <Quote className="h-7 w-7" />
+            </div>
+            <div className="space-y-1 text-center md:text-left">
+              <h4 className="font-bold text-base text-foreground">The Paradigm Shift: Confidence is an Output, Not an Input</h4>
+              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                <em>"There is a common assumption in education that confidence must be built before performance can improve. What we observed was the exact opposite. Confidence rose after rank improvements, not before them. Students did not need hollow encouragement — they needed a scoreboard that confirmed they were doing something that mattered."</em>
+                <span className="block mt-1 font-semibold text-foreground/80">— Er. Harshvardhan Purohit, XIE SSRN Paper</span>
+              </p>
+            </div>
+          </div>
+
+          {/* The Four Theoretical Psychological Pillars */}
+          <div className="space-y-6">
+            <div className="text-center space-y-2">
+              <Badge variant="outline" className="text-xs uppercase tracking-widest text-primary border-primary/30">Theoretical Foundations</Badge>
+              <h3 className="text-2xl sm:text-3xl font-extrabold font-display">The 4 Psychological Pillars of Orbit</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground max-w-2xl mx-auto">
+                Decades of behavioral psychology synthesized by XIE to engineer genuine intrinsic motivation.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {/* Pillar 1 */}
+              <div className="p-6 rounded-2xl bg-card border border-border hover:border-primary/50 transition-all space-y-3 shadow-xs">
+                <div className="p-3 bg-primary/10 text-primary rounded-xl w-fit border border-primary/20">
+                  <Brain className="h-6 w-6" />
+                </div>
+                <h4 className="text-base font-bold">1. Self-Determination Theory</h4>
+                <div className="text-[11px] font-mono text-primary">Deci & Ryan (1985, 2000)</div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Intrinsic motivation requires <strong>Autonomy</strong>, <strong>Competence</strong>, and <strong>Relatedness</strong>. Rigid classrooms undercut all three. XIE re-engineers them: house tactics restore autonomy; live session points provide instant competence signals; house membership creates authentic relatedness.
+                </p>
+              </div>
+
+              {/* Pillar 2 */}
+              <div className="p-6 rounded-2xl bg-card border border-border hover:border-amber-500/50 transition-all space-y-3 shadow-xs">
+                <div className="p-3 bg-amber-500/10 text-amber-500 rounded-xl w-fit border border-amber-500/20">
+                  <Zap className="h-6 w-6" />
+                </div>
+                <h4 className="text-base font-bold">2. Operant Conditioning</h4>
+                <div className="text-[11px] font-mono text-amber-500">B.F. Skinner (1938)</div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Behavior followed by immediate reinforcement repeats. End-of-term grades fail because they arrive months late. A point earned <strong>30 seconds</strong> after answering runs the reward loop at <em>session frequency</em>, not <em>semester frequency</em>. That turns single answers into enduring study habits.
+                </p>
+              </div>
+
+              {/* Pillar 3 */}
+              <div className="p-6 rounded-2xl bg-card border border-border hover:border-cyan-500/50 transition-all space-y-3 shadow-xs">
+                <div className="p-3 bg-cyan-500/10 text-cyan-500 rounded-xl w-fit border border-cyan-500/20">
+                  <TrendingUp className="h-6 w-6" />
+                </div>
+                <h4 className="text-base font-bold">3. Social Comparison Theory</h4>
+                <div className="text-[11px] font-mono text-cyan-500">Leon Festinger (1954)</div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  People gauge ability by comparing with peers. On one shared leaderboard with 200+ students across multiple batches, comparison is formal and live. This produces the <strong>Mutual Monitoring Dynamic</strong>: trailing batches watch rivals and ramp up voluntary study without teacher prompting.
+                </p>
+              </div>
+
+              {/* Pillar 4 */}
+              <div className="p-6 rounded-2xl bg-card border border-border hover:border-rose-500/50 transition-all space-y-3 shadow-xs">
+                <div className="p-3 bg-rose-500/10 text-rose-500 rounded-xl w-fit border border-rose-500/20">
+                  <Shield className="h-6 w-6" />
+                </div>
+                <h4 className="text-base font-bold">4. Social Identity Theory</h4>
+                <div className="text-[11px] font-mono text-rose-500">Tajfel & Turner (1979)</div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Group membership shapes individual effort far more reliably than individual incentives. A student who is personally behind may disengage; but a student whose house is 3 points behind a rival batch house leaps to action. Collective stakes pull disengaged students back into the arena.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* The Four-Step Reward Loop */}
+          <div id="reward-loop" className="space-y-6 pt-4">
+            <div className="text-center space-y-2">
+              <Badge variant="outline" className="text-xs uppercase tracking-widest text-amber-500 border-amber-500/30">The Motivation Engine</Badge>
+              <h3 className="text-2xl sm:text-3xl font-extrabold font-display">The XIE 4-Step Reward Loop</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground max-w-2xl mx-auto">
+                How Orbit converts academic friction into voluntary, self-sustaining study velocity.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="p-5 rounded-2xl bg-card border relative overflow-hidden space-y-2.5">
+                <div className="text-3xl font-extrabold font-mono text-amber-500/30">01</div>
+                <h4 className="text-base font-bold text-foreground">See the Gap</h4>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  The shared live leaderboard makes rank disparity undeniable. The gap between your house and the rival cohort above is an objective number. Numbers are impossible to ignore.
+                </p>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-card border relative overflow-hidden space-y-2.5">
+                <div className="text-3xl font-extrabold font-mono text-primary/30">02</div>
+                <h4 className="text-base font-bold text-foreground">Feel the Pull</h4>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  That gap creates a healthy, low-level competitive discomfort distinct from exam anxiety. It is not about failing; it is about an active race where victory is within reach.
+                </p>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-card border relative overflow-hidden space-y-2.5">
+                <div className="text-3xl font-extrabold font-mono text-cyan-500/30">03</div>
+                <h4 className="text-base font-bold text-foreground">Take the Rep</h4>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  One more correct answer. One session of full attendance. One peer helped. Because the feedback is instantaneous, students take the next micro-rep for their house team.
+                </p>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-card border relative overflow-hidden space-y-2.5">
+                <div className="text-3xl font-extrabold font-mono text-emerald-500/30">04</div>
+                <h4 className="text-base font-bold text-foreground">Bank the Win</h4>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  House points register in real time. Both batches see the board move. Rival cohorts recalculate. Self-belief compounds individually; house identity compounds at the team level.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* The Four-House Academic Architecture Matrix */}
+          <div className="space-y-6 pt-4">
+            <div className="text-center space-y-2">
+              <Badge variant="outline" className="text-xs uppercase tracking-widest text-primary border-primary/30">Character & Behavioral Design</Badge>
+              <h3 className="text-2xl sm:text-3xl font-extrabold font-display">The Four-House Academic Architecture</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground max-w-2xl mx-auto">
+                House design is not cosmetic. It gives students an identity that pre-exists their performance, setting an immediate behavioural expectation to live up to.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {/* Gryffindor */}
+              <div className="p-6 rounded-2xl bg-card border border-rose-500/30 hover:shadow-lg transition-all space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">🦁</span>
+                    <h4 className="font-extrabold text-lg text-rose-500">Gryffindor</h4>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] border-rose-500/40 text-rose-500">Bold & Fearless</Badge>
+                </div>
+                <div className="space-y-2 text-xs">
+                  <div>
+                    <span className="font-semibold text-foreground">Academic Traits Rewarded:</span>
+                    <p className="text-muted-foreground mt-0.5">Initiative, intellectual risk-taking, leading debates, asking difficult questions.</p>
+                  </div>
+                  <div className="pt-2 border-t">
+                    <span className="font-semibold text-foreground">Point Triggers:</span>
+                    <p className="text-muted-foreground mt-0.5">First to answer; challenging peer assertions; volunteering for live code demos.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Ravenclaw */}
+              <div className="p-6 rounded-2xl bg-card border border-sky-500/30 hover:shadow-lg transition-all space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">🦅</span>
+                    <h4 className="font-extrabold text-lg text-sky-500">Ravenclaw</h4>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] border-sky-500/40 text-sky-500">Analytical & Precise</Badge>
+                </div>
+                <div className="space-y-2 text-xs">
+                  <div>
+                    <span className="font-semibold text-foreground">Academic Traits Rewarded:</span>
+                    <p className="text-muted-foreground mt-0.5">Concept accuracy, depth of reasoning, algorithmic elegance, research quality.</p>
+                  </div>
+                  <div className="pt-2 border-t">
+                    <span className="font-semibold text-foreground">Point Triggers:</span>
+                    <p className="text-muted-foreground mt-0.5">Flawless technical solutions; spotting hidden compiler errors; concept mastery.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Hufflepuff */}
+              <div className="p-6 rounded-2xl bg-card border border-amber-500/30 hover:shadow-lg transition-all space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">🦡</span>
+                    <h4 className="font-extrabold text-lg text-amber-500">Hufflepuff</h4>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-500">Consistent & Collaborative</Badge>
+                </div>
+                <div className="space-y-2 text-xs">
+                  <div>
+                    <span className="font-semibold text-foreground">Academic Traits Rewarded:</span>
+                    <p className="text-muted-foreground mt-0.5">Attendance consistency, peer mentorship, dependable execution, reliability.</p>
+                  </div>
+                  <div className="pt-2 border-t">
+                    <span className="font-semibold text-foreground">Point Triggers:</span>
+                    <p className="text-muted-foreground mt-0.5">100% attendance streak; documented tutoring of a peer; team task completion.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Slytherin */}
+              <div className="p-6 rounded-2xl bg-card border border-emerald-500/30 hover:shadow-lg transition-all space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">🐍</span>
+                    <h4 className="font-extrabold text-lg text-emerald-500">Slytherin</h4>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-500">Ambitious & Strategic</Badge>
+                </div>
+                <div className="space-y-2 text-xs">
+                  <div>
+                    <span className="font-semibold text-foreground">Academic Traits Rewarded:</span>
+                    <p className="text-muted-foreground mt-0.5">Competitive velocity, leaderboard climbing, tactical study sprints, resilience.</p>
+                  </div>
+                  <div className="pt-2 border-t">
+                    <span className="font-semibold text-foreground">Point Triggers:</span>
+                    <p className="text-muted-foreground mt-0.5">Largest rank jump per session; outperforming rival house in benchmark timed rounds.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Structural Comparison: Conventional vs. XIE Framework */}
+          <div className="space-y-6 pt-4">
+            <div className="text-center space-y-2">
+              <Badge variant="outline" className="text-xs uppercase tracking-widest text-primary border-primary/30">Comparative Architecture</Badge>
+              <h3 className="text-2xl sm:text-3xl font-extrabold font-display">Conventional Classroom vs. Orbit XIE</h3>
+            </div>
+
+            <div className="w-full overflow-x-auto rounded-2xl border bg-card shadow-sm">
+              <table className="w-full text-left text-xs sm:text-sm min-w-[620px]">
+                <thead className="bg-muted/70 text-foreground border-b font-bold">
+                  <tr>
+                    <th className="p-4 w-1/4">Dimension</th>
+                    <th className="p-4 w-3/8 text-muted-foreground">Conventional Classroom</th>
+                    <th className="p-4 w-3/8 text-primary bg-primary/5">Orbit XIE Framework</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  <tr>
+                    <td className="p-4 font-semibold text-foreground">Motivation Trigger</td>
+                    <td className="p-4 text-muted-foreground">Grades at semester end (delayed historical record)</td>
+                    <td className="p-4 font-semibold text-foreground bg-primary/5">House points within same session (&lt;30s living feedback)</td>
+                  </tr>
+                  <tr>
+                    <td className="p-4 font-semibold text-foreground">Performance Feedback</td>
+                    <td className="p-4 text-muted-foreground">Monthly or quarterly exam results</td>
+                    <td className="p-4 font-semibold text-foreground bg-primary/5">Real-time live scoreboard; every quiz question moves rank</td>
+                  </tr>
+                  <tr>
+                    <td className="p-4 font-semibold text-foreground">Student Identity</td>
+                    <td className="p-4 text-muted-foreground">Isolated individual learner prone to disengagement</td>
+                    <td className="p-4 font-semibold text-foreground bg-primary/5">House member with collective accountability & role expectations</td>
+                  </tr>
+                  <tr>
+                    <td className="p-4 font-semibold text-foreground">Inter-Batch Relationship</td>
+                    <td className="p-4 text-muted-foreground">Batches are completely isolated silos</td>
+                    <td className="p-4 font-semibold text-foreground bg-primary/5">Shared cross-batch leaderboard; mutual monitoring loop</td>
+                  </tr>
+                  <tr>
+                    <td className="p-4 font-semibold text-foreground">Peer Dynamic</td>
+                    <td className="p-4 text-muted-foreground">Competition is informal, uncalibrated & invisible</td>
+                    <td className="p-4 font-semibold text-foreground bg-primary/5">Formal, scored, publicly celebrated & multidimensional</td>
+                  </tr>
+                  <tr>
+                    <td className="p-4 font-semibold text-foreground">Failure Response</td>
+                    <td className="p-4 text-muted-foreground">Anxiety, resignation, or complete drop-out</td>
+                    <td className="p-4 font-semibold text-foreground bg-primary/5">Team tactical adjustment; next rep immediately queued</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Empirical Validation & Findings Banner */}
+          <div className="rounded-2xl border bg-gradient-to-br from-card via-card to-amber-500/5 p-6 sm:p-8 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
+              <div>
+                <Badge variant="outline" className="text-[10px] uppercase font-mono text-emerald-500 border-emerald-500/30 bg-emerald-500/10">
+                  Empirical Proof
+                </Badge>
+                <h4 className="text-lg sm:text-xl font-bold mt-1 text-foreground">Field Test Results (Lucky Institute & JIET Universe)</h4>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Conducted by SIN School of AI under Er. Harshvardhan Purohit
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 pt-2">
+              <div className="space-y-1">
+                <div className="text-2xl font-extrabold font-mono text-primary">98.4%</div>
+                <div className="text-xs font-bold text-foreground">Attendance Retention</div>
+                <p className="text-[11px] text-muted-foreground">Missing a session created an immediate cost to house standings.</p>
+              </div>
+
+              <div className="space-y-1">
+                <div className="text-2xl font-extrabold font-mono text-amber-500">2.8x</div>
+                <div className="text-xs font-bold text-foreground">Voluntary Practice</div>
+                <p className="text-[11px] text-muted-foreground">Surge in after-session questions, peer tutoring & self-initiated coding.</p>
+              </div>
+
+              <div className="space-y-1">
+                <div className="text-2xl font-extrabold font-mono text-cyan-500">&lt; 7 Days</div>
+                <div className="text-xs font-bold text-foreground">Identity Adoption</div>
+                <p className="text-[11px] text-muted-foreground">Students began describing peers and contributions by house identity.</p>
+              </div>
+
+              <div className="space-y-1">
+                <div className="text-2xl font-extrabold font-mono text-emerald-500">74% Less</div>
+                <div className="text-xs font-bold text-foreground">Teacher Nagging</div>
+                <p className="text-[11px] text-muted-foreground">The live scoreboard handled re-engagement faster than instructor prompts.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* SECTION: SINVERSE: ASTRAVYUH — The XIE Engine in Action */}
+      {/* ========================================================================= */}
+      <section id="astravyuh" className="py-20 sm:py-28 px-4 bg-background relative overflow-hidden">
+        <div className="container mx-auto max-w-6xl space-y-16">
+          <div className="text-center space-y-4 max-w-3xl mx-auto">
+            <Badge variant="outline" className="px-3 py-1 border-rose-500/40 bg-rose-500/10 text-rose-500 font-mono text-xs uppercase tracking-wider inline-flex items-center gap-1.5">
+              <Swords className="h-3.5 w-3.5" /> Orbit Native Gamified Warfare
+            </Badge>
+            <h2 className="text-3xl sm:text-5xl font-extrabold font-display tracking-tight text-foreground">
+              SINVERSE: ASTRAVYUH
+            </h2>
+            <p className="text-lg sm:text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-rose-500 via-amber-500 to-primary">
+              Build Your Empire. Master Your Astras. Conquer the Arena.
+            </p>
+            <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
+              How Orbit LMS turns XIE theory into living software: solve assignments to harvest gold & mana, unlock ancient battle Astras, build your Citadel kingdom, and wage real-time cross-batch sieges.
+            </p>
+          </div>
+
+          {/* Three Functional Battle Astras Showcase */}
+          <div className="space-y-6">
+            <div className="text-center space-y-2">
+              <h3 className="text-xl sm:text-2xl font-extrabold font-display">The Three Mythical Battle Astras</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                Earned strictly through academic mastery. Deployed in live cross-batch kingdom battles.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Agni Astra */}
+              <div className="p-6 rounded-2xl bg-card border border-rose-500/40 shadow-md hover:shadow-xl transition-all space-y-4 relative overflow-hidden">
+                <div className="absolute top-0 right-0 bg-rose-500/10 text-rose-500 text-[10px] font-mono px-3 py-1 rounded-bl-xl font-bold border-l border-b border-rose-500/30">
+                  OFFENSIVE WEAPON
+                </div>
+                <div className="text-4xl">🔥</div>
+                <div>
+                  <h4 className="text-xl font-extrabold text-rose-500">Agni Astra</h4>
+                  <div className="text-xs font-mono font-bold text-foreground mt-0.5">+10 Attack Damage in War Sieges</div>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Bestowed on students who demonstrate academic initiative, tackle complex coding algorithms first, and lead class debates. Crushes rival defensive turrets in the Battle Arena.
+                </p>
+                <div className="pt-2 border-t text-[11px] font-semibold text-rose-400 flex items-center gap-1.5">
+                  <Flame className="h-3.5 w-3.5" /> Gryffindor & Slytherin Affinity
+                </div>
+              </div>
+
+              {/* Varun Astra */}
+              <div className="p-6 rounded-2xl bg-card border border-sky-500/40 shadow-md hover:shadow-xl transition-all space-y-4 relative overflow-hidden">
+                <div className="absolute top-0 right-0 bg-sky-500/10 text-sky-500 text-[10px] font-mono px-3 py-1 rounded-bl-xl font-bold border-l border-b border-sky-500/30">
+                  DEFENSIVE SHIELD
+                </div>
+                <div className="text-4xl">🌊</div>
+                <div>
+                  <h4 className="text-xl font-extrabold text-sky-500">Varun Astra</h4>
+                  <div className="text-xs font-mono font-bold text-foreground mt-0.5">+15 Defense Shielding</div>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Bestowed on students with unbroken 100% attendance records and documented peer tutoring. Erects an impenetrable water barrier that protects your citadel from enemy attacks.
+                </p>
+                <div className="pt-2 border-t text-[11px] font-semibold text-sky-400 flex items-center gap-1.5">
+                  <Shield className="h-3.5 w-3.5" /> Hufflepuff & Ravenclaw Affinity
+                </div>
+              </div>
+
+              {/* Vayu Astra */}
+              <div className="p-6 rounded-2xl bg-card border border-amber-500/40 shadow-md hover:shadow-xl transition-all space-y-4 relative overflow-hidden">
+                <div className="absolute top-0 right-0 bg-amber-500/10 text-amber-500 text-[10px] font-mono px-3 py-1 rounded-bl-xl font-bold border-l border-b border-amber-500/30">
+                  TACTICAL VELOCITY
+                </div>
+                <div className="text-4xl">⚡</div>
+                <div>
+                  <h4 className="text-xl font-extrabold text-amber-500">Vayu Astra</h4>
+                  <div className="text-xs font-mono font-bold text-foreground mt-0.5">+15 Attack Speed & Agility</div>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Bestowed on students who achieve rapid quiz completion with high conceptual precision. Unleashes gale-force speed strikes that overwhelm rival fortifications in fast-paced arena sieges.
+                </p>
+                <div className="pt-2 border-t text-[11px] font-semibold text-amber-400 flex items-center gap-1.5">
+                  <Zap className="h-3.5 w-3.5" /> Balanced Across All Houses
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Gameplay Engine Feature Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+            <div className="p-6 rounded-2xl bg-card border space-y-3">
+              <div className="p-3 bg-primary/10 text-primary rounded-xl w-fit border border-primary/20">
+                <Building2 className="h-6 w-6" />
+              </div>
+              <h4 className="text-base font-bold">Citadel Kingdom Development</h4>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Construct and upgrade Town Halls, Gold Mines, Mana Vaults, Barracks, and Defense Turrets. Every building upgrade directly reflects completed lecture modules and assignment submissions.
+              </p>
+            </div>
+
+            <div className="p-6 rounded-2xl bg-card border space-y-3">
+              <div className="p-3 bg-amber-500/10 text-amber-500 rounded-xl w-fit border border-amber-500/20">
+                <IndianRupee className="h-6 w-6" />
+              </div>
+              <h4 className="text-base font-bold">Orbit Flix Virtual Economy</h4>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                The gamified currency of Orbit LMS. Earn Flix by participating in live classes, achieving study streaks, and scoring 90%+ on tests. Spend Flix on building upgrades and defensive fortifications.
+              </p>
+            </div>
+
+            <div className="p-6 rounded-2xl bg-card border space-y-3">
+              <div className="p-3 bg-rose-500/10 text-rose-500 rounded-xl w-fit border border-rose-500/20">
+                <ShieldCheck className="h-6 w-6" />
+              </div>
+              <h4 className="text-base font-bold">100% LMS Decoupled Architecture</h4>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Formal institution grading, official university transcripts, and accredited degree credits are kept strictly pristine and isolated, while students enjoy full immersion in gaming warfare.
+              </p>
+            </div>
+          </div>
+
+          <div className="text-center pt-2">
+            <Button
+              size="lg"
+              className="bg-gradient-to-r from-rose-500 via-amber-500 to-primary text-white font-extrabold text-sm px-8 h-12 shadow-lg hover:opacity-95 cursor-pointer gap-2"
+              onClick={() => navigate("/register")}
+            >
+              <Swords className="h-4 w-4" /> Enter the Astravyuh Arena Now <ArrowRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </section>
 
@@ -1195,12 +1795,16 @@ export default function LandingPage() {
             </div>
             <span className="font-display font-bold text-sm text-foreground">Orbit LMS India</span>
           </div>
-          <div className="flex flex-wrap items-center justify-center gap-5 text-xs font-medium">
+          <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-5 text-xs font-medium">
             <button onClick={() => scrollToSection("home")} className="hover:text-foreground">Home</button>
+            <button onClick={() => scrollToSection("xie-methodology")} className="text-amber-500 font-bold hover:underline">XIE Pedagogy</button>
+            <button onClick={() => scrollToSection("astravyuh")} className="text-rose-500 font-bold hover:underline">SINVERSE Astravyuh</button>
             <button onClick={() => scrollToSection("features")} className="hover:text-foreground">Features</button>
             <button onClick={() => scrollToSection("pricing")} className="hover:text-foreground">Plans & Pricing</button>
-            <button onClick={() => navigate("/blog")} className="text-primary hover:underline font-bold">SEO Blogs & Research</button>
-            <button onClick={() => navigate("/careers")} className="hover:text-foreground">Careers</button>
+            <button onClick={() => window.open("https://papers.ssrn.com/sol3/papers.cfm?abstract_id=7004538", "_blank")} className="text-primary hover:underline font-bold flex items-center gap-1">
+              SSRN Paper <ExternalLink className="h-3 w-3" />
+            </button>
+            <button onClick={() => navigate("/blog")} className="hover:text-foreground">Research Blog</button>
             <button onClick={() => scrollToSection("contact")} className="hover:text-foreground">Enterprise Support</button>
           </div>
           <p>© {new Date().getFullYear()} Orbit LMS India. All rights reserved.</p>

@@ -5,9 +5,19 @@ import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { format } from "date-fns";
-import { Activity, ShieldCheck, ShieldAlert, Zap, Server, Globe2, Users, CheckCircle2, Lock, Cpu, Download, Upload, Loader2 } from "lucide-react";
+import { Activity, ShieldCheck, ShieldAlert, Zap, Server, Globe2, Users, CheckCircle2, Lock, Cpu, Download, Upload, Loader2, Building2, Search, FileJson, HardDrive, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { exportFullSystemBackup, restoreFullSystemBackup } from "@/lib/fullSystemBackup";
+import {
+    exportFullSystemBackup,
+    restoreFullSystemBackup,
+    exportAllInstitutesMasterBackup,
+    exportInstituteBackup,
+    fetchMasterInstitutesDirectory,
+    InstituteDirectoryItem
+} from "@/lib/fullSystemBackup";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export default function MasterMonitoring() {
     const { toast } = useToast();
@@ -27,21 +37,69 @@ export default function MasterMonitoring() {
     const [isRestoring, setIsRestoring] = useState(false);
     const [restoreProgressMsg, setRestoreProgressMsg] = useState("");
     const [restoreLogs, setRestoreLogs] = useState<string[]>([]);
+    const [institutes, setInstitutes] = useState<InstituteDirectoryItem[]>([]);
+    const [selectedCollegeForBackup, setSelectedCollegeForBackup] = useState<string>("all");
+    const [loadingInstitutes, setLoadingInstitutes] = useState(false);
+    const [exportingCollegeId, setExportingCollegeId] = useState<string | null>(null);
+    const [instituteSearch, setInstituteSearch] = useState("");
 
-    const handleDownloadBackup = async () => {
+    const loadInstitutesDirectory = async () => {
+        try {
+            setLoadingInstitutes(true);
+            const list = await fetchMasterInstitutesDirectory();
+            setInstitutes(list);
+        } catch (e) {
+            console.error("Error loading institutes directory:", e);
+        } finally {
+            setLoadingInstitutes(false);
+        }
+    };
+
+    const handleDownloadBackup = async (targetId?: string) => {
+        const idToExport = targetId || selectedCollegeForBackup;
         try {
             setIsExporting(true);
-            toast({ title: "Generating Snapshot 📦", description: "Exporting all institutional tables..." });
-            const res = await exportFullSystemBackup();
-            if (res.success) {
-                toast({ title: "Backup Complete! ✅", description: `Saved snapshot: ${res.filename}` });
+            if (idToExport === "all") {
+                toast({ title: "Generating Master Archive 📦", description: "Exporting all institute IDs existing on the application..." });
+                const res = await exportAllInstitutesMasterBackup();
+                if (res.success) {
+                    toast({ title: "Master Backup Complete! ✅", description: `Saved snapshot: ${res.filename}` });
+                } else {
+                    toast({ variant: "destructive", title: "Backup Warning", description: res.error || "Failed to export tables." });
+                }
             } else {
-                toast({ variant: "destructive", title: "Backup Warning", description: res.error || "Failed to export tables." });
+                const targetInst = institutes.find(i => i.id === idToExport);
+                toast({ title: "Exporting Institute 📦", description: `Exporting data for ${targetInst?.name || idToExport}...` });
+                const res = await exportInstituteBackup(idToExport);
+                if (res.success) {
+                    toast({ title: "Institute Backup Complete! ✅", description: `Saved snapshot: ${res.filename}` });
+                } else {
+                    toast({ variant: "destructive", title: "Backup Warning", description: res.error || "Failed to export institute." });
+                }
             }
+            loadInstitutesDirectory();
         } catch (err: any) {
             toast({ variant: "destructive", title: "Backup Failed", description: err.message });
         } finally {
             setIsExporting(false);
+        }
+    };
+
+    const handleExportSpecificInstitute = async (collegeId: string, collegeName: string) => {
+        try {
+            setExportingCollegeId(collegeId);
+            toast({ title: "Exporting Institute 📦", description: `Packaging ${collegeName}...` });
+            const res = await exportInstituteBackup(collegeId);
+            if (res.success) {
+                toast({ title: "Institute Backup Complete! ✅", description: `Saved snapshot: ${res.filename}` });
+                loadInstitutesDirectory();
+            } else {
+                toast({ variant: "destructive", title: "Backup Error", description: res.error });
+            }
+        } catch (err: any) {
+            toast({ variant: "destructive", title: "Export Failed", description: err.message });
+        } finally {
+            setExportingCollegeId(null);
         }
     };
 
@@ -132,6 +190,7 @@ export default function MasterMonitoring() {
 
     useEffect(() => {
         fetchRealMetrics();
+        loadInstitutesDirectory();
         const interval = setInterval(fetchRealMetrics, 15000); // Live ping every 15s
         return () => clearInterval(interval);
     }, []);
@@ -312,29 +371,53 @@ export default function MasterMonitoring() {
                 </Card>
             </div>
 
-            {/* Zero-Loss Disaster Recovery & System Backup Engine */}
+            {/* Master Multi-Institute Disaster Recovery & Database Backup Engine */}
             <Card className="bg-slate-900 border border-slate-800 text-white rounded-xl shadow-lg mt-6 overflow-hidden">
                 <CardHeader className="border-b border-slate-800 bg-slate-950/40 p-6">
-                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                    <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
                         <div className="space-y-1">
-                            <CardTitle className="text-lg font-bold text-white flex items-center gap-2">
-                                <Server className="h-5 w-5 text-indigo-400" />
-                                Enterprise Zero-Loss Database Backup & Instant Restore
-                            </CardTitle>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <CardTitle className="text-lg font-bold text-white flex items-center gap-2">
+                                    <Server className="h-5 w-5 text-indigo-400" />
+                                    Master Multi-Institute Database Backup & Instant Restore
+                                </CardTitle>
+                                <Badge className="bg-indigo-600 text-white text-xs font-mono font-bold">
+                                    Root Authority
+                                </Badge>
+                            </div>
                             <CardDescription className="text-slate-400 text-xs">
-                                Create instant full-database snapshots or restore system state across colleges, courses, questions, marks, and student aura points with zero data loss.
+                                Back up all institute IDs existing across the entire platform in a single master archive, or generate isolated backups for individual institutes on demand.
                             </CardDescription>
                         </div>
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full lg:w-auto">
+                            {/* Scope Selector */}
+                            <div className="w-full sm:w-64">
+                                <Select value={selectedCollegeForBackup} onValueChange={setSelectedCollegeForBackup}>
+                                    <SelectTrigger className="bg-slate-950 border-slate-700 text-xs text-slate-200 h-9">
+                                        <SelectValue placeholder="Select Backup Scope" />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-slate-900 border-slate-800 text-slate-200 text-xs">
+                                        <SelectItem value="all">🌐 All Institutes (Full Archive)</SelectItem>
+                                        {institutes.map(inst => (
+                                            <SelectItem key={inst.id} value={inst.id}>
+                                                🏛️ [{inst.code}] {inst.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
                             <Button
-                                onClick={handleDownloadBackup}
+                                onClick={() => handleDownloadBackup()}
                                 disabled={isExporting}
-                                className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white gap-2 font-semibold shadow-md text-xs sm:text-sm"
+                                className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white gap-2 font-semibold shadow-md text-xs sm:text-sm shrink-0"
                             >
                                 {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                                Download System Backup (.json)
+                                {selectedCollegeForBackup === "all" ? "Download All-Institutes Backup (.json)" : "Download Institute Backup (.json)"}
                             </Button>
-                            <label className="cursor-pointer w-full sm:w-auto">
+
+                            <label className="cursor-pointer w-full sm:w-auto shrink-0">
                                 <input
                                     type="file"
                                     accept=".json"
@@ -354,22 +437,131 @@ export default function MasterMonitoring() {
                         </div>
                     </div>
                 </CardHeader>
-                <CardContent className="p-6">
+                <CardContent className="p-6 space-y-6">
+                    {/* Top Stats */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="p-4 rounded-lg bg-slate-950/60 border border-slate-800 space-y-1">
-                            <p className="text-xs text-slate-400">Total System Tables Protected</p>
-                            <p className="text-xl font-bold font-mono text-indigo-400">28 Database Tables</p>
-                            <p className="text-[11px] text-slate-500">Includes users, colleges, courses, quizzes, submissions, coupons, aura points & invoices</p>
+                            <p className="text-xs text-slate-400 flex items-center gap-1.5">
+                                <Building2 className="h-3.5 w-3.5 text-indigo-400" /> Registered Institutes Scope
+                            </p>
+                            <p className="text-xl font-bold font-mono text-indigo-400">{institutes.length} Institutes Online</p>
+                            <p className="text-[11px] text-slate-500">Every college ID backed up with foreign key dependency mapping</p>
                         </div>
                         <div className="p-4 rounded-lg bg-slate-950/60 border border-slate-800 space-y-1">
-                            <p className="text-xs text-slate-400">Integrity & Ordering</p>
-                            <p className="text-xl font-bold font-mono text-emerald-400">Strict FK Sequencing</p>
-                            <p className="text-[11px] text-slate-500">Relational upsert avoids foreign key violation; idempotent on conflict</p>
+                            <p className="text-xs text-slate-400 flex items-center gap-1.5">
+                                <HardDrive className="h-3.5 w-3.5 text-emerald-400" /> Database & Game Tables Protected
+                            </p>
+                            <p className="text-xl font-bold font-mono text-emerald-400">34 Database Tables</p>
+                            <p className="text-[11px] text-slate-500">Includes users, colleges, courses, quizzes, submissions, Astravyuh kingdoms & audits</p>
                         </div>
                         <div className="p-4 rounded-lg bg-slate-950/60 border border-slate-800 space-y-1">
-                            <p className="text-xs text-slate-400">Restore Status</p>
+                            <p className="text-xs text-slate-400 flex items-center gap-1.5">
+                                <ShieldCheck className="h-3.5 w-3.5 text-amber-400" /> Restoration Engine Status
+                            </p>
                             <p className="text-xl font-bold font-mono text-amber-400">{restoreProgressMsg || "Ready for Snapshot"}</p>
-                            <p className="text-[11px] text-slate-500">Zero-loss snapshot engine verified and active</p>
+                            <p className="text-[11px] text-slate-500">Relational upsert with strict FK dependency ordering</p>
+                        </div>
+                    </div>
+
+                    {/* Directory of All Existing Institutes Table */}
+                    <div className="space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div>
+                                <h3 className="font-bold text-sm text-slate-200 flex items-center gap-2">
+                                    <Building2 className="h-4 w-4 text-indigo-400" />
+                                    All Institute IDs Existing on Application ({institutes.length})
+                                </h3>
+                                <p className="text-xs text-slate-400">
+                                    Download individual institute backups directly or inspect tenant metrics.
+                                </p>
+                            </div>
+                            <div className="relative w-full sm:w-64">
+                                <Search className="h-3.5 w-3.5 absolute left-2.5 top-2.5 text-slate-500" />
+                                <Input
+                                    placeholder="Filter by institute name or code..."
+                                    value={instituteSearch}
+                                    onChange={(e) => setInstituteSearch(e.target.value)}
+                                    className="h-8 pl-8 text-xs bg-slate-950 border-slate-800 text-slate-200"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="rounded-lg border border-slate-800 bg-slate-950/60 overflow-hidden">
+                            <div className="overflow-x-auto w-full">
+                                <Table>
+                                    <TableHeader className="bg-slate-950 text-slate-400 text-xs">
+                                        <TableRow className="border-slate-800 hover:bg-transparent">
+                                            <TableHead className="text-slate-300">Institute Name & Code</TableHead>
+                                            <TableHead className="text-slate-300">Institute ID</TableHead>
+                                            <TableHead className="text-slate-300 text-center">Students</TableHead>
+                                            <TableHead className="text-slate-300 text-center">Teachers</TableHead>
+                                            <TableHead className="text-slate-300 text-center">Courses</TableHead>
+                                            <TableHead className="text-slate-300 text-center">Status</TableHead>
+                                            <TableHead className="text-slate-300 text-right">Actions</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody className="text-xs">
+                                        {institutes
+                                            .filter(inst =>
+                                                inst.name.toLowerCase().includes(instituteSearch.toLowerCase()) ||
+                                                inst.code.toLowerCase().includes(instituteSearch.toLowerCase()) ||
+                                                (inst.email && inst.email.toLowerCase().includes(instituteSearch.toLowerCase()))
+                                            )
+                                            .map((inst) => {
+                                                const isExportingThis = exportingCollegeId === inst.id;
+
+                                                return (
+                                                    <TableRow key={inst.id} className="border-slate-800/60 hover:bg-slate-900/60 transition-colors">
+                                                        <TableCell className="font-semibold text-slate-200">
+                                                            <div className="flex items-center gap-2">
+                                                                <span>{inst.name}</span>
+                                                                <Badge variant="outline" className="text-[10px] border-slate-700 text-slate-400 font-mono">
+                                                                    {inst.code}
+                                                                </Badge>
+                                                            </div>
+                                                            {inst.email && (
+                                                                <p className="text-[11px] text-slate-400 font-normal">{inst.email}</p>
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell className="font-mono text-[11px] text-slate-400">
+                                                            {inst.id}
+                                                        </TableCell>
+                                                        <TableCell className="text-center font-bold text-slate-300">
+                                                            {inst.studentCount}
+                                                        </TableCell>
+                                                        <TableCell className="text-center font-bold text-slate-300">
+                                                            {inst.teacherCount}
+                                                        </TableCell>
+                                                        <TableCell className="text-center font-bold text-indigo-400">
+                                                            {inst.courseCount}
+                                                        </TableCell>
+                                                        <TableCell className="text-center">
+                                                            <Badge className={
+                                                                inst.status === "Active"
+                                                                    ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px]"
+                                                                    : "bg-red-500/20 text-red-400 border-red-500/30 text-[10px]"
+                                                            }>
+                                                                {inst.status}
+                                                            </Badge>
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                onClick={() => handleExportSpecificInstitute(inst.id, inst.name)}
+                                                                disabled={isExportingThis || isExporting}
+                                                                className="gap-1.5 text-xs font-semibold border-indigo-500/40 text-indigo-300 hover:bg-indigo-950/40"
+                                                            >
+                                                                {isExportingThis ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+                                                                {isExportingThis ? "Exporting..." : "Export JSON"}
+                                                            </Button>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                );
+                                            })}
+                                    </TableBody>
+                                </Table>
+                            </div>
                         </div>
                     </div>
 

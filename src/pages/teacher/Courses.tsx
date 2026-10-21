@@ -4,7 +4,7 @@ import { TeacherLayout } from "@/components/layout/TeacherLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Users, MoreVertical, Loader2, BookOpen, Trash2, Pencil, Sparkles, Ticket, IndianRupee, Download, FileCode } from "lucide-react";
+import { Plus, Search, Users, MoreVertical, Loader2, BookOpen, Trash2, Pencil, Sparkles, Ticket, IndianRupee, Download, FileCode, HardDrive } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
@@ -262,9 +262,9 @@ export default function TeacherCourses() {
                             <Sparkles className="h-4 w-4" /> JSON Importer & Studio
                         </Button>
                     </Link>
-                    <Link to="/teacher/courses/json-builder?tab=export-course">
-                        <Button variant="outline" size="sm" className="gap-2 border-emerald-500/30 hover:bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 text-xs font-semibold">
-                            <Download className="h-4 w-4" /> Export Course JSON
+                    <Link to="/teacher/backup">
+                        <Button variant="outline" size="sm" className="gap-2 border-indigo-500/30 hover:bg-indigo-500/5 text-indigo-600 dark:text-indigo-400 text-xs font-semibold">
+                            <HardDrive className="h-4 w-4" /> Classroom Backup
                         </Button>
                     </Link>
                     <Button

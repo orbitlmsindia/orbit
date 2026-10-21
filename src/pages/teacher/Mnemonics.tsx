@@ -18,11 +18,14 @@ import {
     Sparkles,
     ExternalLink,
     Download,
-    Upload
+    Upload,
+    FileText,
+    Loader2
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { exportAllMnemonicsToJson, downloadJsonFile, copyJsonToClipboard } from "@/lib/courseJsonImporter";
+import { downloadMnemonicsPdf } from "@/lib/pdfReportGenerator";
 
 interface TeacherMnemonicItem {
     id: string;
@@ -53,6 +56,7 @@ export default function TeacherMnemonics() {
     const [genSubject, setGenSubject] = useState("");
     const [genWords, setGenWords] = useState("");
     const [generating, setGenerating] = useState(false);
+    const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
     useEffect(() => {
         async function fetchCourses() {
@@ -71,22 +75,108 @@ export default function TeacherMnemonics() {
     useEffect(() => {
         try {
             const stored = localStorage.getItem("orbit_mnemonics");
+            let list: any[] = [];
             if (stored) {
                 const parsed = JSON.parse(stored);
                 if (Array.isArray(parsed) && parsed.length > 0) {
-                    const formatted = parsed.map((m: any) => ({
-                        id: m.id,
-                        courseId: m.courseId || null,
-                        title: m.title,
-                        acronym: m.acronym,
-                        phrase: m.phrase,
-                        course: m.course || m.subject || "Curriculum",
-                        termsCount: m.termsCount || (m.breakdown?.length || m.acronym?.length || 4),
-                        verified: true
-                    }));
-                    setMnemonics(formatted);
+                    list = parsed;
                 }
             }
+            if (list.length === 0) {
+                list = [
+                    {
+                        id: "mne-osi",
+                        title: "OSI 7 Layers (Bottom to Top)",
+                        acronym: "PDNTSPA",
+                        phrase: "Please Do Not Throw Sausage Pizza Away",
+                        subject: "Computer Networks",
+                        course: "Computer Networks",
+                        category: "Network Architecture",
+                        explanation: "Memorizes the standard 7 Open Systems Interconnection layers starting from Layer 1 (Physical) to Layer 7 (Application).",
+                        breakdown: [
+                            { letter: "P", word: "Physical (Layer 1)", meaning: "Transmits raw bitstream over physical media (cables, fiber, RF radio signals)." },
+                            { letter: "D", word: "Data Link (Layer 2)", meaning: "Node-to-node data transfer, error framing, and physical MAC addressing." },
+                            { letter: "N", word: "Network (Layer 3)", meaning: "Routing packets across networks and logical IP addressing." },
+                            { letter: "T", word: "Transport (Layer 4)", meaning: "End-to-end delivery, flow control, segmentation, and reliability." },
+                            { letter: "S", word: "Session (Layer 5)", meaning: "Establishes, manages, and terminates interactive dialogue sessions between applications." },
+                            { letter: "P", word: "Presentation (Layer 6)", meaning: "Data translation, character encoding, compression, and cryptographic encryption." },
+                            { letter: "A", word: "Application (Layer 7)", meaning: "End-user interface and application protocols." }
+                        ],
+                        examTip: "If the question asks from Top to Bottom (Layer 7 to 1), reverse it: 'All People Seem To Need Data Processing'!",
+                        termsCount: 7,
+                        verified: true
+                    },
+                    {
+                        id: "mne-acid",
+                        title: "ACID Database Transaction Properties",
+                        acronym: "ACID",
+                        phrase: "Atomic Code Is Durable",
+                        subject: "Databases",
+                        course: "Database Systems",
+                        category: "Transaction Management",
+                        explanation: "The four non-negotiable guarantees required for reliable database transaction processing.",
+                        breakdown: [
+                            { letter: "A", word: "Atomicity", meaning: "All-or-nothing execution. Modifications commit or roll back entirely." },
+                            { letter: "C", word: "Consistency", meaning: "The database transitions from one valid state to another obeying all constraints." },
+                            { letter: "I", word: "Isolation", meaning: "Concurrent transactions execute independently without partial reads or dirty data interference." },
+                            { letter: "D", word: "Durability", meaning: "Once a transaction commits, changes survive crashes via Write-Ahead Logging (WAL)." }
+                        ],
+                        examTip: "Examiners love asking about Isolation Anomalies: Dirty Reads, Non-repeatable Reads, and Phantom Reads!",
+                        termsCount: 4,
+                        verified: true
+                    },
+                    {
+                        id: "mne-solid",
+                        title: "SOLID Principles of Object-Oriented Design",
+                        acronym: "SOLID",
+                        phrase: "Software Organizes Logical Interfaces Dependably",
+                        subject: "Software Engineering",
+                        course: "Software Engineering",
+                        category: "Design Patterns",
+                        explanation: "Five core design principles introduced by Uncle Bob to build maintainable, decoupled codebases.",
+                        breakdown: [
+                            { letter: "S", word: "Single Responsibility", meaning: "A class or module should have only one reason to change." },
+                            { letter: "O", word: "Open / Closed", meaning: "Software entities should be open for extension, but closed for modification." },
+                            { letter: "L", word: "Liskov Substitution", meaning: "Subclasses must be substitutable for base classes without breaking program correctness." },
+                            { letter: "I", word: "Interface Segregation", meaning: "Clients should not be forced to depend on methods they do not use." },
+                            { letter: "D", word: "Dependency Inversion", meaning: "High-level modules should depend on abstractions, not concrete implementations." }
+                        ],
+                        examTip: "Always tie Liskov Substitution Principle to behavioral subtyping in design exams.",
+                        termsCount: 5,
+                        verified: true
+                    },
+                    {
+                        id: "mne-cap",
+                        title: "CAP Theorem in Distributed Systems",
+                        acronym: "CAP",
+                        phrase: "Choose Any Pair: Consistency, Availability, Partition tolerance",
+                        subject: "Distributed Systems",
+                        course: "Cloud Architecture",
+                        category: "System Architecture",
+                        explanation: "States that a distributed data store can simultaneously provide at most two of the three guarantees in presence of network partitions.",
+                        breakdown: [
+                            { letter: "C", word: "Consistency", meaning: "Every read receives the most recent write or an error." },
+                            { letter: "A", word: "Availability", meaning: "Every non-failing node returns a non-error response." },
+                            { letter: "P", word: "Partition Tolerance", meaning: "The cluster operates despite arbitrary packet drops or network partitions." }
+                        ],
+                        examTip: "In real-world networks where partitions (P) are inevitable, you must choose between CP or AP!",
+                        termsCount: 3,
+                        verified: true
+                    }
+                ];
+                localStorage.setItem("orbit_mnemonics", JSON.stringify(list));
+            }
+            const formatted = list.map((m: any) => ({
+                id: m.id,
+                courseId: m.courseId || null,
+                title: m.title,
+                acronym: m.acronym,
+                phrase: m.phrase,
+                course: m.course || m.subject || "Curriculum",
+                termsCount: m.termsCount || (m.breakdown?.length || m.acronym?.length || 4),
+                verified: true
+            }));
+            setMnemonics(formatted);
         } catch (e) {
             console.error("Error loading stored mnemonics:", e);
         }
@@ -253,6 +343,27 @@ export default function TeacherMnemonics() {
         }
     };
 
+    const handleDownloadPdf = async () => {
+        setIsDownloadingPdf(true);
+        try {
+            const stored = localStorage.getItem("orbit_mnemonics");
+            const fullList = stored ? JSON.parse(stored) : [];
+            const listToPrint = Array.isArray(fullList) && fullList.length > 0 ? fullList : mnemonics;
+            await downloadMnemonicsPdf({
+                mnemonics: listToPrint,
+                courseTitle: "Faculty Curriculum Mnemonics Guide"
+            });
+            toast({
+                title: "PDF Study Guide Downloaded! 📄",
+                description: "Generated official faculty guide with institutional letterhead and watermark."
+            });
+        } catch (e: any) {
+            toast({ variant: "destructive", title: "PDF Export Failed", description: e.message });
+        } finally {
+            setIsDownloadingPdf(false);
+        }
+    };
+
     return (
         <TeacherLayout>
             <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 pb-20 animate-in fade-in duration-300">
@@ -283,6 +394,17 @@ export default function TeacherMnemonics() {
                             className="gap-1.5 text-xs font-semibold h-9 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/5"
                         >
                             <Download className="h-3.5 w-3.5" /> Export JSON
+                        </Button>
+
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleDownloadPdf}
+                            disabled={isDownloadingPdf}
+                            className="gap-1.5 text-xs font-semibold h-9 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
+                        >
+                            {isDownloadingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+                            Download PDF
                         </Button>
 
                         <Link to="/teacher/courses/json-builder?tab=mnemonics-import">

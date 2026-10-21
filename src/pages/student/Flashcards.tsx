@@ -32,11 +32,14 @@ import {
     Zap,
     HelpCircle,
     Check,
-    Download
+    Download,
+    FileText,
+    Loader2
 } from "lucide-react";
 import { triggerConfetti } from "@/lib/confetti";
 import { supabase } from "@/lib/supabase";
 import { downloadJsonFile, copyJsonToClipboard, importFlashcardsFromJson } from "@/lib/courseJsonImporter";
+import { downloadFlashcardsPdf } from "@/lib/pdfReportGenerator";
 
 export interface Flashcard {
     id: string;
@@ -244,6 +247,7 @@ export default function StudentFlashcards() {
     const [selectedSubject, setSelectedSubject] = useState("all");
     const [studyStreak, setStudyStreak] = useState(4);
     const [masteredCount, setMasteredCount] = useState(0);
+    const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
     // Sync selectedCourseId if courseIdParam changes
     useEffect(() => {
@@ -584,6 +588,40 @@ export default function StudentFlashcards() {
         }
     };
 
+    const handleDownloadPdf = async () => {
+        const cardsToPrint = selectedDeck?.cards && selectedDeck.cards.length > 0 
+            ? selectedDeck.cards 
+            : decks.flatMap(d => d.cards || []);
+
+        if (!cardsToPrint || cardsToPrint.length === 0) {
+            toast({ variant: "destructive", title: "No Cards", description: "There are no flashcards in this deck to download." });
+            return;
+        }
+
+        setIsDownloadingPdf(true);
+        try {
+            await downloadFlashcardsPdf({
+                flashcards: cardsToPrint.map(c => ({
+                    id: c.id,
+                    front: c.front,
+                    back: c.back,
+                    category: c.category,
+                    difficulty: c.difficulty,
+                    notes: c.hint
+                })),
+                deckTitle: selectedDeck?.title || courseInfo?.title || "Active Recall Study Deck"
+            });
+            toast({
+                title: "Flashcards PDF Downloaded! 📄",
+                description: "Official active recall print edition generated with letterhead and watermark."
+            });
+        } catch (e: any) {
+            toast({ variant: "destructive", title: "PDF Export Failed", description: e.message });
+        } finally {
+            setIsDownloadingPdf(false);
+        }
+    };
+
     return (
         <StudentLayout>
             <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 pb-20 animate-in fade-in duration-300">
@@ -673,6 +711,17 @@ export default function StudentFlashcards() {
                             className="gap-1.5 text-xs font-semibold h-9 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/5"
                         >
                             <Download className="h-3.5 w-3.5" /> Export JSON
+                        </Button>
+
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleDownloadPdf}
+                            disabled={isDownloadingPdf}
+                            className="gap-1.5 text-xs font-semibold h-9 text-indigo-600 dark:text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/10"
+                        >
+                            {isDownloadingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+                            Download PDF
                         </Button>
 
                         {/* Create Custom Deck Dialog */}

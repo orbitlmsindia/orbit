@@ -269,12 +269,18 @@ export function SecureVideoPlayer({
 
     // ── 2. Comprehensive Keyboard Security ──
     const handleKeyDown = (e: KeyboardEvent) => {
-      // PrintScreen Interception
-      if (e.key === "PrintScreen" || e.code === "PrintScreen") {
+      // PrintScreen & Screenshot / Snipping Tool Interception
+      const isScreenshot =
+        e.key === "PrintScreen" ||
+        e.code === "PrintScreen" ||
+        ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === '3' || e.key === '4' || e.key === '5' || e.key.toLowerCase() === 's' || e.code === 'KeyS')) ||
+        (e.altKey && (e.key === 'PrintScreen' || e.code === 'PrintScreen'));
+
+      if (isScreenshot) {
         e.preventDefault();
         try { navigator.clipboard.writeText(""); } catch (_) {}
         setIsBlackedOut(true);
-        setBlackoutReason("Screenshot capture prohibited — content protected by DRM.");
+        setBlackoutReason("Screenshot capture prohibited — content protected by Orbit LMS DRM.");
         setSecurityViolationCount(prev => prev + 1);
         setTimeout(() => setIsBlackedOut(false), 4000);
         return;
@@ -368,6 +374,19 @@ export function SecureVideoPlayer({
       }
     };
 
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (
+        e.key === "PrintScreen" ||
+        e.code === "PrintScreen" ||
+        ((e.key.toLowerCase() === "s" || e.code === "KeyS") && (e.metaKey || e.ctrlKey))
+      ) {
+        e.preventDefault();
+        try { navigator.clipboard.writeText(""); } catch (_) {}
+        setIsBlackedOut(true);
+        setTimeout(() => setIsBlackedOut(false), 3000);
+      }
+    };
+
     // ── 3. Fullscreen Change Detection ──
     const handleFullscreenChange = () => {
       const isFull = !!(
@@ -443,6 +462,7 @@ export function SecureVideoPlayer({
     // ── Attach All Listeners ──
     document.addEventListener("contextmenu", handleContextMenu, { capture: true });
     document.addEventListener("keydown", handleKeyDown, { capture: true });
+    document.addEventListener("keyup", handleKeyUp, { capture: true });
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
     document.addEventListener("mozfullscreenchange", handleFullscreenChange);
@@ -464,6 +484,7 @@ export function SecureVideoPlayer({
     return () => {
       document.removeEventListener("contextmenu", handleContextMenu, { capture: true } as any);
       document.removeEventListener("keydown", handleKeyDown, { capture: true } as any);
+      document.removeEventListener("keyup", handleKeyUp, { capture: true } as any);
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
       document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
       document.removeEventListener("mozfullscreenchange", handleFullscreenChange);

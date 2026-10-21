@@ -22,11 +22,14 @@ import {
     Lightbulb,
     ExternalLink,
     Download,
-    Upload
+    Upload,
+    FileText,
+    Loader2
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { exportAllFlashcardDecksToJson, downloadJsonFile, copyJsonToClipboard } from "@/lib/courseJsonImporter";
+import { downloadFlashcardsPdf } from "@/lib/pdfReportGenerator";
 
 interface TeacherDeckItem {
     id: string;
@@ -45,6 +48,7 @@ export default function TeacherFlashcards() {
     const [addCardOpen, setAddCardOpen] = useState(false);
     const [courses, setCourses] = useState<{ id: string; title: string }[]>([]);
     const [decks, setDecks] = useState<TeacherDeckItem[]>([]);
+    const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
     useEffect(() => {
         async function fetchCourses() {
@@ -157,6 +161,40 @@ export default function TeacherFlashcards() {
         }
     };
 
+    const handleDownloadPdf = async () => {
+        setIsDownloadingPdf(true);
+        try {
+            const stored = localStorage.getItem("orbit_flashcard_decks");
+            const fullDecks = stored ? JSON.parse(stored) : [];
+            const allCards = Array.isArray(fullDecks) ? fullDecks.flatMap((d: any) => d.cards || []) : [];
+
+            if (allCards.length === 0) {
+                toast({ variant: "destructive", title: "No Cards Found", description: "No flashcards found to export into PDF." });
+                return;
+            }
+
+            await downloadFlashcardsPdf({
+                flashcards: allCards.map((c: any) => ({
+                    id: c.id,
+                    front: c.front,
+                    back: c.back,
+                    category: c.category,
+                    difficulty: c.difficulty,
+                    notes: c.hint
+                })),
+                deckTitle: "Faculty Curriculum Flashcard Bank"
+            });
+            toast({
+                title: "Flashcards PDF Downloaded! 📄",
+                description: "Official faculty flashcard edition generated with institutional letterhead and watermark."
+            });
+        } catch (e: any) {
+            toast({ variant: "destructive", title: "PDF Export Failed", description: e.message });
+        } finally {
+            setIsDownloadingPdf(false);
+        }
+    };
+
     return (
         <TeacherLayout>
             <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 pb-20 animate-in fade-in duration-300">
@@ -187,6 +225,17 @@ export default function TeacherFlashcards() {
                             className="gap-1.5 text-xs font-semibold h-9 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/5"
                         >
                             <Download className="h-3.5 w-3.5" /> Export JSON
+                        </Button>
+
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleDownloadPdf}
+                            disabled={isDownloadingPdf}
+                            className="gap-1.5 text-xs font-semibold h-9 text-indigo-600 dark:text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/10"
+                        >
+                            {isDownloadingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+                            Download PDF
                         </Button>
 
                         <Link to="/teacher/courses/json-builder?tab=flashcards-import">

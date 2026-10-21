@@ -28,8 +28,10 @@ import {
     Award,
     Hash,
     User,
-    Sparkles
+    Sparkles,
+    Globe
 } from "lucide-react";
+import { getCompanyBranding, CompanyBrandingSettings } from "@/services/brandingService";
 
 export interface ExamSlipData {
     studentId: string;
@@ -41,6 +43,7 @@ export interface ExamSlipData {
     courseTitle: string;
     courseCode?: string;
     collegeName?: string;
+    branding?: CompanyBrandingSettings;
     department?: string;
     semester?: string;
     academicYear?: string;
@@ -72,6 +75,12 @@ export function ExamAttendanceSlipModal({
 
     if (!slipData) return null;
 
+    // Live company & institution letterhead data
+    const branding = slipData.branding || getCompanyBranding();
+    const instituteName = slipData.collegeName && slipData.collegeName !== "Orbit Institute of Technology & Science"
+        ? slipData.collegeName
+        : (branding.name || "Orbit Innovation Academy");
+
     // Attendance compliance calculations
     const totalSessions = slipData.totalSessions ?? 40;
     const attendedSessions = slipData.attendedSessions ?? Math.round(totalSessions * 0.82);
@@ -99,10 +108,15 @@ export function ExamAttendanceSlipModal({
     const handleCopySummary = () => {
         const text = `
 ╔══════════════════════════════════════════════════════════════╗
-   ORBIT LMS - OFFICIAL EXAMINATION ATTENDANCE CLEARANCE SLIP   
+   ${instituteName.toUpperCase()}
+   OFFICIAL EXAMINATION ATTENDANCE CLEARANCE SLIP & HALL TICKET   
 ╚══════════════════════════════════════════════════════════════╝
 Hall Ticket Ref : ${ticketRefId}
-Institution     : ${slipData.collegeName || "Orbit Institute of Technology & Science"}
+Institution     : ${instituteName}
+Address         : ${branding.address || "Sector 62, Technology Campus"}
+Contact         : Tel: ${branding.phone || "+91 98765 43210"} | Email: ${branding.email || "office@orbitlms.edu.in"}
+Accreditation   : CIN: ${branding.cin || "U72900DL2026PTC389421"} | Reg: ${branding.registrationNo || "REG-ORBIT-2026"}
+
 Student Name    : ${slipData.studentName}
 Roll Number     : ${rollNo}
 Course / Unit   : [${courseCode}] ${slipData.courseTitle}
@@ -116,7 +130,7 @@ Attendance Rate   : ${percentage}%
 Clearance Status  : ${isCompliant ? "ADMITTED & ELIGIBLE (>= 75% Regulatory Mandate)" : "DEBARMENT HOLD (Below 75% Criteria)"}
 ${!isCompliant ? "* Note: Attendance condonation approval from Dean/HOD required prior to reporting." : ""}
 
-Issued by Controller of Examinations | Verified by Orbit LMS
+Issued by ${branding.signatoryTitle || "Controller of Examinations"} | Verified by Orbit LMS
 `.trim();
 
         navigator.clipboard.writeText(text);
@@ -132,7 +146,7 @@ Issued by Controller of Examinations | Verified by Orbit LMS
         const subject = encodeURIComponent(`[HALL TICKET & ATTENDANCE CLEARANCE] ${slipData.studentName} - ${slipData.courseTitle}`);
         const body = encodeURIComponent(`Dear ${slipData.studentName} and Parents,
 
-Please find your official Examination Attendance Clearance Slip & Hall Ticket for the upcoming semester examinations:
+Please find your official Examination Attendance Clearance Slip & Hall Ticket issued by ${instituteName}:
 
 • Course: ${slipData.courseTitle} (${courseCode})
 • Candidate: ${slipData.studentName} (Roll: ${rollNo})
@@ -144,8 +158,10 @@ Please find your official Examination Attendance Clearance Slip & Hall Ticket fo
 
 Please carry a printed copy of this slip along with your valid Student Identity Card to the examination center.
 
-Controller of Examinations,
-${slipData.collegeName || "Orbit Institute"}`);
+${branding.signatoryTitle || "Controller of Examinations"},
+${instituteName}
+${branding.address || ""}
+Contact: ${branding.phone || ""} | ${branding.email || ""}`);
 
         window.open(`mailto:${slipData.studentEmail}?subject=${subject}&body=${body}`, '_blank');
     };
@@ -197,28 +213,56 @@ ${slipData.collegeName || "Orbit Institute"}`);
                 {/* Printable Admit Card & Attendance Clearance Slip Container */}
                 <div className="p-4 sm:p-8 bg-card text-card-foreground print:p-6 print:m-0 print:shadow-none print:border-none print:w-full">
                     {/* Official Letterhead */}
-                    <div className="border-2 border-primary/30 rounded-xl p-5 sm:p-7 relative overflow-hidden bg-card/60">
+                    <div className="border-2 border-primary/30 rounded-xl p-4 sm:p-7 relative overflow-hidden bg-card/60">
                         {/* Background Watermark */}
-                        <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none select-none">
-                            <GraduationCapIcon className="h-96 w-96 text-foreground" />
+                        <div
+                            className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden"
+                            style={{ opacity: branding.watermarkOpacity || 0.06 }}
+                        >
+                            {branding.watermarkUrl || branding.logoUrl ? (
+                                <img
+                                    src={branding.watermarkUrl || branding.logoUrl}
+                                    alt="Watermark"
+                                    className="w-80 max-w-[80%] object-contain filter grayscale"
+                                />
+                            ) : (
+                                <GraduationCapIcon className="h-96 w-96 text-foreground" />
+                            )}
                         </div>
 
                         {/* Top Crest & Institute Name */}
                         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b pb-5">
-                            <div className="flex items-center gap-3 text-center sm:text-left">
-                                <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-primary to-indigo-600 flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/20 shrink-0">
-                                    <Building2 className="h-7 w-7" />
-                                </div>
-                                <div>
+                            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3.5 text-center sm:text-left">
+                                {branding.logoUrl ? (
+                                    <img
+                                        src={branding.logoUrl}
+                                        alt={instituteName}
+                                        className="h-16 w-16 object-contain rounded-xl border p-1 bg-white shadow-sm shrink-0"
+                                        onError={(e) => {
+                                            (e.target as HTMLElement).style.display = 'none';
+                                        }}
+                                    />
+                                ) : (
+                                    <div className="h-16 w-16 rounded-xl bg-gradient-to-br from-primary to-indigo-600 flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/20 shrink-0">
+                                        <Building2 className="h-8 w-8" />
+                                    </div>
+                                )}
+                                <div className="space-y-0.5">
                                     <h1 className="text-lg sm:text-xl font-bold tracking-tight text-foreground uppercase">
-                                        {slipData.collegeName || "Orbit Institute of Technology & Science"}
+                                        {instituteName}
                                     </h1>
-                                    <p className="text-xs text-muted-foreground uppercase tracking-widest font-semibold">
-                                        Office of the Controller of Examinations • Autonomous System
+                                    <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                                        Office of the Controller of Examinations • Academic Directorate
                                     </p>
-                                    <p className="text-[11px] text-muted-foreground font-mono mt-0.5">
-                                        Affiliated & Approved Academic Council • Examination Clearance Division
+                                    <p className="text-[11px] text-muted-foreground">
+                                        {branding.address || "Sector 62, Innovation Campus, Tech City, India"}
                                     </p>
+                                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-0.5 text-[10px] font-mono text-muted-foreground">
+                                        {branding.cin && <span>CIN: {branding.cin}</span>}
+                                        {branding.registrationNo && <span>• Reg: {branding.registrationNo}</span>}
+                                        {branding.phone && <span>• Tel: {branding.phone}</span>}
+                                        {branding.email && <span>• {branding.email}</span>}
+                                    </div>
                                 </div>
                             </div>
 
@@ -341,7 +385,7 @@ ${slipData.collegeName || "Orbit Institute"}`);
                         {/* Signatures & Institutional Seal Block */}
                         <div className="pt-6 border-t border-dashed grid grid-cols-3 gap-4 text-center text-xs">
                             <div className="space-y-4">
-                                <div className="h-10 flex items-end justify-center">
+                                <div className="h-12 flex items-end justify-center">
                                     <span className="font-serif italic text-muted-foreground/60 text-sm">Orbit Fac. Sign</span>
                                 </div>
                                 <div className="border-t border-border pt-1">
@@ -351,19 +395,28 @@ ${slipData.collegeName || "Orbit Institute"}`);
                             </div>
 
                             <div className="space-y-4">
-                                <div className="h-10 flex items-end justify-center">
-                                    <div className="w-12 h-12 rounded-full border border-primary/40 flex items-center justify-center text-[9px] font-mono text-primary rotate-12">
-                                        SEAL
-                                    </div>
+                                <div className="h-12 flex items-center justify-center">
+                                    {branding.stampUrl ? (
+                                        <img
+                                            src={branding.stampUrl}
+                                            alt="Official Seal"
+                                            className="h-12 w-12 object-contain opacity-90 rotate-6"
+                                        />
+                                    ) : (
+                                        <div className="w-12 h-12 rounded-full border-2 border-primary/40 flex flex-col items-center justify-center text-[8px] font-mono text-primary rotate-6 uppercase">
+                                            <span>SEAL</span>
+                                            <span className="text-[6px]">{instituteName.slice(0, 8)}</span>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="border-t border-border pt-1">
-                                    <p className="font-semibold text-foreground text-[11px]">Controller of Exams</p>
-                                    <p className="text-[10px] text-muted-foreground">Academic Secretariat</p>
+                                    <p className="font-semibold text-foreground text-[11px]">{branding.signatoryTitle || "Controller of Exams"}</p>
+                                    <p className="text-[10px] text-muted-foreground">{branding.signatoryName || "Academic Secretariat"}</p>
                                 </div>
                             </div>
 
                             <div className="space-y-4">
-                                <div className="h-10 flex items-end justify-center">
+                                <div className="h-12 flex items-end justify-center">
                                     <span className="text-[10px] text-muted-foreground/50 border-b border-dashed w-28"></span>
                                 </div>
                                 <div className="border-t border-border pt-1">

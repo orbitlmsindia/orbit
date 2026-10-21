@@ -26,11 +26,81 @@ export interface AstraWeapon {
   stats: WeaponStats;
   visualType: 'trishula' | 'chakra' | 'bow' | 'missile' | 'sword' | 'mace' | 'axe' | 'spear' | 'vajra' | 'nanobana' | 'blaster' | 'railgun' | 'cannon';
   featured?: boolean;
+  isBattleAstra?: boolean;
+  battleAbility?: string;
+  isArchived?: boolean;
 }
 
 export const WEAPONS_CATALOG: AstraWeapon[] = [
   // ==========================================
-  // 1. DIVINE & SUPREME CELESTIAL ASTRAS (MISSILES)
+  // 0. SINVERSE: ASTRAVYUH - 3 OFFICIAL BATTLE ASTRAS
+  // ==========================================
+  {
+    id: "agni-astra",
+    name: "Agni Astra",
+    sanskritName: "आग्नेयास्त्र",
+    category: "divyastra",
+    rarity: "supreme",
+    cost: 250,
+    icon: "🔥",
+    gradient: "from-amber-500 via-orange-600 to-red-700",
+    glowColor: "#f97316",
+    accentBg: "bg-orange-500/10",
+    lore: "The consecrated flame projectile of Agni Deva. Scorches enemy ramparts with celestial fire, adding +10 flat attack damage to your assault.",
+    wielders: ["Agni Deva", "Arjuna", "Drona"],
+    mantra: "ॐ अग्नये नमः • पावकाय नमः",
+    passiveBuff: "+10 Attack Damage in Astravyuh Battle Arena",
+    battleAbility: "+10 attack damage",
+    isBattleAstra: true,
+    stats: { power: 90, radiance: 92, range: "Thermal Field", speed: "Blazing" },
+    visualType: "missile",
+    featured: true
+  },
+  {
+    id: "varuna-astra",
+    name: "Varuna Astra",
+    sanskritName: "वरुणास्त्र",
+    category: "divyastra",
+    rarity: "supreme",
+    cost: 250,
+    icon: "🌊",
+    gradient: "from-cyan-500 via-blue-600 to-indigo-800",
+    glowColor: "#06b6d4",
+    accentBg: "bg-cyan-500/10",
+    lore: "The oceanic deluge barrier of Varuna Deva. Envelops your kingdom in sacred waters, deflecting +10 incoming attack damage when defending.",
+    wielders: ["Varuna Deva", "Lord Rama", "Arjuna"],
+    mantra: "ॐ वरुणाय नमः",
+    passiveBuff: "Reduces incoming battle damage by 10 in Astravyuh",
+    battleAbility: "Reduces incoming damage by 10",
+    isBattleAstra: true,
+    stats: { power: 88, radiance: 90, range: "Oceanic", speed: "Torrential" },
+    visualType: "missile",
+    featured: true
+  },
+  {
+    id: "vajra-astra",
+    name: "Vajra Astra",
+    sanskritName: "वज्रास्त्र",
+    category: "divyastra",
+    rarity: "divine",
+    cost: 350,
+    icon: "⚡",
+    gradient: "from-yellow-400 via-amber-500 to-orange-600",
+    glowColor: "#eab308",
+    accentBg: "bg-yellow-500/10",
+    lore: "The indestructible celestial thunderbolt of Devendra. Unleashes supreme crackling lightning, granting a devastating +15 damage surge if you achieve a 5/5 perfect quiz score.",
+    wielders: ["Indra Deva", "Sage Dadhichi"],
+    mantra: "ॐ वज्राय नमः • इन्द्राय नमः",
+    passiveBuff: "+15 Damage Surge when all 5 Quiz Questions are Correct",
+    battleAbility: "+15 damage when all 5 questions are correct",
+    isBattleAstra: true,
+    stats: { power: 98, radiance: 96, range: "Celestial", speed: "Instantaneous" },
+    visualType: "vajra",
+    featured: true
+  },
+
+  // ==========================================
+  // 1. ARCHIVED HISTORICAL ASTRAS & RELICS
   // ==========================================
   {
     id: "brahmashira-astra",

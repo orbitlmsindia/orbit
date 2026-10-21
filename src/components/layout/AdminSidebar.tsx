@@ -15,7 +15,9 @@ import {
   Trophy,
   Mail,
   Receipt,
-  Ticket
+  Ticket,
+  Castle,
+  HardDrive
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -57,6 +59,7 @@ interface AdminNavItem {
 
 const mainNavItems: AdminNavItem[] = [
   { title: "Dashboard", url: "/admin", icon: Home },
+  { title: "Astravyuh Command", url: "/admin/astravyuh", icon: Castle },
   { title: "Coupons & Discounts", url: "/admin/coupons", icon: Ticket },
   { title: "Subscriptions & Invoices", url: "/admin/billing", icon: Receipt },
   { title: "Get In Touch", url: "/admin/inquiries", icon: Mail, featureId: "inquiries" },
@@ -65,6 +68,7 @@ const mainNavItems: AdminNavItem[] = [
   { title: "Calendar", url: "/admin/calendar", icon: Calendar, featureId: "calendar" },
   { title: "Leaderboard", url: "/admin/leaderboard", icon: Trophy, featureId: "leaderboard" },
   { title: "Monitoring", url: "/admin/monitoring", icon: BarChart3, featureId: "advanced_analytics" },
+  { title: "Data & Backup", url: "/admin/settings?tab=backup", icon: HardDrive },
   { title: "Notifications", url: "/admin/notifications", icon: Bell },
 ];
 

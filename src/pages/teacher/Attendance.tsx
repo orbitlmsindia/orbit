@@ -18,6 +18,7 @@ import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { StudentAttendanceDossierModal, StudentDossierData } from "@/components/attendance/StudentAttendanceDossierModal";
 import { ExamAttendanceSlipModal, ExamSlipData } from "@/components/attendance/ExamAttendanceSlipModal";
+import { getCompanyBranding } from "@/services/brandingService";
 
 export default function Attendance() {
     const { toast } = useToast();
@@ -38,7 +39,7 @@ export default function Attendance() {
     const [dossierModalOpen, setDossierModalOpen] = useState(false);
     const [selectedDossierData, setSelectedDossierData] = useState<StudentDossierData | null>(null);
     const [teacherName, setTeacherName] = useState("");
-    const [collegeName, setCollegeName] = useState("Orbit Institute of Technology & Science");
+    const [collegeName, setCollegeName] = useState(() => getCompanyBranding().name || "Orbit Innovation Academy");
 
     // Examination Hall Ticket & Attendance Slip
     const [examSlipOpen, setExamSlipOpen] = useState(false);
@@ -51,6 +52,7 @@ export default function Attendance() {
             return;
         }
         const currentCourse = uploadedCourses.find(c => c.id === courseId);
+        const branding = getCompanyBranding();
         setSelectedSlipData({
             studentId: targetStudent.id,
             studentName: targetStudent.name,
@@ -58,7 +60,8 @@ export default function Attendance() {
             courseId: courseId,
             courseTitle: currentCourse?.title || "Enrolled Curriculum Course",
             mentorName: teacherName || "Faculty In-Charge",
-            collegeName: collegeName || "Orbit Institute of Technology & Science"
+            collegeName: collegeName || branding.name || "Orbit Innovation Academy",
+            branding
         });
         setExamSlipOpen(true);
     };
@@ -172,6 +175,7 @@ export default function Attendance() {
 
     const handleOpenDossier = (student: any) => {
         const selectedCourseObj = uploadedCourses.find(c => c.id === courseId);
+        const branding = getCompanyBranding();
         setSelectedDossierData({
             studentId: student.id,
             studentName: student.name || "Student",
@@ -180,7 +184,9 @@ export default function Attendance() {
             courseId: courseId || undefined,
             courseTitle: selectedCourseObj?.title || "Enrolled Course & Practical Lab",
             mentorName: teacherName || "Faculty Mentor",
-            parentName: `Parent / Guardian of ${student.name || 'Student'}`
+            parentName: `Parent / Guardian of ${student.name || 'Student'}`,
+            collegeName: collegeName || branding.name || "Orbit Innovation Academy",
+            branding
         });
         setDossierModalOpen(true);
     };

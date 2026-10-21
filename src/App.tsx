@@ -53,6 +53,7 @@ import StudentMnemonics from "./pages/student/Mnemonics";
 import StudentArmory from "./pages/student/Armory";
 import TeacherFlashcards from "./pages/teacher/Flashcards";
 import TeacherMnemonics from "./pages/teacher/Mnemonics";
+import TeacherBackup from "./pages/teacher/TeacherBackup";
 import NotFound from "./pages/NotFound";
 import Profile from "./pages/Profile";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -149,6 +150,7 @@ const App = () => (
             <Route path="/teacher/calendar" element={<ProtectedRoute><GatedFeatureRoute featureId="calendar"><TeacherCalendar /></GatedFeatureRoute></ProtectedRoute>} />
             <Route path="/teacher/flashcards" element={<ProtectedRoute><TeacherFlashcards /></ProtectedRoute>} />
             <Route path="/teacher/mnemonics" element={<ProtectedRoute><TeacherMnemonics /></ProtectedRoute>} />
+            <Route path="/teacher/backup" element={<ProtectedRoute><TeacherBackup /></ProtectedRoute>} />
 
             {/* Student Routes */}
             <Route path="/student" element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />

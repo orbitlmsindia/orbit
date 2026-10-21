@@ -14,6 +14,8 @@ import {
     LogOut,
     Sparkles,
     Ticket,
+    Castle,
+    HardDrive
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -45,6 +47,7 @@ interface NavItemConfig {
 
 const mainNavItems: NavItemConfig[] = [
     { title: "Dashboard", url: "/master", icon: Home },
+    { title: "Astravyuh Command", url: "/master/astravyuh", icon: Castle },
     { title: "Colleges", url: "/master/colleges", icon: Building2, permission: "view_colleges" },
     { title: "Plans & Features", url: "/master/plans", icon: Layers, permission: "view_plans" },
     { title: "SEO Blogs", url: "/master/blogs", icon: Newspaper, permission: "view_blogs" },
@@ -55,6 +58,7 @@ const mainNavItems: NavItemConfig[] = [
     { title: "Coupons & Discounts", url: "/master/coupons", icon: Ticket, permission: "view_billing" },
     { title: "Analytics", url: "/master/analytics", icon: BarChart3, permission: "view_analytics" },
     { title: "Monitoring", url: "/master/monitoring", icon: Activity, permission: "system_monitoring" },
+    { title: "Data & Backups", url: "/master/monitoring", icon: HardDrive, permission: "system_monitoring" },
     { title: "Staff & Roles", url: "/master/roles", icon: ShieldCheck, permission: "manage_roles" },
 ];
 

@@ -15,7 +15,8 @@ import {
   Award,
   Trophy,
   Layers,
-  Lightbulb
+  Lightbulb,
+  HardDrive
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -56,6 +57,7 @@ const teacherNavItems: TeacherNavItem[] = [
   { title: "Assignments", url: "/teacher/assignments", icon: FileText, featureId: "assignments" },
   { title: "Review", url: "/teacher/reviews", icon: CheckSquare, featureId: "assignments" },
   { title: "Attendance", url: "/teacher/attendance", icon: UserCheck, featureId: "attendance_tracker" },
+  { title: "Data & Backup", url: "/teacher/backup", icon: HardDrive },
   { title: "Flashcards", url: "/teacher/flashcards", icon: Layers },
   { title: "Mnemonics", url: "/teacher/mnemonics", icon: Lightbulb },
   { title: "Notifications", url: "/teacher/notifications", icon: Bell },

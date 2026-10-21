@@ -61,8 +61,14 @@ const ALL_TABLES = [
     "job_openings",
     "job_applications",
     "contact_messages",
-    "audit_logs"
+    "audit_logs",
+    "astravyuh_kingdoms",
+    "astravyuh_battles",
+    "astravyuh_flix_audits",
+    "astravyuh_settings"
 ];
+
+export * from "@/services/backupEngineService";
 
 // Helper to safely fetch table data or empty array if table doesn't exist
 async function safeFetchTable(tableName: string): Promise<any[]> {

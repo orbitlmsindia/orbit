@@ -34,6 +34,7 @@ import { supabase } from "@/lib/supabase";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { ExamAttendanceSlipModal, ExamSlipData } from "@/components/attendance/ExamAttendanceSlipModal";
+import { getCompanyBranding } from "@/services/brandingService";
 
 interface AttendanceRecord {
     id: string;
@@ -70,7 +71,7 @@ export default function StudentAttendance() {
     // Examination Hall Ticket & Attendance Clearance Slip
     const [examSlipOpen, setExamSlipOpen] = useState(false);
     const [selectedSlipData, setSelectedSlipData] = useState<ExamSlipData | null>(null);
-    const [studentProfile, setStudentProfile] = useState<{ id: string; name: string; email: string; department?: string } | null>(null);
+    const [studentProfile, setStudentProfile] = useState<{ id: string; name: string; email: string; department?: string; collegeName?: string } | null>(null);
 
     useEffect(() => {
         fetchStudentAttendance();
@@ -85,15 +86,31 @@ export default function StudentAttendance() {
             // Fetch Student Profile
             const { data: prof } = await supabase
                 .from('users')
-                .select('full_name, email, department')
+                .select('full_name, email, department, college_id')
                 .eq('id', user.id)
                 .single();
+
+            let fetchedCollegeName: string | undefined = undefined;
+            if (prof?.college_id) {
+                const { data: col } = await supabase
+                    .from('colleges')
+                    .select('name')
+                    .eq('id', prof.college_id)
+                    .single();
+                if (col?.name) {
+                    fetchedCollegeName = col.name;
+                }
+            }
+
+            const branding = getCompanyBranding();
+            const collegeName = fetchedCollegeName || branding.name || "Orbit Innovation Academy";
 
             setStudentProfile({
                 id: user.id,
                 name: prof?.full_name || user.user_metadata?.full_name || "Student Candidate",
                 email: user.email || "student@orbitlms.com",
-                department: prof?.department || "Computer Science & Engineering"
+                department: prof?.department || "Computer Science & Engineering",
+                collegeName
             });
 
             // 1. Fetch Enrolled Courses
@@ -366,6 +383,7 @@ export default function StudentAttendance() {
             percentage: attendancePercentage
         };
 
+        const branding = getCompanyBranding();
         setSelectedSlipData({
             studentId: studentProfile?.id || "std-user",
             studentName: studentProfile?.name || "Student Candidate",
@@ -376,7 +394,8 @@ export default function StudentAttendance() {
             totalSessions: targetCourse.total || 40,
             attendedSessions: (targetCourse.present || 0) + (targetCourse.late || 0),
             attendancePercentage: targetCourse.percentage,
-            collegeName: "Orbit Institute of Technology & Science"
+            collegeName: studentProfile?.collegeName || branding.name || "Orbit Innovation Academy",
+            branding: branding
         });
         setExamSlipOpen(true);
     };
