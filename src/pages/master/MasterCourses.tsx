@@ -27,6 +27,7 @@ import {
   Trash2
 } from "lucide-react";
 import { MasterDeleteCourseModal } from "@/components/master/MasterDeleteCourseModal";
+import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
@@ -52,6 +53,11 @@ export default function MasterCourses() {
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [courseToDelete, setCourseToDelete] = useState<any | null>(null);
   const [deleteCourseModalOpen, setDeleteCourseModalOpen] = useState(false);
+
+  // Current Enrollment Status View State (M1 & M2 Fix)
+  const [enrollments, setEnrollments] = useState<any[]>([]);
+  const [activeViewTab, setActiveViewTab] = useState<"courses" | "enrollments">("courses");
+  const [enrollmentStatusFilter, setEnrollmentStatusFilter] = useState<string>("all");
 
   const fetchCoursesData = async () => {
     setLoading(true);
@@ -100,6 +106,33 @@ export default function MasterCourses() {
         setCourses((coursesData || []).filter(c => !deletedCourseIds.includes(c.id)));
       } catch {
         setCourses(coursesData || []);
+      }
+
+      // 4. Fetch All Enrollments with LEFT JOIN on courses and student users (M1 & M2)
+      try {
+        const { data: enrsData, error: enrErr } = await supabase
+          .from("enrollments")
+          .select(`
+            id,
+            student_id,
+            course_id,
+            status,
+            progress,
+            enrolled_at,
+            transaction_id,
+            payment_method,
+            course:courses (id, title, course_domain, credit_points, teacher_id, is_published, college_id),
+            student:users!student_id (id, full_name, email, department)
+          `)
+          .order("enrolled_at", { ascending: false });
+
+        if (enrErr) {
+          console.warn("Enrollment query notice:", enrErr.message);
+        } else {
+          setEnrollments(enrsData || []);
+        }
+      } catch (e) {
+        console.warn("Could not query enrollments:", e);
       }
     } catch (err: any) {
       console.error("Error loading master courses:", err);
@@ -162,6 +195,61 @@ export default function MasterCourses() {
       return true;
     });
   }, [courses, colleges, teachers, selectedCollege, selectedStatus, searchQuery]);
+
+  // Filtered Current Enrollment Status (M2 Fix)
+  const filteredEnrollments = useMemo(() => {
+    return enrollments.filter((e) => {
+      // College Filter
+      const courseCollegeId = e.course?.college_id;
+      if (selectedCollege !== "all") {
+        if (selectedCollege === "global" && courseCollegeId !== null) return false;
+        if (selectedCollege !== "global" && courseCollegeId !== selectedCollege) return false;
+      }
+
+      // Status Filter
+      if (enrollmentStatusFilter !== "all") {
+        const s = (e.status || "").toLowerCase();
+        if (enrollmentStatusFilter === "active" && s !== "active" && s !== "approved") return false;
+        if (enrollmentStatusFilter === "pending" && s !== "pending") return false;
+        if (enrollmentStatusFilter === "completed" && s !== "completed") return false;
+        if (enrollmentStatusFilter === "suspended" && s !== "suspended" && s !== "rejected") return false;
+      }
+
+      // Search Query
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const stdName = (e.student?.full_name || "").toLowerCase();
+        const stdEmail = (e.student?.email || "").toLowerCase();
+        const crsTitle = (e.course?.title || "").toLowerCase();
+        const mentor = getInstructorName(e.course || {}).toLowerCase();
+        if (!stdName.includes(q) && !stdEmail.includes(q) && !crsTitle.includes(q) && !mentor.includes(q)) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [enrollments, selectedCollege, enrollmentStatusFilter, searchQuery, teachers]);
+
+  const handleUpdateEnrollmentStatus = async (enrollmentId: string, newStatus: string) => {
+    try {
+      const { error } = await supabase
+        .from("enrollments")
+        .update({ status: newStatus })
+        .eq("id", enrollmentId);
+
+      if (error) throw error;
+
+      setEnrollments((prev) =>
+        prev.map((e) => (e.id === enrollmentId ? { ...e, status: newStatus } : e))
+      );
+      toast({
+        title: "Enrollment Updated",
+        description: `Enrollment status changed to ${newStatus.toUpperCase()}.`,
+      });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Update Failed", description: err.message });
+    }
+  };
 
   // Export Courses List as CSV
   const handleDownloadCSV = () => {
@@ -311,6 +399,26 @@ export default function MasterCourses() {
           </Card>
         </div>
 
+        {/* View Switcher Tabs (M2: Current Enrollment Status View) */}
+        <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+          <Button
+            variant={activeViewTab === "courses" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setActiveViewTab("courses")}
+            className={activeViewTab === "courses" ? "bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-sm" : "border-slate-800 text-slate-300 hover:bg-slate-800 text-xs"}
+          >
+            <BookOpen className="h-4 w-4 mr-1.5" /> Course Catalog Matrix ({courses.length})
+          </Button>
+          <Button
+            variant={activeViewTab === "enrollments" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setActiveViewTab("enrollments")}
+            className={activeViewTab === "enrollments" ? "bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm" : "border-slate-800 text-slate-300 hover:bg-slate-800 text-xs"}
+          >
+            <Users className="h-4 w-4 mr-1.5" /> Current Enrollment Status ({enrollments.length})
+          </Button>
+        </div>
+
         {/* Filters & Search Toolbar */}
         <Card className="bg-slate-900 border-slate-800 text-white shadow-sm">
           <CardContent className="pt-4 pb-4">
@@ -319,7 +427,7 @@ export default function MasterCourses() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input
-                  placeholder="Search course title, domain, instructor..."
+                  placeholder={activeViewTab === "courses" ? "Search course title, domain, instructor..." : "Search student, course, mentor..."}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9 bg-slate-950 border-slate-800 text-white text-xs h-9"
@@ -346,22 +454,200 @@ export default function MasterCourses() {
 
               {/* Status Filter */}
               <div>
-                <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                  <SelectTrigger className="bg-slate-950 border-slate-800 text-white text-xs h-9">
-                    <SelectValue placeholder="All Publication Status" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-900 border-slate-800 text-slate-100">
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="published">Published ({publishedCount})</SelectItem>
-                    <SelectItem value="draft">Drafts ({draftCount})</SelectItem>
-                  </SelectContent>
-                </Select>
+                {activeViewTab === "courses" ? (
+                  <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                    <SelectTrigger className="bg-slate-950 border-slate-800 text-white text-xs h-9">
+                      <SelectValue placeholder="All Publication Status" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-slate-800 text-slate-100">
+                      <SelectItem value="all">All Course Status</SelectItem>
+                      <SelectItem value="published">Published ({publishedCount})</SelectItem>
+                      <SelectItem value="draft">Drafts ({draftCount})</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Select value={enrollmentStatusFilter} onValueChange={setEnrollmentStatusFilter}>
+                    <SelectTrigger className="bg-slate-950 border-slate-800 text-white text-xs h-9">
+                      <SelectValue placeholder="All Enrollment Statuses" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-slate-800 text-slate-100">
+                      <SelectItem value="all">All Statuses ({enrollments.length})</SelectItem>
+                      <SelectItem value="active">Active / Approved</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="suspended">Suspended / Rejected</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Courses Table */}
+        {/* Current Enrollment Status Table View (M2 & M1 Fix) */}
+        {activeViewTab === "enrollments" && (
+          <Card className="bg-slate-900 border-slate-800 text-white rounded-xl shadow-sm overflow-hidden">
+            <CardHeader className="border-b border-slate-800 pb-3 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-base text-slate-100 flex items-center gap-2">
+                  <Users className="h-4 w-4 text-emerald-400" />
+                  Current Student Enrollment Status
+                </CardTitle>
+                <CardDescription className="text-slate-400 text-xs">
+                  Showing {filteredEnrollments.length} of {enrollments.length} total student admissions across all courses
+                </CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0 px-0">
+              <div className="overflow-x-auto">
+                <Table className="min-w-[850px]">
+                  <TableHeader className="bg-slate-950/80">
+                    <TableRow className="border-slate-800 hover:bg-slate-950/80">
+                      <TableHead className="text-slate-300 pl-6">Course & Curriculum</TableHead>
+                      <TableHead className="text-slate-300">Enrolled Student</TableHead>
+                      <TableHead className="text-slate-300">Faculty Mentor</TableHead>
+                      <TableHead className="text-slate-300">Admission Date</TableHead>
+                      <TableHead className="text-slate-300">Status</TableHead>
+                      <TableHead className="text-slate-300">Progress %</TableHead>
+                      <TableHead className="text-slate-300">Validity</TableHead>
+                      <TableHead className="text-slate-300 text-right pr-6">Manage</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {loading ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-12 text-slate-400">
+                          <RefreshCw className="h-5 w-5 animate-spin inline mr-2 text-emerald-400" />
+                          Loading real-time enrollments...
+                        </TableCell>
+                      </TableRow>
+                    ) : filteredEnrollments.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-12 text-slate-400">
+                          No enrollment records found matching your filters.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredEnrollments.map((enr) => {
+                        const courseTitle = enr.course?.title || "Enrolled Course";
+                        const courseCollege = getCollegeName(enr.course?.college_id);
+                        const mentorName = getInstructorName(enr.course || {});
+                        const studentName = enr.student?.full_name || "Student User";
+                        const studentEmail = enr.student?.email || "No email";
+                        const admissionDate = enr.enrolled_at ? new Date(enr.enrolled_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "Recent";
+                        const progressVal = Number(enr.progress) || (enr.status === 'completed' ? 100 : (enr.status === 'approved' || enr.status === 'active' ? 25 : 0));
+                        const statusStr = (enr.status || 'pending').toLowerCase();
+
+                        return (
+                          <TableRow key={enr.id} className="border-slate-800 hover:bg-slate-800/40">
+                            {/* Course */}
+                            <TableCell className="pl-6">
+                              <div className="font-semibold text-slate-100">{courseTitle}</div>
+                              <div className="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5">
+                                <Building2 className="h-3 w-3 text-slate-500" />
+                                <span>{courseCollege}</span>
+                              </div>
+                            </TableCell>
+
+                            {/* Student */}
+                            <TableCell>
+                              <div className="font-medium text-slate-200">{studentName}</div>
+                              <div className="text-xs text-slate-400 font-mono">{studentEmail}</div>
+                              <div className="text-[10px] text-slate-500 font-mono">ID: {enr.student_id ? enr.student_id.slice(0, 8) : "N/A"}</div>
+                            </TableCell>
+
+                            {/* Mentor */}
+                            <TableCell className="text-xs text-slate-300">
+                              {mentorName}
+                            </TableCell>
+
+                            {/* Admission Date */}
+                            <TableCell className="text-xs text-slate-300 font-mono">
+                              {admissionDate}
+                            </TableCell>
+
+                            {/* Status */}
+                            <TableCell>
+                              {(statusStr === 'active' || statusStr === 'approved') && (
+                                <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs">Active</Badge>
+                              )}
+                              {statusStr === 'pending' && (
+                                <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-xs">Pending</Badge>
+                              )}
+                              {statusStr === 'in_progress' && (
+                                <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-xs">In Progress</Badge>
+                              )}
+                              {statusStr === 'completed' && (
+                                <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-xs">Completed</Badge>
+                              )}
+                              {(statusStr === 'suspended' || statusStr === 'rejected') && (
+                                <Badge className="bg-rose-500/20 text-rose-400 border-rose-500/30 text-xs">Suspended</Badge>
+                              )}
+                              {statusStr === 'expired' && (
+                                <Badge className="bg-slate-500/20 text-slate-400 border-slate-500/30 text-xs">Expired</Badge>
+                              )}
+                            </TableCell>
+
+                            {/* Progress % */}
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Progress value={progressVal} className="w-16 h-2 bg-slate-800" />
+                                <span className="font-mono text-xs text-slate-300 font-medium">{progressVal}%</span>
+                              </div>
+                            </TableCell>
+
+                            {/* Validity */}
+                            <TableCell>
+                              <span className="text-xs text-slate-300 font-mono">Lifetime</span>
+                            </TableCell>
+
+                            {/* Actions */}
+                            <TableCell className="text-right pr-6">
+                              <div className="flex items-center justify-end gap-1.5">
+                                {statusStr === 'pending' && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleUpdateEnrollmentStatus(enr.id, "approved")}
+                                    className="h-7 px-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
+                                  >
+                                    Approve
+                                  </Button>
+                                )}
+                                {(statusStr === 'active' || statusStr === 'approved') && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleUpdateEnrollmentStatus(enr.id, "suspended")}
+                                    className="h-7 px-2 text-xs border-rose-500/30 text-rose-400 hover:bg-rose-500/10"
+                                  >
+                                    Suspend
+                                  </Button>
+                                )}
+                                {statusStr !== 'completed' && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleUpdateEnrollmentStatus(enr.id, "completed")}
+                                    className="h-7 px-2 text-xs text-purple-400 hover:text-purple-300 hover:bg-purple-950/40"
+                                  >
+                                    Complete
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Courses Table View */}
+        {activeViewTab === "courses" && (
         <Card className="bg-slate-900 border-slate-800 text-white rounded-xl shadow-sm overflow-hidden">
           <CardHeader className="border-b border-slate-800 pb-3 flex flex-row items-center justify-between">
             <div>
@@ -586,6 +872,7 @@ export default function MasterCourses() {
             </div>
           </CardContent>
         </Card>
+        )}
       </div>
 
       {/* Course Deep Inspection Dialog */}

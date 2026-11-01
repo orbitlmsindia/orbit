@@ -5,9 +5,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, CheckCircle, XCircle, Loader2, RefreshCw } from "lucide-react";
+import { Search, CheckCircle, XCircle, Loader2, RefreshCw, Plus, FileText, Printer } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
+import { StudentTransactionModal } from "@/components/finance/StudentTransactionModal";
+import { ReceiptModal, ReceiptData } from "@/components/finance/ReceiptModal";
+import { getCompanyBranding } from "@/services/brandingService";
 
 interface TransactionRow {
   enrollmentId: string;
@@ -27,6 +30,37 @@ export default function FinanceTransactions() {
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [transactions, setTransactions] = useState<TransactionRow[]>([]);
+  const [transactionModalOpen, setTransactionModalOpen] = useState(false);
+  const [receiptModalOpen, setReceiptModalOpen] = useState(false);
+  const [activeReceipt, setActiveReceipt] = useState<ReceiptData | null>(null);
+
+  const handleOpenReceipt = (t: TransactionRow) => {
+    const branding = getCompanyBranding();
+    const currentUserName = sessionStorage.getItem("userName") || "Finance Officer";
+    const receipt: ReceiptData = {
+      receiptNo: `REC-${t.id.replace(/[^0-9]/g, "").slice(-5) || Math.floor(Math.random() * 90000 + 10000)}`,
+      transactionId: t.id,
+      date: t.date,
+      instituteName: branding.name || "Orbit Innovation Academy",
+      studentName: t.student,
+      studentEmail: t.email,
+      studentId: t.enrollmentId,
+      courseTitle: t.course,
+      amount: t.amount,
+      paymentMode: "UPI / ONLINE",
+      utrRef: t.utr,
+      balanceDue: 0,
+      recordedBy: currentUserName,
+    };
+    setActiveReceipt(receipt);
+    setReceiptModalOpen(true);
+  };
+
+  const handleTransactionCreated = (receipt: ReceiptData) => {
+    fetchTransactions();
+    setActiveReceipt(receipt);
+    setReceiptModalOpen(true);
+  };
 
   useEffect(() => {
     fetchTransactions();
@@ -151,6 +185,12 @@ export default function FinanceTransactions() {
             </CardDescription>
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Button
+              onClick={() => setTransactionModalOpen(true)}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1.5 shrink-0 shadow-md"
+            >
+              <Plus className="h-4 w-4" /> Record Transaction
+            </Button>
             <div className="relative w-full sm:w-72">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input
@@ -226,29 +266,38 @@ export default function FinanceTransactions() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      {t.status === "pending" ? (
-                        <div className="flex gap-1 justify-end">
-                          <Button
-                            size="sm"
-                            disabled={processingId === t.enrollmentId}
-                            onClick={() => handleApprove(t.enrollmentId, t.id)}
-                            className="bg-emerald-600 hover:bg-emerald-700 h-8 px-2 text-xs"
-                          >
-                            <CheckCircle className="h-3.5 w-3.5 mr-1" /> Approve
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            disabled={processingId === t.enrollmentId}
-                            onClick={() => handleReject(t.enrollmentId, t.id)}
-                            className="h-8 px-2 text-xs"
-                          >
-                            <XCircle className="h-3.5 w-3.5 mr-1" /> Reject
-                          </Button>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-slate-500 font-mono">Processed</span>
-                      )}
+                      <div className="flex gap-1.5 justify-end items-center">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleOpenReceipt(t)}
+                          className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 h-8 px-2 text-xs"
+                          title="View Official Receipt"
+                        >
+                          <FileText className="h-3.5 w-3.5 mr-1" /> Receipt
+                        </Button>
+                        {t.status === "pending" ? (
+                          <>
+                            <Button
+                              size="sm"
+                              disabled={processingId === t.enrollmentId}
+                              onClick={() => handleApprove(t.enrollmentId, t.id)}
+                              className="bg-emerald-600 hover:bg-emerald-700 h-8 px-2 text-xs"
+                            >
+                              <CheckCircle className="h-3.5 w-3.5 mr-1" /> Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              disabled={processingId === t.enrollmentId}
+                              onClick={() => handleReject(t.enrollmentId, t.id)}
+                              className="h-8 px-2 text-xs"
+                            >
+                              <XCircle className="h-3.5 w-3.5 mr-1" /> Reject
+                            </Button>
+                          </>
+                        ) : null}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -257,6 +306,20 @@ export default function FinanceTransactions() {
           )}
         </CardContent>
       </Card>
+
+      {/* Record Transaction Modal (F2 Fix) */}
+      <StudentTransactionModal
+        open={transactionModalOpen}
+        onOpenChange={setTransactionModalOpen}
+        onTransactionCreated={handleTransactionCreated}
+      />
+
+      {/* View & Print Receipt Modal (F3 Fix) */}
+      <ReceiptModal
+        open={receiptModalOpen}
+        onOpenChange={setReceiptModalOpen}
+        receipt={activeReceipt}
+      />
     </FinanceLayout>
   );
 }

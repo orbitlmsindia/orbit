@@ -76,14 +76,16 @@ export default function Login() {
 
         const { data: userData } = await supabase
           .from("users")
-          .select("role, status, college_id")
+          .select("role, status, college_id, full_name, email")
           .eq("id", data.session.user.id)
           .maybeSingle();
 
+        let fullName = data.session.user.user_metadata?.full_name || "";
         if (userData) {
           role = (userData.role || "").toLowerCase();
           college_id = userData.college_id;
           status = userData.status || "active";
+          if (userData.full_name) fullName = userData.full_name;
         } else {
           role = (
             data.session.user.app_metadata?.user_role ||
@@ -105,10 +107,27 @@ export default function Login() {
           return;
         }
 
-        // Store authenticated role & college in session
+        // Store authenticated role, user info & college in session
         sessionStorage.setItem("userRole", role);
+        sessionStorage.setItem("userName", fullName || cleanEmail.split("@")[0]);
+        sessionStorage.setItem("userEmail", cleanEmail);
         if (college_id) {
           sessionStorage.setItem("collegeId", college_id);
+        }
+
+        // Record successful login audit event for real-time admin monitoring & notifications
+        try {
+          const userAgent = navigator.userAgent ? navigator.userAgent.split(') ')[0] + ')' : "Web Client";
+          await supabase.from("notifications").insert({
+            user_id: data.session.user.id,
+            title: `Successful Login: ${fullName || cleanEmail}`,
+            message: `User authenticated as ${role.toUpperCase()} via ${userAgent} at ${new Date().toLocaleTimeString()}`,
+            notification_type: "alert",
+            is_read: false,
+            ...(college_id ? { college_id } : {})
+          });
+        } catch (logErr) {
+          console.warn("Could not log login notification:", logErr);
         }
 
         // Check if tenant college has been deactivated by Master Admin
@@ -143,6 +162,19 @@ export default function Login() {
     } catch (err: any) {
       console.error("Authentication error:", err);
       setError(err.message || "Invalid email or password. Please verify your credentials and try again.");
+      
+      // Record failed login attempt for admin security monitoring
+      try {
+        const userAgent = navigator.userAgent ? navigator.userAgent.split(') ')[0] + ')' : "Web Client";
+        await supabase.from("notifications").insert({
+          title: `Failed Login Attempt: ${cleanEmail}`,
+          message: `Unsuccessful authentication attempt using ${cleanEmail} via ${userAgent} at ${new Date().toLocaleTimeString()}`,
+          notification_type: "alert",
+          is_read: false
+        });
+      } catch (logErr) {
+        console.warn("Could not log failed login attempt:", logErr);
+      }
     } finally {
       setLoading(false);
     }

@@ -26,6 +26,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Plus,
   MoreHorizontal,
   GraduationCap,
@@ -42,6 +50,9 @@ import {
   Trash2,
   Sparkles,
   FileCode,
+  UserCheck,
+  UserX,
+  Shield,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useDepartments } from "@/hooks/useDepartments";
@@ -402,6 +413,41 @@ export default function UserManagement() {
     }
   };
 
+  const handleToggleUserStatus = async (user: any) => {
+    const newStatus = user.status === 'active' ? 'suspended' : 'active';
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ status: newStatus })
+        .eq('id', user.id);
+      if (error) throw error;
+      toast({
+        title: newStatus === 'active' ? "User Activated" : "User Suspended",
+        description: `${user.name || user.email} has been set to ${newStatus}.`,
+      });
+      setRefreshTrigger(prev => prev + 1);
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Action Failed", description: err.message });
+    }
+  };
+
+  const handleChangeUserRole = async (user: any, newRole: string) => {
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ role: newRole })
+        .eq('id', user.id);
+      if (error) throw error;
+      toast({
+        title: "Role Updated",
+        description: `${user.name || user.email} is now a ${newRole.toUpperCase()}.`,
+      });
+      setRefreshTrigger(prev => prev + 1);
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Role Update Failed", description: err.message });
+    }
+  };
+
   const handleResetPassword = async () => {
     if (!resetPassword || resetPassword.length < 6) {
       toast({ variant: "destructive", title: "Invalid Password", description: "Password must be at least 6 characters." });
@@ -554,15 +600,56 @@ export default function UserManagement() {
           >
             <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Edit Points
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => handleViewUser(row)} title="View Details">
-            <Eye className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon" onClick={() => openResetModal(row)} title="Reset Password">
-            <Key className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon" onClick={() => handleDeleteUser(row.id)} title="Deactivate/Delete User">
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-muted" title="Manage User Actions">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52 bg-card border shadow-xl z-50">
+              <DropdownMenuLabel className="text-xs font-semibold">User Actions</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => handleViewUser(row)} className="gap-2 cursor-pointer">
+                <Eye className="h-4 w-4" /> View Details
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setViewingUser(row); setIsEditing(true); setViewUserModalOpen(true); }} className="gap-2 cursor-pointer">
+                <Edit className="h-4 w-4" /> Edit Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleToggleUserStatus(row)} className="gap-2 cursor-pointer">
+                {row.status === 'active' ? (
+                  <>
+                    <UserX className="h-4 w-4 text-amber-500" />
+                    <span>Suspend User</span>
+                  </>
+                ) : (
+                  <>
+                    <UserCheck className="h-4 w-4 text-emerald-500" />
+                    <span>Activate User</span>
+                  </>
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openResetModal(row)} className="gap-2 cursor-pointer">
+                <Key className="h-4 w-4" /> Reset Password
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-[10px] text-muted-foreground uppercase font-bold px-2 py-1">Change Role</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => handleChangeUserRole(row, "student")} className="text-xs cursor-pointer">
+                Assign Role: Student
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleChangeUserRole(row, "teacher")} className="text-xs cursor-pointer">
+                Assign Role: Teacher
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleChangeUserRole(row, "finance")} className="text-xs cursor-pointer">
+                Assign Role: Finance Officer
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleChangeUserRole(row, "admin")} className="text-xs cursor-pointer">
+                Assign Role: Admin
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => handleDeleteUser(row.id)} className="gap-2 text-rose-600 focus:text-rose-600 cursor-pointer">
+                <Trash2 className="h-4 w-4" /> Delete Account
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       ),
       className: "w-48",
@@ -619,15 +706,56 @@ export default function UserManagement() {
               <Check className="h-4 w-4" />
             </Button>
           )}
-          <Button variant="ghost" size="icon" onClick={() => handleViewUser(row)} title="View Details">
-            <Eye className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon" onClick={() => openResetModal(row)} title="Reset Password">
-            <Key className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon" onClick={() => handleDeleteUser(row.id)} title="Deactivate/Delete User">
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-muted" title="Manage User Actions">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52 bg-card border shadow-xl z-50">
+              <DropdownMenuLabel className="text-xs font-semibold">User Actions</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => handleViewUser(row)} className="gap-2 cursor-pointer">
+                <Eye className="h-4 w-4" /> View Details
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setViewingUser(row); setIsEditing(true); setViewUserModalOpen(true); }} className="gap-2 cursor-pointer">
+                <Edit className="h-4 w-4" /> Edit Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleToggleUserStatus(row)} className="gap-2 cursor-pointer">
+                {row.status === 'active' ? (
+                  <>
+                    <UserX className="h-4 w-4 text-amber-500" />
+                    <span>Suspend User</span>
+                  </>
+                ) : (
+                  <>
+                    <UserCheck className="h-4 w-4 text-emerald-500" />
+                    <span>Activate User</span>
+                  </>
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openResetModal(row)} className="gap-2 cursor-pointer">
+                <Key className="h-4 w-4" /> Reset Password
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-[10px] text-muted-foreground uppercase font-bold px-2 py-1">Change Role</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => handleChangeUserRole(row, "student")} className="text-xs cursor-pointer">
+                Assign Role: Student
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleChangeUserRole(row, "teacher")} className="text-xs cursor-pointer">
+                Assign Role: Teacher
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleChangeUserRole(row, "finance")} className="text-xs cursor-pointer">
+                Assign Role: Finance Officer
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleChangeUserRole(row, "admin")} className="text-xs cursor-pointer">
+                Assign Role: Admin
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => handleDeleteUser(row.id)} className="gap-2 text-rose-600 focus:text-rose-600 cursor-pointer">
+                <Trash2 className="h-4 w-4" /> Delete Account
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       ),
       className: "w-28",

@@ -43,13 +43,13 @@ export function TopBar({
 }: TopBarProps) {
   const navigate = useNavigate();
   const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification, clearAllNotifications } = useNotifications();
-  const [name, setName] = useState(initialUserName);
-  const [email, setEmail] = useState(initialUserEmail);
-  const [avatar, setAvatar] = useState(userAvatar);
+  const [name, setName] = useState(() => sessionStorage.getItem('userName') || (initialUserName !== "User" ? initialUserName : ""));
+  const [email, setEmail] = useState(() => sessionStorage.getItem('userEmail') || initialUserEmail);
+  const [avatar, setAvatar] = useState(() => sessionStorage.getItem('userAvatar') || userAvatar);
   const [spotlightOpen, setSpotlightOpen] = useState(false);
   const [auraPoints, setAuraPoints] = useState<number>(() => getStoredAuraPoints());
   const [totalCredits, setTotalCredits] = useState<number>(() => getStoredCredits());
-  const [userRole, setUserRole] = useState("student");
+  const [userRole, setUserRole] = useState(() => sessionStorage.getItem('userRole') || "student");
   const [ledgerSheetOpen, setLedgerSheetOpen] = useState(false);
   const [themeStudioOpen, setThemeStudioOpen] = useState(false);
   const [fluxBalance, setFluxBalance] = useState<number>(() => getFluxBalance());
@@ -93,10 +93,20 @@ export function TopBar({
           .maybeSingle();
 
         if (profile) {
-          setName(profile.full_name || metaName || "User");
-          setEmail(profile.email || metaEmail || "");
-          if (profile.avatar_url) setAvatar(profile.avatar_url);
-          if (profile.role) setUserRole(profile.role);
+          const resolvedName = profile.full_name || metaName || "User";
+          const resolvedEmail = profile.email || metaEmail || "";
+          setName(resolvedName);
+          setEmail(resolvedEmail);
+          sessionStorage.setItem('userName', resolvedName);
+          sessionStorage.setItem('userEmail', resolvedEmail);
+          if (profile.avatar_url) {
+            setAvatar(profile.avatar_url);
+            sessionStorage.setItem('userAvatar', profile.avatar_url);
+          }
+          if (profile.role) {
+            setUserRole(profile.role);
+            sessionStorage.setItem('userRole', profile.role);
+          }
 
           const { data: enrs } = await supabase
             .from("enrollments")

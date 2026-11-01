@@ -9,7 +9,7 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     const [loading, setLoading] = useState(true);
     const [isAuthorized, setIsAuthorized] = useState(false);
     const [isCollegeSuspended, setIsCollegeSuspended] = useState(false);
-    const [currentUserRole, setCurrentUserRole] = useState<string>("student");
+    const [currentUserRole, setCurrentUserRole] = useState<string>(() => sessionStorage.getItem('userRole') || "");
     const [requiredRoleName, setRequiredRoleName] = useState<string>("Authorized Role");
     const location = useLocation();
 
@@ -41,33 +41,46 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
             if (isMounted) setSession(session);
             
-            // Resolve user role with database lookup, JWT claims, and session storage fallbacks
+            // Resolve user role safely with database lookup, JWT claims, and session storage
+            // An admin session must NEVER be overwritten with a student identity
             let userRole: string | null = null;
             let userStatus: string | null = null;
             let collegeId: string | null = sessionStorage.getItem('collegeId');
+            const cachedRole = sessionStorage.getItem('userRole');
 
             try {
-                const { data: user } = await supabase.from('users').select('role, status, college_id').eq('id', session.user.id).maybeSingle();
+                const { data: user } = await supabase.from('users').select('role, status, college_id, full_name, email').eq('id', session.user.id).maybeSingle();
                 if (user?.role) userRole = user.role.toLowerCase();
                 if (user?.status) userStatus = user.status;
                 if (user?.college_id) collegeId = user.college_id;
+                if (user?.full_name) sessionStorage.setItem('userName', user.full_name);
+                if (user?.email) sessionStorage.setItem('userEmail', user.email);
             } catch (err) {
                 console.warn("Could not query role from users table directly, checking claims:", err);
             }
 
-            // Fallbacks for role
+            // Fallbacks for role from JWT token and session storage
             if (!userRole) {
-                userRole = (
-                    session.user.app_metadata?.user_role ||
-                    session.user.user_metadata?.role ||
-                    sessionStorage.getItem('userRole') ||
-                    'student'
-                ).toLowerCase();
+                const tokenRole = session.user.app_metadata?.user_role || session.user.user_metadata?.role;
+                if (tokenRole) {
+                    userRole = tokenRole.toLowerCase();
+                } else if (cachedRole) {
+                    userRole = cachedRole.toLowerCase();
+                }
             }
 
+            // Cache verified user role - never default to 'student' if unauthenticated
             if (userRole) {
                 sessionStorage.setItem('userRole', userRole);
                 if (isMounted) setCurrentUserRole(userRole);
+            } else {
+                // Treat missing role as unauthenticated / unauthorized
+                if (isMounted) {
+                    setCurrentUserRole("unassigned");
+                    setIsAuthorized(false);
+                    setLoading(false);
+                }
+                return;
             }
             if (collegeId) {
                 sessionStorage.setItem('collegeId', collegeId);

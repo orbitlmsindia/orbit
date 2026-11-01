@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 
@@ -78,11 +78,24 @@ export function TeacherSidebar() {
   const currentPath = location.pathname;
   const collapsed = state === "collapsed";
 
-  const [user, setUser] = useState({
-    name: "Teacher",
-    email: "",
-    avatar: ""
-  });
+  const [user, setUser] = useState(() => ({
+    name: sessionStorage.getItem('userName') || "Teacher",
+    email: sessionStorage.getItem('userEmail') || "",
+    avatar: sessionStorage.getItem('userAvatar') || ""
+  }));
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const savedScroll = sessionStorage.getItem("teacher_sidebar_scroll");
+    if (savedScroll && scrollRef.current) {
+      scrollRef.current.scrollTop = Number(savedScroll);
+    }
+  }, []);
+
+  const handleSidebarScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    sessionStorage.setItem("teacher_sidebar_scroll", String(e.currentTarget.scrollTop));
+  };
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -95,11 +108,18 @@ export function TeacherSidebar() {
         .eq('id', user.id)
         .single();
 
+      const resolvedName = profile?.full_name || user.user_metadata?.full_name || "Teacher";
+      const resolvedEmail = user.email || "";
+      const resolvedAvatar = profile?.avatar_url || "";
+
       setUser({
-        name: profile?.full_name || user.user_metadata?.full_name || "Teacher",
-        email: user.email || "",
-        avatar: profile?.avatar_url || ""
+        name: resolvedName,
+        email: resolvedEmail,
+        avatar: resolvedAvatar
       });
+      sessionStorage.setItem('userName', resolvedName);
+      sessionStorage.setItem('userEmail', resolvedEmail);
+      if (resolvedAvatar) sessionStorage.setItem('userAvatar', resolvedAvatar);
     };
     fetchUser();
   }, []);
@@ -172,7 +192,7 @@ export function TeacherSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="px-2">
+      <SidebarContent ref={scrollRef} onScroll={handleSidebarScroll} className="px-2">
         <SidebarGroup>
           {!collapsed && (
             <SidebarGroupLabel className="text-sidebar-foreground/50 uppercase text-xs font-semibold tracking-wider px-3 mb-2">

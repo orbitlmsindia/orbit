@@ -15,7 +15,8 @@ import {
     Sparkles,
     Ticket,
     Castle,
-    HardDrive
+    HardDrive,
+    IndianRupee
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -48,6 +49,7 @@ interface NavItemConfig {
 const mainNavItems: NavItemConfig[] = [
     { title: "Dashboard", url: "/master", icon: Home },
     { title: "Astravyuh Command", url: "/master/astravyuh", icon: Castle },
+    { title: "Finance Desk", url: "/finance", icon: IndianRupee },
     { title: "Colleges", url: "/master/colleges", icon: Building2, permission: "view_colleges" },
     { title: "Plans & Features", url: "/master/plans", icon: Layers, permission: "view_plans" },
     { title: "SEO Blogs", url: "/master/blogs", icon: Newspaper, permission: "view_blogs" },

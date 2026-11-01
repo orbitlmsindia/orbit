@@ -17,7 +17,8 @@ import {
   Receipt,
   Ticket,
   Castle,
-  HardDrive
+  HardDrive,
+  IndianRupee
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -60,6 +61,7 @@ interface AdminNavItem {
 const mainNavItems: AdminNavItem[] = [
   { title: "Dashboard", url: "/admin", icon: Home },
   { title: "Astravyuh Command", url: "/admin/astravyuh", icon: Castle },
+  { title: "Finance Desk", url: "/finance", icon: IndianRupee },
   { title: "Coupons & Discounts", url: "/admin/coupons", icon: Ticket },
   { title: "Subscriptions & Invoices", url: "/admin/billing", icon: Receipt },
   { title: "Get In Touch", url: "/admin/inquiries", icon: Mail, featureId: "inquiries" },
@@ -68,7 +70,7 @@ const mainNavItems: AdminNavItem[] = [
   { title: "Calendar", url: "/admin/calendar", icon: Calendar, featureId: "calendar" },
   { title: "Leaderboard", url: "/admin/leaderboard", icon: Trophy, featureId: "leaderboard" },
   { title: "Monitoring", url: "/admin/monitoring", icon: BarChart3, featureId: "advanced_analytics" },
-  { title: "Data & Backup", url: "/admin/settings?tab=backup", icon: HardDrive },
+  { title: "Data & Backup", url: "/admin/backup", icon: HardDrive },
   { title: "Notifications", url: "/admin/notifications", icon: Bell },
 ];
 
@@ -86,11 +88,11 @@ export function AdminSidebar() {
   const currentPath = location.pathname;
   const collapsed = state === "collapsed";
 
-  const [user, setUser] = useState({
-    name: "Admin",
-    email: "",
-    avatar: ""
-  });
+  const [user, setUser] = useState(() => ({
+    name: sessionStorage.getItem('userName') || "Admin",
+    email: sessionStorage.getItem('userEmail') || "",
+    avatar: sessionStorage.getItem('userAvatar') || ""
+  }));
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -103,11 +105,18 @@ export function AdminSidebar() {
         .eq('id', user.id)
         .single();
 
+      const resolvedName = profile?.full_name || user.user_metadata?.full_name || "Admin";
+      const resolvedEmail = user.email || "";
+      const resolvedAvatar = profile?.avatar_url || "";
+
       setUser({
-        name: profile?.full_name || user.user_metadata?.full_name || "Admin",
-        email: user.email || "",
-        avatar: profile?.avatar_url || ""
+        name: resolvedName,
+        email: resolvedEmail,
+        avatar: resolvedAvatar
       });
+      sessionStorage.setItem('userName', resolvedName);
+      sessionStorage.setItem('userEmail', resolvedEmail);
+      if (resolvedAvatar) sessionStorage.setItem('userAvatar', resolvedAvatar);
     };
     fetchUser();
   }, []);

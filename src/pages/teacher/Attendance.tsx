@@ -26,6 +26,7 @@ export default function Attendance() {
     const [students, setStudents] = useState<any[]>([]);
     const [baseStudents, setBaseStudents] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
     const [courseId, setCourseId] = useState<string>("");
     const [uploadedCourses, setUploadedCourses] = useState<any[]>([]);
     const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
@@ -71,47 +72,52 @@ export default function Attendance() {
     }, []);
 
     useEffect(() => {
-        const fetchAttendance = async () => {
-            if (!date || !courseId || baseStudents.length === 0) {
-                setHasExistingRecords(false);
-                if (baseStudents.length > 0) {
-                    setStudents(baseStudents.map(s => ({ ...s, status: 'present' })));
-                }
-                return;
+    const fetchAttendanceForDate = async (targetDate?: Date, targetCourseId?: string) => {
+        const currentDate = targetDate || date;
+        const currentCourse = targetCourseId || courseId;
+
+        if (!currentDate || !currentCourse || baseStudents.length === 0) {
+            setHasExistingRecords(false);
+            if (baseStudents.length > 0) {
+                setStudents(baseStudents.map(s => ({ ...s, status: 'present' })));
             }
+            return;
+        }
 
-            try {
-                setLoading(true);
-                const { data, error } = await supabase
-                    .from('attendance')
-                    .select('student_id, status')
-                    .eq('course_id', courseId)
-                    .eq('date', format(date, 'yyyy-MM-dd'));
+        try {
+            setLoading(true);
+            const { data, error } = await supabase
+                .from('attendance')
+                .select('student_id, status')
+                .eq('course_id', currentCourse)
+                .eq('date', format(currentDate, 'yyyy-MM-dd'));
 
-                if (error) throw error;
+            if (error) throw error;
 
-                if (data && data.length > 0) {
-                    setHasExistingRecords(true);
-                    const statusMap = new Map();
-                    data.forEach((p: any) => statusMap.set(p.student_id, p.status));
+            if (data && data.length > 0) {
+                setHasExistingRecords(true);
+                const statusMap = new Map();
+                data.forEach((p: any) => statusMap.set(p.student_id, p.status));
 
-                    setStudents(baseStudents.map(s => ({
-                        ...s,
-                        status: statusMap.get(s.id) || 'present'
-                    })));
-                } else {
-                    setHasExistingRecords(false);
-                    setStudents(baseStudents.map(s => ({ ...s, status: 'present' })));
-                }
-            } catch (error: any) {
+                setStudents(baseStudents.map(s => ({
+                    ...s,
+                    status: statusMap.get(s.id) || 'present'
+                })));
+            } else {
                 setHasExistingRecords(false);
-                console.error("Error fetching attendance:", error);
-            } finally {
-                setLoading(false);
+                setStudents(baseStudents.map(s => ({ ...s, status: 'present' })));
             }
-        };
+        } catch (error: any) {
+            setHasExistingRecords(false);
+            console.error("Error fetching attendance:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-        fetchAttendance();
+    useEffect(() => {
+        fetchAttendanceForDate();
+    }, [date, courseId, baseStudents]);
     }, [date, courseId, baseStudents]);
 
     const fetchInitialData = async () => {
@@ -202,45 +208,61 @@ export default function Attendance() {
 
     const handleSaveAttendance = async () => {
         if (!courseId) {
-            toast({ variant: "destructive", title: "Error", description: "Please select a course first." });
+            toast({ variant: "destructive", title: "Course Required", description: "Please select a course first from the dropdown." });
             return;
         }
         if (!date) {
-            toast({ variant: "destructive", title: "Error", description: "Please select a date." });
+            toast({ variant: "destructive", title: "Date Required", description: "Please select an attendance date." });
+            return;
+        }
+        if (!students || students.length === 0) {
+            toast({ variant: "destructive", title: "No Students Found", description: "No enrolled students available to mark attendance for." });
             return;
         }
 
         try {
-            setLoading(true);
+            setSaving(true);
+            const dateStr = format(date, 'yyyy-MM-dd');
+            const collegeId = sessionStorage.getItem('collegeId') || undefined;
 
-            // Prepare records
             const records = students.map(s => ({
                 student_id: s.id,
                 course_id: courseId,
-                date: format(date, 'yyyy-MM-dd'),
-                status: s.status
+                date: dateStr,
+                status: s.status || 'present',
+                ...(collegeId ? { college_id: collegeId } : {})
             }));
 
-            // Delete existing records for this date/course to avoid duplicates (upsert strategy) or just insert
-            // For simplicity, let's delete first then insert
-            await supabase
+            // Clear previous attendance entries for this course and date
+            const { error: delError } = await supabase
                 .from('attendance')
                 .delete()
-                .match({ course_id: courseId, date: format(date, 'yyyy-MM-dd') });
+                .eq('course_id', courseId)
+                .eq('date', dateStr);
 
-            const { error } = await supabase
+            if (delError) {
+                console.warn("Delete attendance notice:", delError);
+            }
+
+            const { error: insertError } = await supabase
                 .from('attendance')
                 .insert(records);
 
-            if (error) throw error;
+            if (insertError) throw insertError;
 
             setHasExistingRecords(true);
-            toast({ title: "Success", description: "Attendance saved successfully." });
+            toast({
+                title: "Attendance Saved Successfully",
+                description: `Successfully logged attendance for ${records.length} students on ${format(date, 'PPP')}.`,
+            });
+
+            // Re-fetch to guarantee verified single source of truth
+            await fetchAttendanceForDate(date, courseId);
         } catch (error: any) {
-            console.error(error);
-            toast({ variant: "destructive", title: "Error", description: error.message });
+            console.error("Save attendance error:", error);
+            toast({ variant: "destructive", title: "Failed to Save Attendance", description: error.message || "An error occurred while saving records." });
         } finally {
-            setLoading(false);
+            setSaving(false);
         }
     };
 
@@ -455,8 +477,8 @@ export default function Attendance() {
                         <span>Issue Exam Slip 🎫</span>
                     </Button>
 
-                    <Button className="gap-2" onClick={handleSaveAttendance} disabled={loading}>
-                        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    <Button className="gap-2" onClick={handleSaveAttendance} disabled={saving || !courseId || filteredStudents.length === 0}>
+                        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                         Save Attendance
                     </Button>
                 </div>
@@ -604,8 +626,8 @@ export default function Attendance() {
                         <p className="text-sm text-muted-foreground">
                             {date ? `Attendance for ${format(date, 'MMM d, yyyy')}` : "Select a date"}
                         </p>
-                        <Button className="gap-2" onClick={handleSaveAttendance} disabled={loading || !courseId || filteredStudents.length === 0}>
-                            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                        <Button className="gap-2" onClick={handleSaveAttendance} disabled={saving || !courseId || filteredStudents.length === 0}>
+                            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                             Save Attendance
                         </Button>
                     </div>

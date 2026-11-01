@@ -40,10 +40,12 @@ import { useNavigate, Link } from "react-router-dom";
 import { LetterheadNoticeModal } from "@/components/notice/LetterheadNoticeModal";
 import { formatMessageWithAttachment, parseAnnouncementAttachment } from "@/lib/announcementUtils";
 import { AnnouncementAttachmentCard } from "@/components/notifications/AnnouncementAttachmentCard";
+import { useNotifications } from "@/contexts/NotificationContext";
 
 export default function TeacherNotifications() {
     const { toast } = useToast();
     const navigate = useNavigate();
+    const { markAsRead: contextMarkAsRead, markAllAsRead: contextMarkAllAsRead, refetchInfo } = useNotifications();
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<"received" | "sent">("received");
     const [filterCategory, setFilterCategory] = useState<"all" | "enrollments" | "unread">("all");
@@ -69,6 +71,8 @@ export default function TeacherNotifications() {
 
     useEffect(() => {
         fetchData();
+        const pollInterval = setInterval(fetchData, 30000);
+        return () => clearInterval(pollInterval);
     }, []);
 
     const fetchData = async () => {
@@ -196,7 +200,7 @@ export default function TeacherNotifications() {
     // Mark single notification as read
     const handleMarkAsRead = async (notifId: string | number) => {
         try {
-            await supabase.from('notifications').update({ is_read: true }).eq('id', notifId);
+            await contextMarkAsRead(notifId);
             setReceivedNotifications(prev =>
                 prev.map(n => n.id === notifId ? { ...n, is_read: true } : n)
             );
@@ -208,16 +212,9 @@ export default function TeacherNotifications() {
     // Mark all received notifications as read
     const handleMarkAllRead = async () => {
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
-
-            await supabase
-                .from('notifications')
-                .update({ is_read: true })
-                .eq('user_id', user.id)
-                .eq('is_read', false);
-
+            await contextMarkAllAsRead();
             setReceivedNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+            refetchInfo();
             toast({ title: "All notifications marked as read" });
         } catch (err: any) {
             toast({ variant: "destructive", title: "Error", description: err.message });

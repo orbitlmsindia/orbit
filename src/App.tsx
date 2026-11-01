@@ -21,6 +21,7 @@ import HelpCenter from "./pages/admin/HelpCenter";
 import Notifications from "./pages/admin/Notifications";
 import AdminBilling from "./pages/admin/AdminBilling";
 import AdminCoupons from "./pages/admin/AdminCoupons";
+import AdminAstravyuh from "./pages/admin/AdminAstravyuh";
 import TeacherDashboard from "./pages/teacher/Dashboard";
 import TeacherCourses from "./pages/teacher/Courses";
 import CourseDetail from "./pages/teacher/CourseDetail";
@@ -119,6 +120,7 @@ const App = () => (
 
             {/* Admin Routes */}
             <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+            <Route path="/admin/astravyuh" element={<ProtectedRoute><AdminAstravyuh /></ProtectedRoute>} />
             <Route path="/admin/coupons" element={<ProtectedRoute><AdminCoupons /></ProtectedRoute>} />
             <Route path="/admin/billing" element={<ProtectedRoute><AdminBilling /></ProtectedRoute>} />
             <Route path="/admin/inquiries" element={<ProtectedRoute><GatedFeatureRoute featureId="inquiries"><AdminInquiries /></GatedFeatureRoute></ProtectedRoute>} />
@@ -130,6 +132,7 @@ const App = () => (
             <Route path="/admin/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
             <Route path="/admin/calendar" element={<ProtectedRoute><GatedFeatureRoute featureId="calendar"><AdminCalendar /></GatedFeatureRoute></ProtectedRoute>} />
             <Route path="/admin/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+            <Route path="/admin/backup" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/admin/help-center" element={<ProtectedRoute><GatedFeatureRoute featureId="ticket_raising"><HelpCenter /></GatedFeatureRoute></ProtectedRoute>} />
 
             {/* Teacher Routes */}
@@ -180,6 +183,7 @@ const App = () => (
             {/* Master Admin Routes */}
             <Route path="/master/login" element={<MasterLogin />} />
             <Route path="/master" element={<ProtectedRoute><MasterDashboard /></ProtectedRoute>} />
+            <Route path="/master/astravyuh" element={<ProtectedRoute><AdminAstravyuh /></ProtectedRoute>} />
             <Route path="/master/colleges" element={<ProtectedRoute><MasterColleges /></ProtectedRoute>} />
             <Route path="/master/colleges/:id" element={<ProtectedRoute><MasterCollegeDetail /></ProtectedRoute>} />
             <Route path="/master/accounts" element={<ProtectedRoute><MasterAccounts /></ProtectedRoute>} />
